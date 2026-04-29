@@ -18,12 +18,11 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 
 - 注册当前项目的 `.agents/plugins/marketplace.json`
 - 安装项目内 `.agents/skills/`
-- 写入给 LLM 读取的 `.agents/plugins/realanalyst-next-steps.md`
 - 初始化插件目录里的 `~/plugins/realanalyst/.env`，已有则保留
 
 它不会创建 `metadata/`、`runtime/`、`jobs/`、`logs/`，不会写当前项目的 `.env` / `.gitignore`，也不会写入 demo 数据。只有用户确认要保存抽取结果或执行分析产物时，RealAnalyst 才会按需创建文件夹。
 
-`.agents/plugins/realanalyst-next-steps.md` 会教 LLM 怎么引导用户使用 skills，包括整理指标、抽取 metadata、维护术语表、接 Tableau / DuckDB，以及什么时候才需要落盘。
+安装后的 LLM 引导读线上文档：[docs/llm-next-steps.md](https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/llm-next-steps.md)。不要把引导文件写进用户项目。
 
 安装完成后重启 Codex，输入：
 
@@ -41,7 +40,7 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 
 安装完成后检查当前项目的 .agents/plugins/marketplace.json 是否已包含 realanalyst，并告诉我是否成功。
 同时检查当前项目的 .agents/skills/ 是否已安装 RealAnalyst skills。不要创建 metadata、runtime、jobs、logs 或其他业务工作区文件夹。
-读取 .agents/plugins/realanalyst-next-steps.md，并按里面的步骤引导我下一步。
+读取 https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/llm-next-steps.md，并按里面的步骤引导我下一步。
 ```
 
 预期成功输出类似：
@@ -50,7 +49,7 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 Installed RealAnalyst for Codex.
 Enabled marketplace: /your/project/.agents/plugins/marketplace.json
 Plugin env file: /Users/you/plugins/realanalyst/.env
-LLM next-step guide: /your/project/.agents/plugins/realanalyst-next-steps.md
+Online LLM guide: https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/llm-next-steps.md
 Installed skills: /your/project/.agents/skills
 No workspace folders or user project files were created.
 Restart Codex, then run:
