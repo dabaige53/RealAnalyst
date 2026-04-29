@@ -14,6 +14,13 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 
 默认只在当前项目启用，不会影响其他项目。安装后重启 Codex，输入：
 
+安装脚本会同时完成三件事：
+
+- 注册当前项目的 `.agents/plugins/marketplace.json`
+- 安装项目内 `.agents/skills/`
+- 初始化 `metadata/`、`runtime/`、`examples/`、`schemas/`、`scripts/` 等工作区文件
+- 生成 `REALANALYST_NEXT_STEPS.md`，引导下一步操作
+
 ```text
 /skill getting-started
 ```

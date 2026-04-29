@@ -14,8 +14,12 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 - 安装到 `~/plugins/realanalyst`
 - 创建 `.venv` 并安装 Python dependencies
 - 写入当前项目的 `.agents/plugins/marketplace.json`
+- 安装项目内 skills 到 `.agents/skills/`
+- 初始化当前项目的 `metadata/`、`runtime/`、`examples/`、`schemas/`、`scripts/` 等 RealAnalyst 工作区文件
+- 更新当前项目 `.gitignore`，忽略 `.env`、`jobs/`、本地数据库和生成索引
 - 校验 `.codex-plugin/plugin.json`
-- 校验 demo metadata
+- 校验插件仓库和当前项目的 demo metadata
+- 生成 `REALANALYST_NEXT_STEPS.md`，告诉用户安装后下一步做什么
 
 完成后重启 Codex，然后输入：
 
@@ -35,6 +39,9 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 
 ```text
 /path/to/your/project/.agents/plugins/marketplace.json
+/path/to/your/project/.agents/skills/
+/path/to/your/project/metadata/
+/path/to/your/project/runtime/
 ```
 
 不会影响其他项目。
@@ -52,6 +59,8 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 ```text
 ~/.agents/plugins/marketplace.json
 ```
+
+全局启用不会初始化某个项目的 `metadata/` 或 `.agents/skills/`。如果你要让某个项目直接可用，优先使用默认安装或 `--project /path/to/project`。
 
 ## Manual Install
 
@@ -86,6 +95,12 @@ python3 skills/metadata/scripts/metadata.py validate
 ```
 
 ## Use It
+
+安装完成后，先看目标项目里的：
+
+```text
+REALANALYST_NEXT_STEPS.md
+```
 
 第一次使用：
 
@@ -125,7 +140,9 @@ TABLEAU_PAT_SECRET=
 
 | Problem | Fix |
 | --- | --- |
-| Codex 看不到插件 | 重启 Codex，并检查 `~/.agents/plugins/marketplace.json` |
+| Codex 看不到插件 | 重启 Codex，并检查当前项目 `.agents/plugins/marketplace.json` |
+| 看不到 skills | 检查当前项目 `.agents/skills/` 是否存在 RealAnalyst skills |
+| 项目文件没有初始化 | 重新执行安装命令；如需覆盖旧文件，加 `--force` |
 | 依赖安装失败 | 进入 `~/plugins/realanalyst` 后重新运行 `python3 -m pip install -r requirements.txt` |
 | demo metadata 校验失败 | 运行 `python3 skills/metadata/scripts/metadata.py validate` 查看错误 |
 | 不确定从哪里开始 | 在 Codex 输入 `/skill getting-started` |
