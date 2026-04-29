@@ -6,6 +6,22 @@
 
 RealAnalyst 是给 Codex 使用的数据分析工作台。它帮你把一次业务分析从“先问清楚口径”推进到“取数、画像、写报告、交付前检查”，中间每一步都留下可复核的证据。
 
+## 一键安装到当前 Codex 项目
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 -
+```
+
+默认只在当前项目启用，不会影响其他项目。安装后重启 Codex，输入：
+
+```text
+/skill getting-started
+```
+
+更多安装说明见 `INSTALL.md`。
+
+---
+
 它适合这类场景：
 
 - 你有 Tableau 或 DuckDB 数据源，但不想让 Agent 直接猜字段、猜指标、猜筛选器。
