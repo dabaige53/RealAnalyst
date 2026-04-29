@@ -18,6 +18,8 @@ COMMANDS = (
     "index",
     "search",
     "context",
+    "sync-registry",
+    "status",
     "inventory",
     "export-osi",
     "list-commands",
@@ -75,6 +77,17 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("index", help="Build metadata JSONL indexes.")
     subparsers.add_parser("inventory", help="Build metadata system inventory.")
 
+    sync_registry = subparsers.add_parser("sync-registry", help="Sync validated dataset YAML into runtime/registry.db.")
+    sync_scope = sync_registry.add_mutually_exclusive_group(required=True)
+    sync_scope.add_argument("--dataset-id")
+    sync_scope.add_argument("--all", action="store_true")
+    sync_registry.add_argument("--dry-run", action="store_true")
+
+    status = subparsers.add_parser("status", help="Show metadata/index/runtime registry status.")
+    status_scope = status.add_mutually_exclusive_group(required=True)
+    status_scope.add_argument("--dataset-id")
+    status_scope.add_argument("--all", action="store_true")
+
     init_source = subparsers.add_parser("init-source", help="Build a connector adapter handoff plan.")
     init_source.add_argument("--backend", required=True, choices=("tableau", "duckdb"))
     init_source.add_argument("--source-id", required=True)
@@ -126,6 +139,24 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "inventory":
         return run_python_script(workspace, metadata_script("build_inventory.py"), workspace_args(workspace))
+
+    if args.command == "sync-registry":
+        forwarded = workspace_args(workspace)
+        if args.all:
+            forwarded.append("--all")
+        else:
+            forwarded.extend(["--dataset-id", args.dataset_id])
+        if args.dry_run:
+            forwarded.append("--dry-run")
+        return run_python_script(workspace, metadata_script("sync_registry.py"), forwarded)
+
+    if args.command == "status":
+        forwarded = workspace_args(workspace)
+        if args.all:
+            forwarded.append("--all")
+        else:
+            forwarded.extend(["--dataset-id", args.dataset_id])
+        return run_python_script(workspace, metadata_script("status_registry.py"), forwarded)
 
     if args.command == "search":
         record_type = "term" if args.type == "glossary" else args.type

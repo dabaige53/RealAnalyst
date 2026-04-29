@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Register a Tableau view to SQLite registry store (runtime/tableau/registry.db)."""
+"""Register a Tableau view to SQLite registry store (runtime/registry.db)."""
 
 from __future__ import annotations
 

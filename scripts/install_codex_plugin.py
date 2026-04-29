@@ -87,6 +87,21 @@ def install_project_skills(plugin_dir: Path, project_dir: Path, *, force: bool, 
         marker.write_text("installed by RealAnalyst\n", encoding="utf-8")
 
 
+def install_project_runtime(plugin_dir: Path, project_dir: Path, *, dry_run: bool) -> None:
+    runtime_source = plugin_dir / "runtime"
+    runtime_target = project_dir / "runtime"
+    print(f"$ install project-local runtime into {runtime_target}")
+    if dry_run:
+        print(f"$ copytree {runtime_source} -> {runtime_target} (ignore registry db/cache files)")
+        return
+    shutil.copytree(
+        runtime_source,
+        runtime_target,
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns("*.db", "*.db-*", "__pycache__", "*.pyc"),
+    )
+
+
 def load_marketplace(path: Path, *, name: str) -> dict:
     if not path.exists():
         return {"name": name, "interface": {"displayName": name}, "plugins": []}
@@ -146,6 +161,7 @@ def main() -> int:
         action="store_true",
         help="Only register the plugin, do not install project-local skills",
     )
+    parser.add_argument("--skip-project-runtime", action="store_true", help="Do not install project-local runtime support files")
     parser.add_argument("--force", action="store_true", help="Overwrite existing RealAnalyst-installed project skills")
     parser.add_argument("--dry-run", action="store_true", help="Print actions without changing files")
     args = parser.parse_args()
@@ -169,6 +185,8 @@ def main() -> int:
     upsert_marketplace(marketplace, plugin_dir, name=marketplace_name, dry_run=args.dry_run)
     if not args.global_install and not args.skip_project_skills:
         install_project_skills(plugin_dir, project_dir, force=args.force, dry_run=args.dry_run)
+    if not args.global_install and not args.skip_project_runtime:
+        install_project_runtime(plugin_dir, project_dir, dry_run=args.dry_run)
     validate_install(plugin_dir, dry_run=args.dry_run)
 
     print("\nInstalled RealAnalyst for Codex.")
@@ -177,7 +195,9 @@ def main() -> int:
     print(f"Online LLM guide: {GUIDE_URL}")
     if not args.global_install and not args.skip_project_skills:
         print(f"Installed skills: {project_dir / '.agents' / 'skills'}")
-        print("No workspace folders or user project files were created.")
+    if not args.global_install and not args.skip_project_runtime:
+        print(f"Installed runtime support: {project_dir / 'runtime'}")
+        print("No jobs/logs/business workspace folders were created.")
     print("Restart Codex, then run:")
     print("/skill RA:getting-started")
     print("\nSuggested first prompt:")

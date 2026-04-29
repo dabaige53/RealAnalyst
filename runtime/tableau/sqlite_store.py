@@ -1,20 +1,24 @@
 #!/usr/bin/env python3
-"""SQLite-backed Tableau registry/spec store.
+"""SQLite-backed unified registry/spec store.
 
-Current runtime truth is fully stored in `runtime/tableau/registry.db`.
+Current runtime truth is stored in `runtime/registry.db`.
+The old `runtime/tableau/registry.db` path is read once as a compatibility
+source when the new database does not exist.
 No YAML bootstrap or YAML refresh path is retained here.
 """
 
 from __future__ import annotations
 
 import json
+import shutil
 import sqlite3
 from pathlib import Path
 from typing import Any
 
 _WORKSPACE_DIR = Path(__file__).resolve().parents[2]
-_RUNTIME_DIR = Path(__file__).resolve().parent
+_RUNTIME_DIR = _WORKSPACE_DIR / "runtime"
 _DB_PATH = _RUNTIME_DIR / "registry.db"
+_LEGACY_DB_PATH = Path(__file__).resolve().parent / "registry.db"
 
 
 def workspace_dir() -> Path:
@@ -27,6 +31,21 @@ def runtime_dir() -> Path:
 
 def db_path() -> Path:
     return _DB_PATH
+
+
+def legacy_db_path() -> Path:
+    return _LEGACY_DB_PATH
+
+
+def active_db_path() -> Path:
+    return _DB_PATH if _DB_PATH.exists() or not _LEGACY_DB_PATH.exists() else _LEGACY_DB_PATH
+
+
+def _ensure_primary_db_path() -> None:
+    if _DB_PATH.exists() or not _LEGACY_DB_PATH.exists() or _DB_PATH == _LEGACY_DB_PATH:
+        return
+    _DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(_LEGACY_DB_PATH, _DB_PATH)
 
 
 def _json_dumps(value: Any) -> str:
@@ -43,6 +62,7 @@ def _json_loads(value: str | None, default: Any) -> Any:
 
 
 def _connect() -> sqlite3.Connection:
+    _ensure_primary_db_path()
     _DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(_DB_PATH)
     conn.row_factory = sqlite3.Row

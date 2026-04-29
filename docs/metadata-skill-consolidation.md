@@ -23,7 +23,7 @@ Tableau/DuckDB 是 connector adapter，不再作为用户优先选择的同步 s
 
 YAML 是 LLM 维护真源，但要分层维护：公共语义进 dictionaries，字段映射进 mappings，真实数据源进 datasets，原始材料先归档到 sources。
 
-registry.db 是运行层，服务数据导出与执行稳定性；当前阶段不从 YAML 反写 registry.db。
+registry.db 是运行层，服务数据导出与执行稳定性；不接受手工 YAML 覆盖，只能通过 `metadata sync-registry` 从已校验 dataset YAML 受控 upsert。
 
 OSI 是交换层，不进入本地分析主路径。
 
@@ -33,6 +33,9 @@ OSI 是交换层，不进入本地分析主路径。
 python3 skills/metadata/scripts/metadata.py init-source --backend tableau --source-id <source_id> --dry-run
 python3 skills/metadata/scripts/metadata.py validate
 python3 skills/metadata/scripts/metadata.py index
+python3 skills/metadata/scripts/metadata.py sync-registry --dataset-id <dataset_id> --dry-run
+python3 skills/metadata/scripts/metadata.py sync-registry --dataset-id <dataset_id>
+python3 skills/metadata/scripts/metadata.py status --dataset-id <dataset_id>
 python3 skills/metadata/scripts/metadata.py search --type metric --query 收入
 python3 skills/metadata/scripts/metadata.py context --dataset-id <dataset_id> --metric <metric>
 python3 skills/metadata/scripts/metadata.py export-osi --model-name <model_name>
@@ -48,6 +51,8 @@ python3 skills/metadata/scripts/metadata.py export-osi --model-name <model_name>
 - `build_index.py`：从 YAML 生成低 token JSONL 索引。
 - `search_metadata.py`：检索 dataset、field、metric、term。
 - `build_context.py`：生成分析规划用 context pack。
+- `sync_registry.py`：把已校验 dataset YAML 受控同步到 `runtime/registry.db`。
+- `status_registry.py`：检查 YAML、index、runtime registry、export-ready 状态。
 - `build_inventory.py`：生成当前元数据系统清单。
 - `export_osi.py`：在交换场景把 YAML 导出为 OSI semantic model。
 

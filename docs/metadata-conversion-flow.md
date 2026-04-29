@@ -9,12 +9,12 @@
 3. 轻量索引：`metadata/index/*.jsonl`
 4. 上下文包：`metadata context` 输出 JSON
 5. connector adapter：Tableau/DuckDB 元数据发现素材
-6. 运行态 registry：`runtime/tableau/registry.db`
+6. 运行态 registry：`runtime/registry.db`
 7. 标准交换：`metadata/osi/*.osi.yaml`
 
 ## 当前阶段边界
 
-当前阶段不从 YAML 反写 registry.db。
+不手工从 YAML 覆盖 registry.db；通过 `metadata sync-registry` 把已校验 dataset YAML 受控 upsert 到运行层。
 
 Tableau/DuckDB 是 connector adapter，不是用户优先选择的独立元数据 skill。
 
@@ -25,6 +25,8 @@ OSI 是交换层，不进入本地分析主路径。
 ```text
 metadata validate
 → metadata index
+→ metadata sync-registry
+→ metadata status
 → metadata search
 → metadata context
 → analysis-run 读取 context pack

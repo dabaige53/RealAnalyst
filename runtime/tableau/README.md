@@ -10,7 +10,7 @@
 | 文件 | 作用 |
 | --- | --- |
 | `query_registry.py` | 查询已注册 Tableau source、字段、筛选器和 source context |
-| `sqlite_store.py` | 读写本地 `registry.db` |
+| `sqlite_store.py` | 读写统一本地 `runtime/registry.db`，兼容旧 `runtime/tableau/registry.db` |
 | `source_context.py` | 将 source 与指标/维度定义组装成分析上下文 |
 | `source_context_contract.md` | 说明 source context 的输出契约 |
 | `source_context_mappings.example.yaml` | source 与标准指标/维度映射示例 |
@@ -21,7 +21,7 @@
 
 ```mermaid
 flowchart LR
-    Reg[registry.db] --> QR[query_registry.py]
+    Reg[runtime/registry.db] --> QR[query_registry.py]
     QR --> Source[source 信息]
     QR --> Filter[filters / parameters]
     QR --> Fields[fields]

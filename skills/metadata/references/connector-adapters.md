@@ -16,7 +16,7 @@ Tableau adapter 不负责：
 - 单独决定业务指标口径。
 - 维护最终业务定义。
 - 替代 metadata YAML。
-- 从 YAML 反写覆盖 `registry.db`。
+- 手工从 YAML 覆盖 `registry.db`；运行层只能通过 `metadata sync-registry` 受控 upsert。
 
 ### Tableau adapter scripts
 
@@ -43,7 +43,7 @@ DuckDB adapter 不负责：
 - 单独决定业务指标口径。
 - 维护最终业务定义。
 - 替代 metadata YAML。
-- 从 YAML 反写覆盖 `registry.db`。
+- 手工从 YAML 覆盖 `registry.db`；运行层只能通过 `metadata sync-registry` 受控 upsert。
 
 ### DuckDB adapter scripts
 
@@ -64,4 +64,4 @@ python3 {baseDir}/skills/metadata/adapters/duckdb/scripts/generate_sync_report.p
 - 不新增 `tableau-*` 或 `duckdb-*` 用户可见 skill 来承接元数据维护。
 - 不让 adapter 直接成为业务定义的真源。
 - 不把 adapter 结果直接写成确定口径。
-- 不通过 YAML 反写覆盖 `registry.db`。
+- 不手工覆盖 `registry.db`；需要进入运行层时使用 `metadata sync-registry`。

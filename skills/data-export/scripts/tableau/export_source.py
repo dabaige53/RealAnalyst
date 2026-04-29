@@ -18,7 +18,7 @@ import pandas as pd
 from _bootstrap import bootstrap_workspace_path
 
 WORKSPACE_DIR = bootstrap_workspace_path()
-from runtime.tableau.sqlite_store import ensure_store_ready, load_registry_document
+from runtime.tableau.sqlite_store import db_path, ensure_store_ready, load_registry_document
 from runtime.tableau.source_context import build_source_context, write_source_context_bundle
 
 
@@ -32,7 +32,7 @@ def _repo_root() -> Path:
 
 def _registry_path() -> Path:
     ensure_store_ready()
-    return _workspace_dir() / "runtime" / "tableau" / "registry.db"
+    return db_path()
 
 
 def _now_iso() -> str:

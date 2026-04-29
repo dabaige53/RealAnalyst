@@ -34,6 +34,7 @@ WORKSPACE_DIR = bootstrap_workspace_path()
 from auth import TableauAuth, get_auth
 
 from runtime.tableau.sqlite_store import (
+    db_path,
     ensure_store_ready,
     get_entry_by_key,
     get_entry_by_view_luid,
@@ -249,7 +250,7 @@ def _normalize_vf_vp_kv(
 
 def _registry_path() -> Path:
     ensure_store_ready()
-    return WORKSPACE_DIR / "runtime" / "tableau" / "registry.db"
+    return db_path()
 
 
 def _load_registry() -> dict[str, Any]:

@@ -4,7 +4,7 @@
 >
 > 本文档仅为**格式示例**，不是筛选 key 的权威来源。
 >
-> **权威来源**：`{baseDir}/runtime/tableau/registry.db` 的运行时查询结果
+> **权威来源**：`{baseDir}/runtime/registry.db` 的运行时查询结果
 >
 > 使用前必须通过 `query_registry.py --filter <source_key>` 获取当前数据源支持的 key。
 

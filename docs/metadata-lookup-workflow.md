@@ -27,6 +27,9 @@
 ```bash
 python3 skills/metadata/scripts/metadata.py validate
 python3 skills/metadata/scripts/metadata.py index
+python3 skills/metadata/scripts/metadata.py sync-registry --dataset-id <dataset_id> --dry-run
+python3 skills/metadata/scripts/metadata.py sync-registry --dataset-id <dataset_id>
+python3 skills/metadata/scripts/metadata.py status --dataset-id <dataset_id>
 python3 skills/metadata/scripts/metadata.py search --type metric --query 收入
 python3 skills/metadata/scripts/metadata.py context --dataset-id <dataset_id> --metric <metric>
 ```
@@ -35,12 +38,14 @@ python3 skills/metadata/scripts/metadata.py context --dataset-id <dataset_id> --
 
 - `metadata.py validate` 校验 YAML 真源是否满足元数据契约。
 - `metadata.py index` 将 dictionaries、mappings、datasets 编译成 `metadata/index/*.jsonl`。
+- `metadata.py sync-registry` 将通过校验的 dataset YAML 受控同步到 `runtime/registry.db`。
+- `metadata.py status` 分别检查 YAML、index、runtime registry 和 export-ready 状态。
 - `metadata.py search` 在轻量索引中检索候选 dataset、field、metric、mapping 或术语。
 - `metadata.py context` 根据命中的 `dataset_id` 和指标/字段参数，输出可供分析规划读取的 JSON 上下文包。`metadata context` 只接受 `--dataset-id`；runtime/export 阶段才使用 registry 的 `source_id`。
 
 ## 当前边界
 
-`registry.db` 是运行层，用于后续运行时锁定数据源，不作为需求理解索引。
+`registry.db` 是运行层，用于后续运行时锁定数据源，不作为需求理解索引。新路径是 `runtime/registry.db`；旧 `runtime/tableau/registry.db` 只作为兼容读取来源。
 
 Tableau/DuckDB 是 connector adapter。它们提供字段、筛选器、catalog 等初始化素材，但不直接成为业务口径真源。
 

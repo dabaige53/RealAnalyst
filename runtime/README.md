@@ -26,11 +26,12 @@ flowchart LR
 | 内容 | 作用 | 是否提交 |
 | --- | --- | --- |
 | `tableau/query_registry.py` | 查询已注册 Tableau source、字段、筛选器、source context | 提交 |
-| `tableau/sqlite_store.py` | 读写本地 `registry.db` | 提交 |
+| `tableau/sqlite_store.py` | 读写统一本地 `runtime/registry.db` | 提交 |
 | `tableau/source_context.py` | 组装 source 与指标/维度上下文 | 提交 |
 | `duckdb/register_duckdb_sources.py` | 将 DuckDB catalog 注册成运行时 source | 提交 |
 | `runtime.example.yaml` | 运行时配置示例 | 提交 |
-| `tableau/registry.db` | 用户注册 source 后本地生成 | 不提交 |
+| `registry.db` | 用户注册 source 后本地生成 | 不提交 |
+| `tableau/registry.db` | 旧版本 registry 兼容路径 | 不提交 |
 | `runtime_config.db` | 本地迁移或运行时生成 | 不提交 |
 
 ---
@@ -61,7 +62,7 @@ python3 runtime/tableau/query_registry.py --filter <source_id>
 python3 runtime/tableau/query_registry.py --fields <source_id>
 ```
 
-DuckDB source 注册通常从 `metadata/sync/duckdb/catalog.example.json` 这类 catalog 快照开始，再进入 runtime 注册和 `data-export`。
+DuckDB source 注册通常从 `metadata/sync/duckdb/catalog.example.json` 这类 catalog 快照开始，维护回 `metadata/datasets/*.yaml` 后用 `metadata sync-registry` 进入 runtime 注册和 `data-export`。
 
 ---
 
@@ -71,5 +72,5 @@ DuckDB source 注册通常从 `metadata/sync/duckdb/catalog.example.json` 这类
 | --- | --- |
 | registry.db 不在仓库里 | 正常，它是本地运行时生成文件 |
 | runtime 中没有真实连接配置 | 正常，真实密钥放 `.env`，不提交 |
-| metadata 和 runtime 信息不一致 | 以 metadata 解释业务口径，以 runtime 执行取数；不直接互相覆盖 |
+| metadata 和 runtime 信息不一致 | 以 metadata 解释业务口径，以 runtime 执行取数；用 `metadata sync-registry` 受控同步 |
 | 取数失败 | 先查 runtime registry，再检查 skill 的导出参数 |

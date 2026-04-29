@@ -24,10 +24,10 @@ from typing import Any, cast
 
 import yaml
 
-from sqlite_store import ensure_store_ready, load_registry_document, load_spec_by_entry_key, load_spec_for_entry
+from sqlite_store import db_path, ensure_store_ready, load_registry_document, load_spec_by_entry_key, load_spec_for_entry
 from source_context import build_source_context
 
-REGISTRY_PATH = Path(__file__).parent / "registry.db"
+REGISTRY_PATH = db_path()
 WORKSPACE_DIR = Path(__file__).resolve().parents[2]
 JOBS_DIR = WORKSPACE_DIR / "jobs"
 UTC = getattr(datetime, "UTC", datetime.timezone.utc)
