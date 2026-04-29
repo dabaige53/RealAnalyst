@@ -19,13 +19,17 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 - 注册当前项目的 `.agents/plugins/marketplace.json`
 - 安装项目内 `.agents/skills/`
 - 写入给 LLM 读取的 `.agents/plugins/realanalyst-next-steps.md`
+- 初始化插件目录里的 `~/plugins/realanalyst/.env`，已有则保留
 
-它不会创建 `metadata/`、`runtime/`、`jobs/`、`logs/`，不会写 `.env` / `.gitignore`，也不会写入 demo 数据。只有用户明确使用对应 skill 并要求初始化时，RealAnalyst 才会按需创建文件夹。
+它不会创建 `metadata/`、`runtime/`、`jobs/`、`logs/`，不会写当前项目的 `.env` / `.gitignore`，也不会写入 demo 数据。只有用户确认要保存抽取结果或执行分析产物时，RealAnalyst 才会按需创建文件夹。
+
+`.agents/plugins/realanalyst-next-steps.md` 会教 LLM 怎么引导用户使用 skills，包括整理指标、抽取 metadata、维护术语表、接 Tableau / DuckDB，以及什么时候才需要落盘。
 
 安装完成后重启 Codex，输入：
 
 ```text
 /skill getting-started
+帮我确认数据源类型，并列出抽取元数据前需要准备的信息。
 ```
 
 如果你想让 LLM / Codex 代为安装，可以直接把下面这段完整指令发给它：
@@ -45,6 +49,7 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 ```text
 Installed RealAnalyst for Codex.
 Enabled marketplace: /your/project/.agents/plugins/marketplace.json
+Plugin env file: /Users/you/plugins/realanalyst/.env
 LLM next-step guide: /your/project/.agents/plugins/realanalyst-next-steps.md
 Installed skills: /your/project/.agents/skills
 No workspace folders or user project files were created.
@@ -166,7 +171,7 @@ python3 skills/data-export/scripts/duckdb/run_tests.py
 
 ```text
 /skill getting-started
-帮我初始化 RealAnalyst 项目，并告诉我第一步需要准备哪些信息。
+帮我确认数据源类型，并列出抽取元数据前需要准备的信息。
 ```
 
 已经有 metadata 后：

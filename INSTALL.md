@@ -16,15 +16,19 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 - 写入当前项目的 `.agents/plugins/marketplace.json`
 - 安装项目内 skills 到 `.agents/skills/`
 - 写入给 LLM 读取的 `.agents/plugins/realanalyst-next-steps.md`
+- 初始化插件目录里的 `~/plugins/realanalyst/.env`，已有则保留
 - 校验 `.codex-plugin/plugin.json`
 - 校验插件仓库 demo metadata
 
-它不会创建 `metadata/`、`runtime/`、`jobs/`、`logs/`，不会写 `.env` / `.gitignore`，也不会写入 demo 数据。只有用户明确使用对应 skill 并要求初始化时，RealAnalyst 才会按需创建文件夹。
+它不会创建 `metadata/`、`runtime/`、`jobs/`、`logs/`，不会写当前项目的 `.env` / `.gitignore`，也不会写入 demo 数据。只有用户确认要保存抽取结果或执行分析产物时，RealAnalyst 才会按需创建文件夹。
+
+`.agents/plugins/realanalyst-next-steps.md` 会教 LLM 怎么引导用户使用 skills，包括整理指标、抽取 metadata、维护术语表、接 Tableau / DuckDB，以及什么时候才需要落盘。
 
 完成后重启 Codex，然后输入：
 
 ```text
 /skill getting-started
+帮我确认数据源类型，并列出抽取元数据前需要准备的信息。
 ```
 
 ## Enable In Another Project
@@ -41,6 +45,7 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 /path/to/your/project/.agents/plugins/marketplace.json
 /path/to/your/project/.agents/plugins/realanalyst-next-steps.md
 /path/to/your/project/.agents/skills/
+~/plugins/realanalyst/.env
 ```
 
 不会影响其他项目。
@@ -114,7 +119,7 @@ LLM 应先读取：
 
 ```text
 /skill getting-started
-帮我初始化 RealAnalyst 项目，并告诉我第一步需要准备哪些信息。
+帮我确认数据源类型，并列出抽取元数据前需要准备的信息。
 ```
 
 维护 metadata：
@@ -151,7 +156,7 @@ TABLEAU_PAT_SECRET=
 | Codex 看不到插件 | 重启 Codex，并检查当前项目 `.agents/plugins/marketplace.json` |
 | 看不到 skills | 检查当前项目 `.agents/skills/` 是否存在 RealAnalyst skills |
 | 不知道下一步 | 让 LLM 读取 `.agents/plugins/realanalyst-next-steps.md` |
-| 没有 `metadata/` 或 `runtime/` | 这是预期行为；使用 `/skill getting-started` 后按需初始化 |
+| 没有 `metadata/` 或 `runtime/` | 这是预期行为；确认要保存抽取结果或执行分析后再按需创建 |
 | 依赖安装失败 | 进入 `~/plugins/realanalyst` 后重新运行 `python3 -m pip install -r requirements.txt` |
 | demo metadata 校验失败 | 运行 `python3 skills/metadata/scripts/metadata.py validate` 查看错误 |
 | 不确定从哪里开始 | 在 Codex 输入 `/skill getting-started` |

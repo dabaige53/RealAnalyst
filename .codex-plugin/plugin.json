@@ -1,6 +1,6 @@
 {
   "name": "realanalyst",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Metadata-first autonomous data analysis skill suite for Codex with unified Tableau/DuckDB export.",
   "author": {
     "name": "dabaige53",
@@ -32,7 +32,7 @@
     "privacyPolicyURL": "https://github.com/dabaige53/RealAnalyst/blob/main/docs/PRIVACY.md",
     "termsOfServiceURL": "https://github.com/dabaige53/RealAnalyst/blob/main/docs/TERMS.md",
     "defaultPrompt": [
-      "从 getting-started 开始初始化 RealAnalyst 项目，并告诉我第一步需要准备哪些信息。",
+      "从 getting-started 开始确认数据源类型，并列出抽取元数据前需要准备的信息。",
       "注册一个数据集并维护字段、指标和业务口径。",
       "根据现有元数据检索指标并生成分析计划。",
       "用 data-export 从 Tableau 或 DuckDB 产出可复核分析报告所需 CSV。"
