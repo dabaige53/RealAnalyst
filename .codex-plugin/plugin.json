@@ -1,6 +1,6 @@
 {
   "name": "realanalyst",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Metadata-first autonomous data analysis skill suite for Codex with unified Tableau/DuckDB export.",
   "author": {
     "name": "dabaige53",

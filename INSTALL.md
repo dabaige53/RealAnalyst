@@ -15,6 +15,7 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 - 创建 `.venv` 并安装 Python dependencies
 - 写入当前项目的 `.agents/plugins/marketplace.json`
 - 安装项目内 skills 到 `.agents/skills/`
+- 写入给 LLM 读取的 `.agents/plugins/realanalyst-next-steps.md`
 - 校验 `.codex-plugin/plugin.json`
 - 校验插件仓库 demo metadata
 
@@ -38,6 +39,7 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 
 ```text
 /path/to/your/project/.agents/plugins/marketplace.json
+/path/to/your/project/.agents/plugins/realanalyst-next-steps.md
 /path/to/your/project/.agents/skills/
 ```
 
@@ -100,7 +102,13 @@ cp -R ~/plugins/realanalyst/skills/* /path/to/your/project/.agents/skills/
 
 ## Use It
 
-安装完成后，目标项目只包含 `.agents/plugins/marketplace.json` 和 `.agents/skills/`。它仍然是干净项目，不包含 demo 数据集，也不包含 RealAnalyst 工作区目录。
+安装完成后，目标项目只包含 `.agents/plugins/marketplace.json`、`.agents/plugins/realanalyst-next-steps.md` 和 `.agents/skills/`。它仍然是干净项目，不包含 demo 数据集，也不包含 RealAnalyst 工作区目录。
+
+LLM 应先读取：
+
+```text
+.agents/plugins/realanalyst-next-steps.md
+```
 
 第一次使用：
 
@@ -142,6 +150,7 @@ TABLEAU_PAT_SECRET=
 | --- | --- |
 | Codex 看不到插件 | 重启 Codex，并检查当前项目 `.agents/plugins/marketplace.json` |
 | 看不到 skills | 检查当前项目 `.agents/skills/` 是否存在 RealAnalyst skills |
+| 不知道下一步 | 让 LLM 读取 `.agents/plugins/realanalyst-next-steps.md` |
 | 没有 `metadata/` 或 `runtime/` | 这是预期行为；使用 `/skill getting-started` 后按需初始化 |
 | 依赖安装失败 | 进入 `~/plugins/realanalyst` 后重新运行 `python3 -m pip install -r requirements.txt` |
 | demo metadata 校验失败 | 运行 `python3 skills/metadata/scripts/metadata.py validate` 查看错误 |

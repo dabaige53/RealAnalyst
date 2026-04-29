@@ -11,6 +11,56 @@ from pathlib import Path
 
 PLUGIN_NAME = "realanalyst"
 REPO_URL = "https://github.com/dabaige53/RealAnalyst.git"
+NEXT_STEPS_FILENAME = "realanalyst-next-steps.md"
+
+
+def next_steps_text(project_dir: Path, *, skills_installed: bool) -> str:
+    skills_status = "installed" if skills_installed else "not installed by this run"
+    return f"""# RealAnalyst Next Steps For LLM
+
+RealAnalyst has been enabled for this Codex project.
+
+## What Was Installed
+
+- Plugin registry: `.agents/plugins/marketplace.json`
+- Project-local skills: `.agents/skills/` ({skills_status})
+- This guide: `.agents/plugins/{NEXT_STEPS_FILENAME}`
+
+## Guardrails
+
+- Do not create `metadata/`, `runtime/`, `jobs/`, `logs/`, `.env`, or `.gitignore` during installation checks.
+- Do not add demo data unless the user explicitly asks for a demo.
+- Do not modify user business files just because the plugin was installed.
+- Only create RealAnalyst workspace folders when the user explicitly asks to initialize or use a skill that needs them.
+
+## After Install
+
+Tell the user:
+
+1. Restart Codex so project-local plugins and skills reload.
+2. Start with `/skill getting-started`.
+3. If they want to initialize a RealAnalyst workspace, ask for confirmation first.
+
+Suggested prompt:
+
+```text
+/skill getting-started
+帮我初始化 RealAnalyst 项目，并告诉我第一步需要准备哪些信息。
+```
+
+## Validation Checklist
+
+- Confirm `.agents/plugins/marketplace.json` contains `realanalyst`.
+- Confirm `.agents/skills/getting-started/SKILL.md` exists.
+- Confirm `.agents/skills/metadata/SKILL.md` exists.
+- Confirm these folders were not created by install: `metadata/`, `runtime/`, `jobs/`, `logs/`.
+
+Project path:
+
+```text
+{project_dir}
+```
+"""
 
 
 def run(cmd: list[str], *, cwd: Path | None = None, dry_run: bool = False) -> None:
@@ -99,6 +149,15 @@ def upsert_marketplace(path: Path, plugin_dir: Path, *, name: str, dry_run: bool
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def write_next_steps(path: Path, project_dir: Path, *, skills_installed: bool, dry_run: bool) -> None:
+    print(f"$ write {path}", flush=True)
+    if dry_run:
+        print(next_steps_text(project_dir, skills_installed=skills_installed))
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(next_steps_text(project_dir, skills_installed=skills_installed), encoding="utf-8")
+
+
 def validate_install(plugin_dir: Path, *, dry_run: bool) -> None:
     venv_python = python_bin(plugin_dir / ".venv")
     py = venv_python if venv_python.exists() or dry_run else Path(sys.executable)
@@ -147,10 +206,18 @@ def main() -> int:
     upsert_marketplace(marketplace, plugin_dir, name=marketplace_name, dry_run=args.dry_run)
     if not args.global_install and not args.skip_project_skills:
         install_project_skills(plugin_dir, project_dir, force=args.force, dry_run=args.dry_run)
+    next_steps_path = marketplace.parent / NEXT_STEPS_FILENAME
+    write_next_steps(
+        next_steps_path,
+        project_dir,
+        skills_installed=not args.global_install and not args.skip_project_skills,
+        dry_run=args.dry_run,
+    )
     validate_install(plugin_dir, dry_run=args.dry_run)
 
     print("\nInstalled RealAnalyst for Codex.")
     print(f"Enabled marketplace: {marketplace}")
+    print(f"LLM next-step guide: {next_steps_path}")
     if not args.global_install and not args.skip_project_skills:
         print(f"Installed skills: {project_dir / '.agents' / 'skills'}")
         print("No workspace folders or user project files were created.")
