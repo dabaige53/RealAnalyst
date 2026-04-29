@@ -4,7 +4,10 @@
 
 | 层级 | 作用 | 是否用户维护 |
 | --- | --- | --- |
-| YAML | 数据集、字段、指标、术语、业务定义、证据、置信度、review 标记 | 是，由 LLM 维护 |
+| sources | 原始材料、迁移输入、connector 发现素材、审计证据 | 否，归档保留 |
+| dictionaries | 公共指标、公共维度、公共术语、同义词和词表 | 是，由 LLM 维护 |
+| mappings | source 字段到标准语义的映射和口径覆盖 | 是，由 LLM 维护 |
+| datasets | 真实可分析数据源的字段、指标、粒度、限制和引用 | 是，由 LLM 维护 |
 | index | 从 YAML 生成的轻量检索记录 | 否，自动生成 |
 | context pack | 给分析规划读取的最小上下文 | 否，按需生成 |
 | registry.db | 运行时 source 与执行配置 | 否，由 connector/runtime 流程维护 |
@@ -12,12 +15,14 @@
 
 ## 维护规则
 
-- 业务口径只写入 YAML，不写入 index。
+- 业务口径只写入 dictionaries/mappings/datasets YAML，不写入 index。
 - index 只能由 YAML 生成，不能人工维护。
 - context pack 只能用于本轮分析，不作为持久真源。
 - `registry.db` 不接受 YAML 反写覆盖。
 - OSI 只用于交换，不参与本地需求理解链路。
 - `needs_review=true` 或 `review_required=true` 的定义必须被标记为推断口径。
+- 公共指标、公共维度、公共术语不放入 `metadata/datasets/`。
+- 用户提供的原始文件先进入 `metadata/sources/`，其他 YAML 再引用项目内路径作为证据。
 
 ## 原独立 skills 的合并关系
 

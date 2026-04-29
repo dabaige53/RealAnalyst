@@ -4,8 +4,9 @@
 
 ## 分层定位
 
-- YAML 是 LLM 维护真源：保存业务口径、字段、指标、证据、置信度和 review 标记。
-- index 是检索层：由 `metadata index` 生成，面向快速召回字段、指标和数据集线索。
+- YAML 是 LLM 维护真源：`dictionaries` 保存公共语义，`mappings` 保存字段映射，`datasets` 保存真实数据源 metadata。
+- sources 是证据层：保存原始材料、迁移输入和 connector 发现素材。
+- index 是检索层：由 `metadata index` 生成，面向快速召回字段、指标、mapping、术语和数据集线索。
 - context pack 是对话层：由 `metadata context` 生成，只携带本轮分析需要的最小上下文。
 - registry.db 是运行层：服务执行稳定性，不从 YAML 反写 registry.db。
 - connector adapter 是初始化素材层：Tableau/DuckDB 只负责发现外部系统字段、筛选器、catalog 和运行所需 source 信息。

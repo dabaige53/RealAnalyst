@@ -92,6 +92,9 @@ Restart Codex, then run:
 
 产物通常是：
 
+- `metadata/sources/*`
+- `metadata/dictionaries/*.yaml`
+- `metadata/mappings/*.yaml`
 - `metadata/datasets/*.yaml`
 - `metadata/models/*.yaml`
 - `runtime/` 下的 source 查询配置

@@ -13,7 +13,9 @@
 flowchart LR
     T[Tableau / DuckDB] --> S[metadata/sync<br/>原始结构快照]
     S --> Review[LLM + reviewer 整理]
-    Review --> D[metadata/datasets/*.yaml<br/>业务语义真源]
+    Review --> S[metadata/sources<br/>原始证据归档]
+    Review --> M[metadata/mappings/*.yaml<br/>字段映射]
+    Review --> D[metadata/datasets/*.yaml<br/>真实数据源]
     D --> IDX[metadata index]
     IDX --> CTX[metadata context]
 ```
@@ -44,9 +46,10 @@ flowchart LR
 
 1. 通过 connector 或 adapter 获取外部系统结构信息
 2. 将快照放到对应目录，例如 `metadata/sync/tableau/`
-3. 让 LLM 或维护者把字段、指标、筛选器整理成 `metadata/datasets/*.yaml`
-4. 运行 `metadata validate`
-5. 通过后生成 index 和 context
+3. 先把原始材料归档到 `metadata/sources/`
+4. 让 LLM 或维护者把公共语义整理到 `metadata/dictionaries/`，字段映射整理到 `metadata/mappings/`，真实数据源整理到 `metadata/datasets/`
+5. 运行 `metadata validate`
+6. 通过后生成 index 和 context
 
 ---
 

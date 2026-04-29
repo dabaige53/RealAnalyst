@@ -10,7 +10,10 @@ RealAnalyst 的元数据维护入口收敛为 `metadata`。用户需要注册数
 | --- | --- |
 | metadata skill | 用户可见主入口 |
 | Tableau/DuckDB connector adapter | 发现外部系统元数据，提供初始化素材 |
-| YAML | LLM 维护真源 |
+| sources | 原始材料和审计证据 |
+| dictionaries | 公共指标、维度、术语 |
+| mappings | source 字段到标准语义的映射 |
+| datasets | 真实可分析数据源 metadata |
 | index | 低 token 检索层 |
 | context pack | 分析对话层 |
 | registry.db | 运行层 |
@@ -18,7 +21,7 @@ RealAnalyst 的元数据维护入口收敛为 `metadata`。用户需要注册数
 
 Tableau/DuckDB 是 connector adapter，不再作为用户优先选择的同步 skill。
 
-YAML 是 LLM 维护真源，保存业务定义、字段、指标、术语、证据、置信度和 review 标记。
+YAML 是 LLM 维护真源，但要分层维护：公共语义进 dictionaries，字段映射进 mappings，真实数据源进 datasets，原始材料先归档到 sources。
 
 registry.db 是运行层，服务数据导出与执行稳定性；当前阶段不从 YAML 反写 registry.db。
 

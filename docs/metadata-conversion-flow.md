@@ -4,12 +4,13 @@
 
 ## 转换层次
 
-1. YAML 真源：`metadata/datasets/*.yaml`
-2. 轻量索引：`metadata/index/*.jsonl`
-3. 上下文包：`metadata context` 输出 JSON
-4. connector adapter：Tableau/DuckDB 元数据发现素材
-5. 运行态 registry：`runtime/tableau/registry.db`
-6. 标准交换：`metadata/osi/*.osi.yaml`
+1. 原始证据：`metadata/sources/*`
+2. YAML 真源：`metadata/dictionaries/*.yaml`、`metadata/mappings/*.yaml`、`metadata/datasets/*.yaml`
+3. 轻量索引：`metadata/index/*.jsonl`
+4. 上下文包：`metadata context` 输出 JSON
+5. connector adapter：Tableau/DuckDB 元数据发现素材
+6. 运行态 registry：`runtime/tableau/registry.db`
+7. 标准交换：`metadata/osi/*.osi.yaml`
 
 ## 当前阶段边界
 

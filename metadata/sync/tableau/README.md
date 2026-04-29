@@ -21,6 +21,8 @@
 flowchart LR
     T[Tableau Server] --> W[workbook / fields / filters]
     W --> Sync[metadata/sync/tableau]
+    Sync --> Sources[metadata/sources]
+    Sync --> Mapping[metadata/mappings/*.yaml]
     Sync --> YAML[metadata/datasets/*.yaml]
     YAML --> Registry[runtime/tableau/registry.db]
     Registry --> Export[data-export]

@@ -19,6 +19,8 @@
 flowchart LR
     DB[DuckDB database] --> CAT[catalog.json]
     CAT --> Sync[metadata/sync/duckdb]
+    Sync --> Sources[metadata/sources]
+    Sync --> Mapping[metadata/mappings/*.yaml]
     Sync --> YAML[metadata/datasets/*.yaml]
     YAML --> REG[runtime registry]
     REG --> Export[data-export]

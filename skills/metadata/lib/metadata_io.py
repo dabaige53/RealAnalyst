@@ -25,6 +25,14 @@ class MetadataPaths:
         return self.metadata_dir / "datasets"
 
     @property
+    def dictionaries_dir(self) -> Path:
+        return self.metadata_dir / "dictionaries"
+
+    @property
+    def mappings_dir(self) -> Path:
+        return self.metadata_dir / "mappings"
+
+    @property
     def models_dir(self) -> Path:
         return self.metadata_dir / "models"
 
@@ -90,10 +98,21 @@ def resolve_dataset_path(workspace: Path, dataset_ref: str) -> Path:
 
 
 def iter_dataset_files(workspace: Path) -> Iterable[Path]:
-    datasets_dir = MetadataPaths(workspace).datasets_dir
-    if not datasets_dir.exists():
+    return iter_yaml_files(MetadataPaths(workspace).datasets_dir)
+
+
+def iter_dictionary_files(workspace: Path) -> Iterable[Path]:
+    return iter_yaml_files(MetadataPaths(workspace).dictionaries_dir)
+
+
+def iter_mapping_files(workspace: Path) -> Iterable[Path]:
+    return iter_yaml_files(MetadataPaths(workspace).mappings_dir)
+
+
+def iter_yaml_files(directory: Path) -> Iterable[Path]:
+    if not directory.exists():
         return []
-    return sorted(path for path in datasets_dir.glob("*.yaml") if path.is_file())
+    return sorted(path for path in directory.glob("*.yaml") if path.is_file())
 
 
 def load_yaml_file(path: Path) -> Any:

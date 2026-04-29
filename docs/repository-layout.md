@@ -5,7 +5,10 @@ RealAnalyst 将 skills、元数据真源、connector 同步快照、生成物和
 | 路径 | 维护方 | Git 策略 | 作用 |
 | --- | --- | --- | --- |
 | `skills/` | 项目 | 跟踪 | Codex skills。 |
-| `metadata/datasets/` | LLM + reviewer | 只跟踪 demo/example | 数据集语义真源。 |
+| `metadata/sources/` | LLM + reviewer | 只跟踪脱敏 example | 原始材料和审计证据。 |
+| `metadata/dictionaries/` | LLM + reviewer | 只跟踪 demo/example | 公共指标、维度、术语。 |
+| `metadata/mappings/` | LLM + reviewer | 只跟踪 demo/example | source 字段到标准语义的映射。 |
+| `metadata/datasets/` | LLM + reviewer | 只跟踪 demo/example | 真实可分析数据源 metadata。 |
 | `metadata/models/` | LLM + reviewer | 只跟踪 demo/example | 语义模型。 |
 | `metadata/sync/` | connector 脚本 | 只跟踪 `.example.*` | 同步快照，给 LLM 整理 metadata 用。 |
 | `metadata/index/` | 脚本生成 | 忽略 | 轻量检索索引。 |

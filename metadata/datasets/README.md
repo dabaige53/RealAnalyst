@@ -3,6 +3,8 @@
 这里保存 RealAnalyst 的数据集语义真源。
 每个 YAML 文件描述一个数据集：它从哪里来、包含哪些字段、有哪些指标、业务口径是否已确认。
 
+`datasets/` 只放真实可分析数据源。公共指标、维度、术语放到 `metadata/dictionaries/`；字段映射和口径覆盖放到 `metadata/mappings/`；原始材料放到 `metadata/sources/`。
+
 ---
 
 ## 一个 dataset YAML 应该回答的问题

@@ -9,6 +9,9 @@
 
 | 场景 | 你要看哪里 |
 | --- | --- |
+| 保存用户提供的原始材料或迁移输入 | `sources/` |
+| 维护公共指标、维度、术语 | `dictionaries/` |
+| 维护 source 字段到标准语义的映射 | `mappings/` |
 | 注册或维护数据集 | `datasets/` |
 | 组织多个数据集到一个业务域 | `models/` |
 | 查看 Tableau / DuckDB 同步快照示例 | `sync/` |
@@ -22,8 +25,12 @@
 
 ```mermaid
 flowchart LR
-    Sync[metadata/sync<br/>connector 同步素材] --> YAML[metadata/datasets<br/>业务语义真源]
-    YAML --> Validate[metadata validate]
+    Sources[metadata/sources<br/>原始证据] --> Dictionaries[metadata/dictionaries<br/>公共语义]
+    Sources --> Mappings[metadata/mappings<br/>字段映射]
+    Sync[metadata/sync<br/>connector 同步素材] --> Datasets[metadata/datasets<br/>真实数据源]
+    Dictionaries --> Validate[metadata validate]
+    Mappings --> Validate
+    Datasets --> Validate
     Validate --> Index[metadata/index<br/>轻量检索]
     Index --> Search[metadata search]
     Search --> Context[metadata context<br/>本轮最小上下文]
@@ -37,7 +44,10 @@ flowchart LR
 
 | 目录 | 作用 | 是否建议提交到公开仓库 |
 | --- | --- | --- |
-| `datasets/` | 数据集真源，维护字段、指标、业务定义、证据和 review 状态 | 只提交 demo/example |
+| `sources/` | 原始证据、用户材料、迁移输入，不直接作为分析上下文 | 只提交脱敏 example |
+| `dictionaries/` | 公共 metrics / dimensions / glossary | 只提交脱敏 example |
+| `mappings/` | source 字段到标准语义的映射和口径覆盖 | 只提交脱敏 example |
+| `datasets/` | 真实可分析数据源，一个 source 一个 YAML | 只提交 demo/example |
 | `models/` | 语义模型，把多个数据集组织成业务域 | 只提交 demo/example |
 | `sync/` | Tableau / DuckDB connector 同步快照，给 LLM 整理 metadata 用 | 只提交 `.example.*` |
 | `index/` | 从 YAML 编译出的轻量检索索引 | 不提交 |
@@ -69,7 +79,11 @@ python3 skills/metadata/scripts/metadata.py context --dataset-id demo.retail.ord
 
 ---
 
-## 一份高质量 dataset YAML 应该包含
+## 结构契约
+
+完整 YAML 结构见 `skills/metadata/references/yaml-structure-contract.md`。
+
+一份高质量 dataset YAML 应该包含：
 
 | 模块 | 必填信息 |
 | --- | --- |

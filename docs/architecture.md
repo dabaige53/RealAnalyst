@@ -7,7 +7,8 @@ RealAnalyst 有两条主线：注册元数据线和实施分析线。前者把 T
 ```mermaid
 flowchart LR
     subgraph Register["注册元数据线"]
-        Sync["connector sync<br/>Tableau / DuckDB"] --> YAML["metadata YAML<br/>fields / metrics / glossary"]
+        Sync["connector sync<br/>Tableau / DuckDB"] --> Sources["metadata/sources<br/>evidence"]
+        Sources --> YAML["metadata YAML<br/>dictionaries / mappings / datasets"]
         YAML --> Validate["metadata validate"]
         Validate --> Index["metadata index"]
         Index --> Context["metadata context<br/>minimal context pack"]
@@ -29,7 +30,9 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    Dataset["metadata/datasets/*.yaml<br/>business source of truth"] --> IndexFile["metadata/index/*.jsonl<br/>generated lookup index"]
+    Dictionaries["metadata/dictionaries/*.yaml<br/>shared semantics"] --> IndexFile["metadata/index/*.jsonl<br/>generated lookup index"]
+    Mappings["metadata/mappings/*.yaml<br/>source field mappings"] --> IndexFile
+    Dataset["metadata/datasets/*.yaml<br/>real source metadata"] --> IndexFile
     Dataset --> ContextJson["metadata context JSON<br/>planning input"]
     Registry["runtime/**/registry.db<br/>local execution registry"] --> ExportScript["data-export scripts"]
     ContextJson --> PlanDoc["jobs/{SESSION_ID}/.meta/analysis_plan.md"]

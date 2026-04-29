@@ -10,6 +10,9 @@ from _bootstrap import bootstrap_workspace_path
 
 
 WORKSPACE_DIRS = (
+    "metadata/sources",
+    "metadata/dictionaries",
+    "metadata/mappings",
     "metadata/datasets",
     "metadata/models",
     "metadata/sync/duckdb",
@@ -19,6 +22,9 @@ WORKSPACE_DIRS = (
 )
 CLEAN_FILES = {
     "metadata/README.md": "metadata/README.md",
+    "metadata/sources/README.md": "metadata/sources/README.md",
+    "metadata/dictionaries/README.md": "metadata/dictionaries/README.md",
+    "metadata/mappings/README.md": "metadata/mappings/README.md",
     "metadata/datasets/README.md": "metadata/datasets/README.md",
     "metadata/models/README.md": "metadata/models/README.md",
     "metadata/sync/README.md": "metadata/sync/README.md",
@@ -33,6 +39,9 @@ DEMO_FILES = {
 }
 FALLBACK_FILE_CONTENTS = {
     "metadata/README.md": "# Metadata\n\nMaintain dataset fields, metrics, business definitions, evidence, and open questions here.\n",
+    "metadata/sources/README.md": "# Sources\n\nArchive source materials here before extracting dictionaries, mappings, or datasets.\n",
+    "metadata/dictionaries/README.md": "# Dictionaries\n\nMaintain shared metrics, dimensions, and glossary YAML here. These files are not datasets.\n",
+    "metadata/mappings/README.md": "# Mappings\n\nMaintain source-field to standard semantic mappings here.\n",
     "metadata/datasets/README.md": "# Datasets\n\nCreate one YAML file per registered dataset.\n",
     "metadata/models/README.md": "# Models\n\nGroup related datasets into business domains or semantic models.\n",
     "metadata/sync/README.md": "# Sync\n\nStore connector discovery snapshots here only after the user asks to sync a source.\n",

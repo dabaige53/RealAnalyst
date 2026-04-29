@@ -27,7 +27,7 @@ python3 {baseDir}/skills/metadata/adapters/tableau/scripts/sync_filters.py --sou
 python3 {baseDir}/skills/metadata/adapters/tableau/scripts/generate_sync_report.py --source-key <entry_key>
 ```
 
-将这些脚本输出视为素材。LLM 必须把确认后的字段、筛选器、业务说明、证据和 review 标记维护回 `metadata/datasets/*.yaml`。
+将这些脚本输出视为素材。LLM 必须先把原始输出归档到 `metadata/sources/`，再把字段映射维护到 `metadata/mappings/*.yaml`，把真实数据源字段、筛选器、业务说明、证据和 review 标记维护到 `metadata/datasets/*.yaml`。
 
 ## DuckDB Adapter
 
@@ -53,7 +53,7 @@ python3 {baseDir}/skills/metadata/adapters/duckdb/scripts/inspect_source.py --so
 python3 {baseDir}/skills/metadata/adapters/duckdb/scripts/generate_sync_report.py --source <source_id>
 ```
 
-将这些脚本输出视为素材。LLM 必须把确认后的字段、粒度、时间字段、指标候选、限制和 review 标记维护回 `metadata/datasets/*.yaml`。
+将这些脚本输出视为素材。LLM 必须先把原始输出归档到 `metadata/sources/`，再把字段映射维护到 `metadata/mappings/*.yaml`，把真实数据源字段、粒度、时间字段、指标候选、限制和 review 标记维护到 `metadata/datasets/*.yaml`。
 
 ## 调用原则
 

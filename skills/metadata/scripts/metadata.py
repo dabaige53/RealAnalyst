@@ -81,7 +81,7 @@ def build_parser() -> argparse.ArgumentParser:
     init_source.add_argument("--dry-run", action="store_true")
 
     search = subparsers.add_parser("search", help="Search metadata indexes.")
-    search.add_argument("--type", default="all", choices=("all", "dataset", "field", "metric", "term", "glossary"))
+    search.add_argument("--type", default="all", choices=("all", "dataset", "field", "metric", "mapping", "term", "glossary"))
     search.add_argument("--query", required=True)
     search.add_argument("--limit", type=int, default=10)
 

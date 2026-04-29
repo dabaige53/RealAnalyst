@@ -127,21 +127,88 @@ def glossary_records(dataset: dict[str, Any]) -> list[dict[str, Any]]:
         metric_name = _as_text(metric.get("name"))
         add_terms("metric", metric_name, [metric_name, metric.get("display_name"), *_as_list(metric.get("synonyms"))])
 
+    for glossary_item in _as_list(dataset.get("glossary")):
+        if not isinstance(glossary_item, dict):
+            continue
+        entity_name = _as_text(glossary_item.get("key") or glossary_item.get("item_key") or glossary_item.get("display_name"))
+        add_terms(
+            "glossary",
+            entity_name,
+            [
+                entity_name,
+                glossary_item.get("display_name"),
+                glossary_item.get("english_name"),
+                glossary_item.get("definition"),
+                *_as_list(glossary_item.get("synonyms")),
+                *_as_list(glossary_item.get("values")),
+            ],
+        )
+
     return records
 
 
-def build_all_indexes(datasets: Iterable[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+def dictionary_records(dictionary: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    dictionary_id = _as_text(dictionary.get("id") or dictionary.get("dictionary_id"))
+    dictionary_dataset = {
+        "id": dictionary_id,
+        "fields": _as_list(dictionary.get("fields")),
+        "metrics": _as_list(dictionary.get("metrics")),
+        "glossary": _as_list(dictionary.get("glossary")),
+    }
+    return {
+        "fields": field_records(dictionary_dataset),
+        "metrics": metric_records(dictionary_dataset),
+        "glossary": glossary_records(dictionary_dataset),
+    }
+
+
+def mapping_records(mapping: dict[str, Any]) -> list[dict[str, Any]]:
+    mapping_id = _as_text(mapping.get("id") or mapping.get("mapping_id"))
+    source_id = _as_text(mapping.get("source_id") or mapping.get("source"))
+    records: list[dict[str, Any]] = []
+    for item in _as_list(mapping.get("mappings")):
+        if not isinstance(item, dict):
+            continue
+        records.append(
+            {
+                "record_type": "mapping",
+                "mapping_id": mapping_id,
+                "source_id": source_id,
+                "mapping_type": _as_text(item.get("type")),
+                "view_field": _as_text(item.get("view_field")),
+                "standard_id": _as_text(item.get("standard_id")),
+                "field_id_or_override": _as_text(item.get("field_id_or_override")),
+                "definition_override": _as_text(item.get("definition_override")),
+                "notes": _as_text(item.get("notes")),
+            }
+        )
+    return records
+
+
+def build_all_indexes(
+    datasets: Iterable[dict[str, Any]],
+    dictionaries: Iterable[dict[str, Any]] = (),
+    mappings: Iterable[dict[str, Any]] = (),
+) -> dict[str, list[dict[str, Any]]]:
     indexes: dict[str, list[dict[str, Any]]] = {
         "datasets": [],
         "fields": [],
         "metrics": [],
         "glossary": [],
+        "mappings": [],
     }
     for dataset in datasets:
         indexes["datasets"].append(dataset_record(dataset))
         indexes["fields"].extend(field_records(dataset))
         indexes["metrics"].extend(metric_records(dataset))
         indexes["glossary"].extend(glossary_records(dataset))
+    for dictionary in dictionaries:
+        records = dictionary_records(dictionary)
+        indexes["fields"].extend(records["fields"])
+        indexes["metrics"].extend(records["metrics"])
+        indexes["glossary"].extend(records["glossary"])
+    for mapping in mappings:
+        indexes["mappings"].extend(mapping_records(mapping))
     return indexes
 
 

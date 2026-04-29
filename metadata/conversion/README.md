@@ -8,11 +8,15 @@
 
 ```mermaid
 flowchart LR
-    YAML[metadata/datasets/*.yaml<br/>业务语义真源] --> IDX[metadata/index/*.jsonl<br/>轻量检索]
+    SRC[metadata/sources<br/>原始证据] --> DICT[metadata/dictionaries/*.yaml<br/>公共语义]
+    SRC --> MAP[metadata/mappings/*.yaml<br/>字段映射]
+    DICT --> IDX[metadata/index/*.jsonl<br/>轻量检索]
+    MAP --> IDX
+    DATA[metadata/datasets/*.yaml<br/>真实数据源] --> IDX
     IDX --> CTX[metadata context<br/>本轮上下文包]
     CTX --> PLAN[analysis-plan<br/>规划输入]
     PLAN --> REG[runtime registry<br/>执行层 source]
-    YAML --> OSI[metadata/osi/*.yaml<br/>交换格式]
+    DATA --> OSI[metadata/osi/*.yaml<br/>交换格式]
 ```
 
 ---
@@ -21,7 +25,7 @@ flowchart LR
 
 | 层级 | 作用 | 谁维护 |
 | --- | --- | --- |
-| YAML 真源 | 保存完整字段、指标、业务定义、证据、review 状态 | LLM + reviewer |
+| YAML 真源 | 保存公共字典、字段映射、真实数据源 metadata、证据、review 状态 | LLM + reviewer |
 | Index | 把 YAML 编译成低 token 检索记录 | 脚本生成 |
 | Context pack | 抽取本轮分析需要的最小语义上下文 | `metadata context` 生成 |
 | Runtime registry | 让程序知道如何稳定取数 | connector / runtime 维护 |

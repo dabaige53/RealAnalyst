@@ -18,6 +18,7 @@ INDEX_FILES = {
     "dataset": "datasets.jsonl",
     "field": "fields.jsonl",
     "metric": "metrics.jsonl",
+    "mapping": "mappings.jsonl",
     "term": "glossary.jsonl",
 }
 
@@ -36,7 +37,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Search lightweight metadata JSONL indexes.")
     parser.add_argument("--workspace", default=None)
     parser.add_argument("--index-dir", default=None)
-    parser.add_argument("--type", choices=["dataset", "field", "metric", "term", "all"], default="all")
+    parser.add_argument("--type", choices=["dataset", "field", "metric", "mapping", "term", "all"], default="all")
     parser.add_argument("--query", required=True)
     parser.add_argument("--limit", type=int, default=10)
     args = parser.parse_args()
