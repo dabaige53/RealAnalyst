@@ -9,7 +9,7 @@ RealAnalyst 从 metadata 开始，不从 SQL 或报告开始。
 
 ## First Step
 
-先运行 metadata 初始化：
+只有用户明确要求初始化时，才运行 metadata 初始化。它会创建干净的 metadata 骨架，不会写入 demo 数据：
 
 ```bash
 python3 {baseDir}/skills/metadata/scripts/metadata.py init
@@ -28,9 +28,8 @@ python3 {baseDir}/skills/metadata/scripts/metadata.py validate
 
 ## Choose One Path
 
-1. **使用 demo metadata**：校验 `metadata/datasets/demo.retail.orders.yaml`，再运行 metadata search/context。
-2. **注册新数据集**：使用 `metadata` 创建或更新 `metadata/datasets/<source_id>.yaml`。
-3. **接入 Tableau 或 DuckDB**：运行 metadata adapter discovery，把脱敏后的同步快照放到 `metadata/sync/<connector>/`，再维护 YAML。
+1. **注册新数据集**：使用 `metadata` 创建或更新 `metadata/datasets/<source_id>.yaml`。
+2. **接入 Tableau 或 DuckDB**：运行 metadata adapter discovery，把脱敏后的同步快照放到 `metadata/sync/<connector>/`，再维护 YAML。
 
 ## Handoff
 

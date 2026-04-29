@@ -68,7 +68,8 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("list-commands", help="Print available metadata commands.")
 
     init = subparsers.add_parser("init", help="Initialize metadata workspace files.")
-    init.add_argument("--force", action="store_true", help="Overwrite existing sample files.")
+    init.add_argument("--force", action="store_true", help="Overwrite existing scaffold files.")
+    init.add_argument("--with-demo", action="store_true", help="Also copy demo metadata files.")
 
     subparsers.add_parser("validate", help="Validate metadata YAML.")
     subparsers.add_parser("index", help="Build metadata JSONL indexes.")
@@ -115,6 +116,8 @@ def main(argv: list[str] | None = None) -> int:
         forwarded = workspace_args(workspace)
         if args.force:
             forwarded.append("--force")
+        if args.with_demo:
+            forwarded.append("--with-demo")
         return run_python_script(workspace, metadata_script("init_metadata.py"), forwarded)
 
     if args.command == "validate":
