@@ -1,5 +1,5 @@
 ---
-name: reference-lookup
+name: "RA:reference-lookup"
 description: |
   Use when: (1) Need a specific template/term/metric/dimension from {baseDir}/runtime,
   (2) Need the full framework definition including logic_path, (3) Need a runtime lookup instead of

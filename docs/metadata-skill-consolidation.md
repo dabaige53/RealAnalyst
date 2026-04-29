@@ -2,7 +2,7 @@
 
 ## 统一入口：metadata
 
-RealAnalyst 的元数据维护入口收敛为 `metadata`。用户需要注册数据集、初始化字段、维护指标、搜索术语、构造分析上下文时，都先进入 `metadata`。
+RealAnalyst 的元数据维护入口收敛为 `RA:metadata`。用户需要注册数据集、初始化字段、维护指标、搜索术语、构造分析上下文时，都先进入 `RA:metadata`。
 
 ## 分层架构
 
@@ -34,13 +34,13 @@ python3 skills/metadata/scripts/metadata.py init-source --backend tableau --sour
 python3 skills/metadata/scripts/metadata.py validate
 python3 skills/metadata/scripts/metadata.py index
 python3 skills/metadata/scripts/metadata.py search --type metric --query 收入
-python3 skills/metadata/scripts/metadata.py context --source-id <source_id> --metric <metric>
+python3 skills/metadata/scripts/metadata.py context --dataset-id <dataset_id> --metric <metric>
 python3 skills/metadata/scripts/metadata.py export-osi --model-name <model_name>
 ```
 
 ## 脚本归属
 
-`metadata` 相关脚本统一放在 `skills/metadata/scripts/`：
+`RA:metadata` 相关脚本统一放在 `skills/metadata/scripts/`：
 
 - `metadata.py`：统一命令入口。
 - `init_metadata.py`：初始化 YAML 元数据样例和说明文件。

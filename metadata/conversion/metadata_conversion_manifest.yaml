@@ -1,5 +1,9 @@
 version: "0.1"
-source_of_truth: metadata/datasets/*.yaml
+source_of_truth:
+  - metadata/sources/*
+  - metadata/dictionaries/*.yaml
+  - metadata/mappings/*.yaml
+  - metadata/datasets/*.yaml
 current_derivatives:
   - metadata/index/*.jsonl
   - metadata context JSON output
@@ -12,11 +16,17 @@ phase_boundaries:
   phase_4: runtime_registry_osi_analysis_integration
 conversion_steps:
   - name: validate_metadata_source
-    input: metadata/datasets/*.yaml
+    input:
+      - metadata/dictionaries/*.yaml
+      - metadata/mappings/*.yaml
+      - metadata/datasets/*.yaml
     output: validation JSON
     command: metadata validate
   - name: build_lookup_index
-    input: metadata/datasets/*.yaml
+    input:
+      - metadata/dictionaries/*.yaml
+      - metadata/mappings/*.yaml
+      - metadata/datasets/*.yaml
     output: metadata/index/*.jsonl
     command: metadata index
   - name: resolve_analysis_context
@@ -29,7 +39,10 @@ conversion_steps:
     command: not exposed in current phase
     phase: 4
   - name: export_osi_model
-    input: metadata/datasets/*.yaml
+    input:
+      - metadata/dictionaries/*.yaml
+      - metadata/mappings/*.yaml
+      - metadata/datasets/*.yaml
     output: metadata/osi/*.osi.yaml
     command: metadata export-osi
     phase: 4

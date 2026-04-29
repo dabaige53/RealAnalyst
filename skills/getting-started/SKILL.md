@@ -1,5 +1,5 @@
 ---
-name: getting-started
+name: "RA:getting-started"
 description: Use when a user first installs RealAnalyst, asks how to start, wants to extract metadata from Tableau/DuckDB/files, or wants to know what information to prepare before registering datasets or running analysis.
 ---
 
@@ -33,34 +33,34 @@ RealAnalyst 从抽取和确认 metadata 开始，不从 SQL 或报告开始。
 2. **DuckDB / 文件数据**：先确认路径、表名或 sheet 名，再抽取字段和样例口径。
 3. **手工整理**：先让用户提供字段、指标和业务口径，不创建目录。
 
-只有用户明确同意“保存到项目”时，才创建 `metadata/` 并写入 `metadata/datasets/<source_id>.yaml`。不要在 getting-started 阶段主动运行 `metadata.py init`。
+只有用户明确同意“保存到项目”时，才创建 `metadata/` 并按新分层写入 `metadata/sources/`、`metadata/dictionaries/`、`metadata/mappings/`、`metadata/datasets/<dataset_id>.yaml`。不要在 getting-started 阶段主动运行 `metadata.py init`。
 
 ## Teach Skills
 
 用户问“怎么用”时，给这些快捷入口：
 
 ```text
-/skill metadata
+/skill RA:metadata
 帮我整理这个数据源的字段、指标、筛选器和业务口径。先问我要哪些材料，不要直接创建文件。
 ```
 
 ```text
-/skill metadata
+/skill RA:metadata
 帮我整理这些指标：名称、公式、单位、粒度、业务含义、来源证据和待确认问题。
 ```
 
 ```text
-/skill metadata
+/skill RA:metadata
 帮我整理术语表：中文名、英文名、同义词、定义、来源证据和 review 状态。
 ```
 
 ```text
-/skill analysis-plan
+/skill RA:analysis-plan
 基于已确认 metadata，帮我生成分析计划，先列出数据源、指标、维度、筛选条件和风险。
 ```
 
 ```text
-/skill analysis-run
+/skill RA:analysis-run
 基于已确认 metadata 和分析计划，帮我执行取数、画像、分析和报告，并保留证据路径。
 ```
 
@@ -72,7 +72,7 @@ RealAnalyst 从抽取和确认 metadata 开始，不从 SQL 或报告开始。
 python3 {baseDir}/skills/metadata/scripts/metadata.py validate
 python3 {baseDir}/skills/metadata/scripts/metadata.py index
 python3 {baseDir}/skills/metadata/scripts/metadata.py search --type all --query <keyword>
-python3 {baseDir}/skills/metadata/scripts/metadata.py context --source-id <source_id>
+python3 {baseDir}/skills/metadata/scripts/metadata.py context --dataset-id <dataset_id>
 ```
 
-之后再进入 `analysis-plan` 和 `analysis-run`。
+之后再进入 `RA:analysis-plan` 和 `RA:analysis-run`。

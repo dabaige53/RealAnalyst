@@ -179,7 +179,7 @@ def main() -> int:
         print(f"Installed skills: {project_dir / '.agents' / 'skills'}")
         print("No workspace folders or user project files were created.")
     print("Restart Codex, then run:")
-    print("/skill getting-started")
+    print("/skill RA:getting-started")
     print("\nSuggested first prompt:")
     print("帮我确认数据源类型，并列出抽取元数据前需要准备的信息。")
     return 0

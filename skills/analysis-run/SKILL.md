@@ -1,5 +1,5 @@
 ---
-name: analysis-run
+name: "RA:analysis-run"
 description: 用于通用数据分析任务的总控工作流 skill。适用于监控、汇报、诊断、归因、对标、排名、探索、专项分析，以及任何需要连续对话、连续分析、单会话单 job 管理、先做需求画像、获得用户确认，再执行取数、数据体检、分析和报告追加写作的请求。
 ---
 
@@ -111,7 +111,7 @@ export SESSION_ID
 
 #### Step 0.2: 分析规划与模板锁定
 
-**执行 `/skill analysis-plan` 完成规划流程。**
+**执行 `/skill RA:analysis-plan` 完成规划流程。**
 
 输出：`jobs/{SESSION_ID}/.meta/analysis_plan.md`
 
@@ -139,14 +139,14 @@ export SESSION_ID
 2. 再执行 `metadata context` 构造本轮分析所需的 context pack。
 3. 不直接读取完整 dataset YAML。
 4. 不直接调用已降级的 connector adapter。
-5. 若候选唯一且 context 足够，进入 `query_registry` 锁定运行数据源。
+5. 若候选唯一且 context 足够，用 context 中的 `dataset.id` / `dataset.runtime_source_id` 精准进入 registry 锁定运行数据源。
 6. 若候选冲突，先向用户追问。
 
 对应命令示例：
 
 ```bash
 python3 {baseDir}/skills/metadata/scripts/metadata.py search --type all --query <关键词>
-python3 {baseDir}/skills/metadata/scripts/metadata.py context --source-id <source_id> --metric <metric>
+python3 {baseDir}/skills/metadata/scripts/metadata.py context --dataset-id <dataset_id> --metric <metric>
 ```
 
 **当前支持两类数据源后端**：
@@ -154,7 +154,7 @@ python3 {baseDir}/skills/metadata/scripts/metadata.py context --source-id <sourc
 - `tableau`：适合已有稳定业务看板、筛选器清晰、需要快速输出结论的场景
 - `duckdb`：适合底层明细、复杂 SQL、历史库、字段补充与本地分析场景
 
-**统一入口**：一律通过 registry 选源，禁止绕过 registry 直接扫 Tableau / DuckDB 全库。
+**统一入口**：需求理解一律通过 `metadata search` + `metadata context --dataset-id`，执行取数一律使用 context 给出的 `dataset.runtime_source_id` 进入 registry；禁止绕过 registry 直接扫 Tableau / DuckDB 全库。
 
 | 检测条件                              | 入口              |        处理逻辑        |
 | :------------------------------------ | :---------------- | :--------------------: |
@@ -532,24 +532,24 @@ echo "phase2_complete" > jobs/{SESSION_ID}/phase2_complete.flag
 
 ### Phase 4: 撰写报告
 
-**⚠️ 撰写报告前，必须调用 `report` skill。**
+**⚠️ 撰写报告前，必须调用 `RA:report` skill。**
 
 #### Step 4.1: 加载报告规范（强制）
 
 ```bash
-/skill report
+/skill RA:report
 ```
 
 `analyst` 只负责明确职责边界：
 
 - 报告必须以 `analysis_plan.md` 中已锁定的 `selected_analysis_mode`、`selected_delivery_mode`、`selected_report_template` 为准
 - 不得在报告阶段重新选择模板
-- 具体写作规则、模板上下文、输出契约全部由 `report` skill 负责
+- 具体写作规则、模板上下文、输出契约全部由 `RA:report` skill 负责
 
 #### Step 4.2: 报告撰写流程
 
 1. 从 `.meta/analysis_plan.md` 读取 `selected_analysis_mode`、`selected_delivery_mode`、`selected_report_template`。
-2. 调用 `report` skill 并严格按 skill 执行。
+2. 调用 `RA:report` skill 并严格按 skill 执行。
 3. **若当前 job 已存在报告文件，继续向同一份报告追加内容；若不存在，再创建首版报告。**
 4. 报告内必须长期维护以下结构或等价结构：`任务背景`、`需求时间线`、`报告更新时间线`、`数据来源`、`阶段性结论`、`输出文件清单`、`阅读提示`、`一段话结论`。
 5. 每轮新增内容至少补齐：`本轮新增需求`、`本轮新增数据`、`本轮新增分析`、`本轮新增结论`、`基于当前数据还能继续做什么`。
@@ -634,12 +634,12 @@ jobs/{SESSION_ID}/
 
 | Skill                    | 用途                 | 关键章节                                                  |
 | ------------------------ | -------------------- | --------------------------------------------------------- |
-| `data-export`    | Tableau / DuckDB 正式取数 | Tableau vf/vp、DuckDB 字段白名单、审计 summary、正式落盘 CSV |
-| `data-profile`     | 数据画像             | 大文件处理规则                                            |
-| `reference-lookup` | 配置查询             | **⛔ 禁止 read YAML，必须用此 skill**                      |
-| `report`           | 报告写作执行         | 撰写报告前必须使用，具体写作规则与输出契约以 skill 为准   |
-| `artifact-fusion`  | 数据融合             | ⚠️ 当前版本不支持（单一视图原则）                          |
-| `report-verify`    | 报告验证             | 交付前校验证据、口径和 review 标记                        |
+| `RA:data-export`    | Tableau / DuckDB 正式取数 | Tableau vf/vp、DuckDB 字段白名单、审计 summary、正式落盘 CSV |
+| `RA:data-profile`     | 数据画像             | 大文件处理规则                                            |
+| `RA:reference-lookup` | 配置查询             | **⛔ 禁止 read YAML，必须用此 skill**                      |
+| `RA:report`           | 报告写作执行         | 撰写报告前必须使用，具体写作规则与输出契约以 skill 为准   |
+| `RA:artifact-fusion`  | 数据融合             | ⚠️ 当前版本不支持（单一视图原则）                          |
+| `RA:report-verify`    | 报告验证             | 交付前校验证据、口径和 review 标记                        |
 
 ---
 

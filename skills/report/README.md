@@ -19,7 +19,7 @@
 | --- | --- |
 | 输入 | analysis_plan.md<br/>acquisition_log<br/>artifact_index<br/>analysis_journal<br/>profile<br/>分析结果 |
 | 输出 | 报告 Markdown<br/>输出文件清单<br/>需求时间线<br/>报告更新时间线 |
-| 下一步 | `report-verify` |
+| 下一步 | `RA:report-verify` |
 
 ---
 
@@ -35,7 +35,7 @@ flowchart LR
 ## 快速示例
 
 ```bash
-/skill report
+/skill RA:report
 基于当前 job 的 plan、profile 和分析结果写报告。
 ```
 
@@ -54,7 +54,7 @@ flowchart LR
 
 | 卡点 | 处理方式 |
 | --- | --- |
-| 不知道是否该用这个 skill | 先看“什么时候用”；不确定时从 `analysis-run` 开始 |
+| 不知道是否该用这个 skill | 先看“什么时候用”；不确定时从 `RA:analysis-run` 开始 |
 | 找不到输入文件 | 回到上游 skill，确认是否已经生成正式产物 |
 | 输出和预期不一致 | 检查 plan、profile、artifact index 是否来自同一个 job |
 | 涉及 `needs_review` | 报告里必须标注为待确认或推断口径 |

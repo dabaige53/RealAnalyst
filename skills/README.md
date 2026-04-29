@@ -8,16 +8,16 @@
 
 ```mermaid
 flowchart LR
-    Start[getting-started] --> Meta[metadata]
-    Meta --> Plan[analysis-plan]
-    Plan --> Run[analysis-run]
-    Run --> Export[data-export<br/>Tableau / DuckDB]
-    Export --> Profile[data-profile]
-    Profile --> Report[report]
-    Report --> Verify[report-verify]
+    Start[RA:getting-started] --> Meta[RA:metadata]
+    Meta --> Plan[RA:analysis-plan]
+    Plan --> Run[RA:analysis-run]
+    Run --> Export[RA:data-export<br/>Tableau / DuckDB]
+    Export --> Profile[RA:data-profile]
+    Profile --> Report[RA:report]
+    Report --> Verify[RA:report-verify]
 ```
 
-> 大多数用户不需要逐个调用 skill。可以直接从 `analysis-run` 开始，它会在合适时机调用 planning、export、profile、report 和 verify。
+> 大多数用户不需要逐个调用 skill。可以直接从 `RA:analysis-run` 开始，它会在合适时机调用 planning、export、profile、report 和 verify。
 
 ---
 
@@ -25,16 +25,16 @@ flowchart LR
 
 | Skill | 用户什么时候用 | 主要输入 | 主要输出 |
 | --- | --- | --- | --- |
-| `getting-started` | 第一次使用，不知道准备什么 | 用户的初始化需求 | 准备清单、下一步路径 |
-| `metadata` | 注册数据集、维护字段/指标/术语、生成 context | YAML、source id、关键词 | validate/index/search/context |
-| `analysis-plan` | 取数前需要正式计划 | 用户问题 + metadata context | `.meta/analysis_plan.md` |
-| `analysis-run` | 想让 RealAnalyst 完整执行一次分析 | 用户问题、已注册 metadata | job、数据、画像、报告 |
-| `data-export` | 已锁定 Tableau 或 DuckDB source，需要正式导出 | source id、filters/fields、SESSION_ID | CSV、summary、source context、acquisition log |
-| `data-profile` | 导出数据后，分析前要做画像 | 正式 CSV | profile manifest / profile json |
-| `report` | 分析完成后写报告 | plan、profile、analysis、artifact_index | 报告 Markdown |
-| `report-verify` | 报告交付前做质量门禁 | 数据、分析结果、报告 | `verification.json` |
-| `artifact-fusion` | 明确需要合并多个数据产物 | 多个 dataset pack | 合并数据 + lineage manifest |
-| `reference-lookup` | 按需查模板、指标、术语、框架 | 关键词 | JSON 查询结果 |
+| `RA:getting-started` | 第一次使用，不知道准备什么 | 用户的初始化需求 | 准备清单、下一步路径 |
+| `RA:metadata` | 注册数据集、维护字段/指标/术语、生成 context | layered YAML、dataset id、关键词 | validate/index/search/context |
+| `RA:analysis-plan` | 取数前需要正式计划 | 用户问题 + metadata context | `.meta/analysis_plan.md` |
+| `RA:analysis-run` | 想让 RealAnalyst 完整执行一次分析 | 用户问题、已注册 metadata | job、数据、画像、报告 |
+| `RA:data-export` | 已锁定 Tableau 或 DuckDB source，需要正式导出 | source id、filters/fields、SESSION_ID | CSV、summary、source context、acquisition log |
+| `RA:data-profile` | 导出数据后，分析前要做画像 | 正式 CSV | profile manifest / profile json |
+| `RA:report` | 分析完成后写报告 | plan、profile、analysis、artifact_index | 报告 Markdown |
+| `RA:report-verify` | 报告交付前做质量门禁 | 数据、分析结果、报告 | `verification.json` |
+| `RA:artifact-fusion` | 明确需要合并多个数据产物 | 多个 dataset pack | 合并数据 + lineage manifest |
+| `RA:reference-lookup` | 按需查模板、指标、术语、框架 | 关键词 | JSON 查询结果 |
 
 ---
 
@@ -43,19 +43,19 @@ flowchart LR
 ```mermaid
 flowchart TD
     Q[你现在想做什么?]
-    Q -->|第一次使用| GS[getting-started]
-    Q -->|注册/查口径| M[metadata]
-    Q -->|生成取数前计划| AP[analysis-plan]
-    Q -->|完整分析任务| AR[analysis-run]
-    Q -->|正式取数| EX[data-export]
-    Q -->|检查数据质量| DP[data-profile]
-    Q -->|写报告| R[report]
-    Q -->|交付前校验| RV[report-verify]
+    Q -->|第一次使用| GS[RA:getting-started]
+    Q -->|注册/查口径| M[RA:metadata]
+    Q -->|生成取数前计划| AP[RA:analysis-plan]
+    Q -->|完整分析任务| AR[RA:analysis-run]
+    Q -->|正式取数| EX[RA:data-export]
+    Q -->|检查数据质量| DP[RA:data-profile]
+    Q -->|写报告| R[RA:report]
+    Q -->|交付前校验| RV[RA:report-verify]
 ```
 
 ---
 
-## `data-export` 后端脚本
+## `RA:data-export` 后端脚本
 
 | 后端 | 推荐 wrapper | 直接脚本 |
 | --- | --- | --- |
@@ -81,8 +81,8 @@ flowchart TD
 
 | 卡点 | 处理 |
 | --- | --- |
-| 不知道从哪个 skill 开始 | 直接用 `getting-started` 或 `analysis-run` |
-| skill 太多看不懂 | 先记住主链路：`metadata → analysis-plan → analysis-run → data-export → data-profile → report → report-verify` |
-| 想直接 SQL 分析 | 如果是正式报告，优先用 `data-export`；临时检查可直接用本地 DuckDB CLI |
-| 想融合多个数据源 | 先确认用户同意新增 source，再考虑 `artifact-fusion` |
-| 报告没证据 | 回到 `report` 和 `report-verify`，补证据链 |
+| 不知道从哪个 skill 开始 | 直接用 `RA:getting-started` 或 `RA:analysis-run` |
+| skill 太多看不懂 | 先记住主链路：`RA:metadata → RA:analysis-plan → RA:analysis-run → RA:data-export → RA:data-profile → RA:report → RA:report-verify` |
+| 想直接 SQL 分析 | 如果是正式报告，优先用 `RA:data-export`；临时检查可直接用本地 DuckDB CLI |
+| 想融合多个数据源 | 先确认用户同意新增 source，再考虑 `RA:artifact-fusion` |
+| 报告没证据 | 回到 `RA:report` 和 `RA:report-verify`，补证据链 |

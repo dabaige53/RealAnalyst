@@ -102,5 +102,5 @@ python3 skills/metadata/scripts/metadata.py context --dataset-id demo.retail.ord
 | --- | --- | --- |
 | `validate` 失败 | 不能进入 index/context | 按报错补齐字段、指标、证据或 review 标记 |
 | `search` 没结果 | 指标未进入索引 | 先运行 `metadata.py index`，再确认 YAML 中是否存在关键词 |
-| context 太大 | Agent 读到过多无关字段 | search 后只传本轮需要的 `source-id`、metric、field |
+| context 太大 | Agent 读到过多无关字段 | search 后只传本轮需要的 `dataset-id`、metric、field |
 | connector 快照很完整，但业务定义仍不清楚 | 字段名有了，口径没写 | 将快照整理回 `datasets/*.yaml`，补业务定义和证据 |

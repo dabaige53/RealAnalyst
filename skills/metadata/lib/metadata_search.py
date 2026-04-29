@@ -22,7 +22,7 @@ def _flatten_values(value: Any) -> Iterable[str]:
     if isinstance(value, str):
         yield value
         return
-    if isinstance(value, int | float | bool):
+    if isinstance(value, (int, float, bool)):
         yield str(value)
         return
     if isinstance(value, list):

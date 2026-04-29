@@ -16,8 +16,14 @@ def classify_path(path: Path) -> str:
     rel = path.as_posix()
     suffix = path.suffix.lower()
 
+    if rel.startswith("metadata/sources/"):
+        return "metadata_evidence"
+    if rel.startswith("metadata/dictionaries/"):
+        return "metadata_dictionary" if suffix in {".yaml", ".yml"} else "metadata_dictionary_doc"
+    if rel.startswith("metadata/mappings/"):
+        return "metadata_mapping" if suffix in {".yaml", ".yml"} else "metadata_mapping_doc"
     if rel.startswith("metadata/datasets/") and suffix in {".yaml", ".yml"}:
-        return "metadata_source"
+        return "metadata_dataset"
     if rel.startswith("metadata/models/") and suffix in {".yaml", ".yml"}:
         return "semantic_model"
     if rel.startswith("metadata/index/") and suffix == ".jsonl":

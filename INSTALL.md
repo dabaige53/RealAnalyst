@@ -26,7 +26,7 @@ LLM 引导文件读线上文档：`https://raw.githubusercontent.com/dabaige53/R
 完成后重启 Codex，然后输入：
 
 ```text
-/skill getting-started
+/skill RA:getting-started
 帮我确认数据源类型，并列出抽取元数据前需要准备的信息。
 ```
 
@@ -116,21 +116,21 @@ https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/llm-next-steps
 第一次使用：
 
 ```text
-/skill getting-started
+/skill RA:getting-started
 帮我确认数据源类型，并列出抽取元数据前需要准备的信息。
 ```
 
 维护 metadata：
 
 ```text
-/skill metadata
+/skill RA:metadata
 帮我注册一个数据集，并维护字段、指标、筛选器和业务口径。
 ```
 
 执行完整分析：
 
 ```text
-/skill analysis-run
+/skill RA:analysis-run
 基于现有 metadata context，帮我生成分析计划，确认后再执行取数、画像、分析和报告。
 ```
 
@@ -157,4 +157,4 @@ TABLEAU_PAT_SECRET=
 | 没有 `metadata/` 或 `runtime/` | 这是预期行为；确认要保存抽取结果或执行分析后再按需创建 |
 | 依赖安装失败 | 进入 `~/plugins/realanalyst` 后重新运行 `python3 -m pip install -r requirements.txt` |
 | demo metadata 校验失败 | 运行 `python3 skills/metadata/scripts/metadata.py validate` 查看错误 |
-| 不确定从哪里开始 | 在 Codex 输入 `/skill getting-started` |
+| 不确定从哪里开始 | 在 Codex 输入 `/skill RA:getting-started` |

@@ -1,5 +1,5 @@
 ---
-name: report
+name: "RA:report"
 description: |
   Use when: (1) Writing the report after planning and analysis, including continuous follow-up rounds in the same job, (2) Need to execute a locked
   report template, (3) Need to enforce append-only report updates, timeline management, data-source, output-file-list, and appendix rules, (4) Need report
@@ -42,7 +42,7 @@ description: |
 - `runtime/glossary.yaml`
 - `runtime/metrics.yaml`
 
-不要把这些 YAML 复制到 `skills/` 内，避免配置漂移。如需检索模板、术语、指标，优先使用 `reference-lookup` skill 按需查询（metric/glossary 走 SQLite；template/framework 走 YAML）。
+不要把这些 YAML 复制到 `skills/` 内，避免配置漂移。如需检索模板、术语、指标，优先使用 `RA:reference-lookup` skill 按需查询（metric/glossary 走 SQLite；template/framework 走 YAML）。
 
 **模板上下文使用方式**：
 - `template-system-v2.md` 用于理解“先分析模式、再交付方式、最后具体模板”的分层逻辑

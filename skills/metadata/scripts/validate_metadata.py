@@ -16,7 +16,7 @@ from skills.metadata.lib.metadata_io import (
     iter_dictionary_files,
     iter_mapping_files,
     load_dataset_file,
-    load_yaml_file,
+    load_mapping_file,
     normalize_dataset,
 )
 
@@ -206,12 +206,12 @@ def main() -> int:
             errors.append(str(exc))
     for path in dictionary_files:
         try:
-            errors.extend(validate_dictionary(load_yaml_file(path), path=path))
+            errors.extend(validate_dictionary(load_mapping_file(path), path=path))
         except MetadataError as exc:
             errors.append(str(exc))
     for path in mapping_files:
         try:
-            errors.extend(validate_mapping(load_yaml_file(path), path=path))
+            errors.extend(validate_mapping(load_mapping_file(path), path=path))
         except MetadataError as exc:
             errors.append(str(exc))
 

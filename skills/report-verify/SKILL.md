@@ -1,5 +1,5 @@
 ---
-name: report-verify
+name: "RA:report-verify"
 description: |
   Use when: (1) Validating a report before delivery, (2) Need a machine-readable verification.json
   summary, (3) Need to confirm evidence chain, rankings, trends, appendix, and output-file-list

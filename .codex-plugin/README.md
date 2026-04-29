@@ -17,10 +17,10 @@
 ```mermaid
 flowchart LR
     P[.codex-plugin/plugin.json] --> S[skills/]
-    S --> GS[getting-started]
-    S --> M[metadata]
-    S --> AR[analysis-run]
-    S --> R[report]
+    S --> GS[RA:getting-started]
+    S --> M[RA:metadata]
+    S --> AR[RA:analysis-run]
+    S --> R[RA:report]
     P --> UI[Codex 插件展示信息]
     P --> Prompt[默认启动提示]
 ```

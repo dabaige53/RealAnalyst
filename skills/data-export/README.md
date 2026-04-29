@@ -1,6 +1,6 @@
 # data-export
 
-`data-export` 是 RealAnalyst 的统一正式取数 skill。Tableau 和 DuckDB 都从这里进入。
+`RA:data-export` 是 RealAnalyst 的统一正式取数 skill。Tableau 和 DuckDB 都从这里进入。
 
 它解决的问题是：让 Codex 在写报告前，只从已注册、可审计、可复核的数据源导出 CSV，而不是自由 SQL 或临时下载。
 
@@ -43,4 +43,4 @@
 
 - Tableau 参考文档在 `references/tableau/`。
 - DuckDB 输出契约在 `references/duckdb/`。
-- 用户只需要记住一个正式取数入口：`data-export`。
+- 用户只需要记住一个正式取数入口：`RA:data-export`。

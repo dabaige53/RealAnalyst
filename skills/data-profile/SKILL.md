@@ -1,5 +1,5 @@
 ---
-name: data-profile
+name: "RA:data-profile"
 description: |
   Use when: (1) Starting analysis to understand dataset structure, (2) Checking data quality before
   processing, (3) Need schema, semantic roles, null counts, and signals before analysis, (4) Need to bind a profiling result back to a specific CSV inside a continuous-analysis job. Triggers:

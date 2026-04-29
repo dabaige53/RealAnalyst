@@ -53,7 +53,7 @@ python3 skills/report-verify/scripts/verify.py jobs/job_001/data/xxx.csv jobs/jo
 
 | 卡点 | 处理方式 |
 | --- | --- |
-| 不知道是否该用这个 skill | 先看“什么时候用”；不确定时从 `analysis-run` 开始 |
+| 不知道是否该用这个 skill | 先看“什么时候用”；不确定时从 `RA:analysis-run` 开始 |
 | 找不到输入文件 | 回到上游 skill，确认是否已经生成正式产物 |
 | 输出和预期不一致 | 检查报告、分析 JSON 和 CSV 是否来自同一个 job |
 | 涉及 `needs_review` | 报告里必须标注为待确认或推断口径 |

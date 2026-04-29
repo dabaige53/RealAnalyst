@@ -19,7 +19,7 @@
 | --- | --- |
 | 输入 | 用户问题<br/>normalized_request.json<br/>metadata context pack<br/>runtime 查询结果 |
 | 输出 | jobs/{SESSION_ID}/.meta/analysis_plan.md<br/>业务假设<br/>分析目标<br/>模板选择<br/>风险与限制 |
-| 下一步 | `analysis-run` |
+| 下一步 | `RA:analysis-run` |
 
 ---
 
@@ -35,7 +35,7 @@ flowchart LR
 ## 快速示例
 
 ```bash
-/skill analysis-plan
+/skill RA:analysis-plan
 基于 metadata context，为这个问题生成分析计划。
 ```
 
@@ -54,7 +54,7 @@ flowchart LR
 
 | 卡点 | 处理方式 |
 | --- | --- |
-| 不知道是否该用这个 skill | 先看“什么时候用”；不确定时从 `analysis-run` 开始 |
+| 不知道是否该用这个 skill | 先看“什么时候用”；不确定时从 `RA:analysis-run` 开始 |
 | 找不到输入文件 | 回到上游 skill，确认是否已经生成正式产物 |
 | 输出和预期不一致 | 回到用户问题和 metadata context，确认目标是否已经说清楚 |
 | 涉及 `needs_review` | 报告里必须标注为待确认或推断口径 |

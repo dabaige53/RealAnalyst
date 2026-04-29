@@ -43,58 +43,23 @@ def dataset_path_for_id(workspace: Path, dataset_id: str) -> Path:
     return MetadataPaths(workspace).datasets_dir / f"{dataset_id}.yaml"
 
 
-def _source_reference_candidates(data: dict[str, Any]) -> set[str]:
-    source = data.get("source") if isinstance(data.get("source"), dict) else {}
-    candidates = {
-        str(data.get("id") or "").strip(),
-        str(data.get("source_id") or "").strip(),
-        str(source.get("id") or "").strip(),
-        str(source.get("source_id") or "").strip(),
-        str(source.get("object") or "").strip(),
-    }
-    connector = str(source.get("connector") or "").strip()
-    for nested_key in ("duckdb", "tableau"):
-        nested = source.get(nested_key) if isinstance(source.get(nested_key), dict) else {}
-        object_name = str(nested.get("object_name") or "").strip()
-        candidates.update(
-            {
-                str(nested.get("id") or "").strip(),
-                str(nested.get("source_id") or "").strip(),
-                object_name,
-            }
-        )
-        if connector and object_name:
-            candidates.add(f"{connector}.{object_name}")
-            candidates.add(f"{connector}.example.{object_name}")
-    return {item for item in candidates if item}
-
-
-def resolve_dataset_path(workspace: Path, dataset_ref: str) -> Path:
-    direct_path = dataset_path_for_id(workspace, dataset_ref)
+def resolve_dataset_path(workspace: Path, dataset_id: str) -> Path:
+    direct_path = dataset_path_for_id(workspace, dataset_id)
     if direct_path.exists():
         return direct_path
 
     matches: list[Path] = []
-    suffix_matches: list[Path] = []
     for path in iter_dataset_files(workspace):
         data = load_dataset_file(path)
-        candidates = _source_reference_candidates(data)
-        if dataset_ref in candidates:
+        if str(data.get("id") or "").strip() == dataset_id:
             matches.append(path)
-            continue
-        source = data.get("source") if isinstance(data.get("source"), dict) else {}
-        duckdb = source.get("duckdb") if isinstance(source.get("duckdb"), dict) else {}
-        object_name = str(duckdb.get("object_name") or "").strip()
-        if object_name and dataset_ref.endswith(f".{object_name}"):
-            suffix_matches.append(path)
 
-    resolved = matches or suffix_matches
-    if len(resolved) == 1:
-        return resolved[0]
-    if len(resolved) > 1:
-        names = ", ".join(path.name for path in resolved)
-        raise MetadataError(f"Ambiguous dataset reference {dataset_ref!r}: {names}")
-    raise MetadataError(f"No metadata dataset found for {dataset_ref!r}")
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        names = ", ".join(path.name for path in matches)
+        raise MetadataError(f"Ambiguous dataset id {dataset_id!r}: {names}")
+    raise MetadataError(f"No metadata dataset found for id {dataset_id!r}")
 
 
 def iter_dataset_files(workspace: Path) -> Iterable[Path]:
@@ -123,6 +88,13 @@ def load_yaml_file(path: Path) -> Any:
 
 
 def load_dataset_file(path: Path) -> dict[str, Any]:
+    data = load_yaml_file(path)
+    if not isinstance(data, dict):
+        raise MetadataError(f"{path} must contain a mapping")
+    return data
+
+
+def load_mapping_file(path: Path) -> dict[str, Any]:
     data = load_yaml_file(path)
     if not isinstance(data, dict):
         raise MetadataError(f"{path} must contain a mapping")

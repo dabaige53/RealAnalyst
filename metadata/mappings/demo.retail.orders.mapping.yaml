@@ -1,0 +1,22 @@
+version: "0.1"
+id: demo.retail.orders.mapping
+kind: mapping
+source_id: demo.retail.orders
+display_name: Retail Orders Field Mapping
+source_evidence:
+  - type: document
+    source: metadata/datasets/demo.retail.orders.yaml
+    quote: Demo dataset field metadata.
+mappings:
+  - type: metric
+    view_field: revenue
+    standard_id: total_revenue
+    field_id_or_override: revenue
+    definition_override: Order revenue amount. Tax and shipping inclusion is not confirmed.
+    notes: Demo mapping from physical revenue field to standard total revenue metric.
+  - type: dimension
+    view_field: region
+    standard_id: region
+    field_id_or_override: region
+    definition_override: Region used for grouping order performance.
+    notes: Demo mapping from physical region field to standard region dimension.

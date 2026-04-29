@@ -18,9 +18,9 @@
 
 | 类型 | 内容 |
 | --- | --- |
-| 输入 | metadata/sources 原始证据<br/>metadata/dictionaries 公共语义<br/>metadata/mappings 字段映射<br/>metadata/datasets 真实数据源<br/>source id<br/>指标/字段/术语关键词 |
+| 输入 | metadata/sources 原始证据<br/>metadata/dictionaries 公共语义<br/>metadata/mappings 字段映射<br/>metadata/datasets 真实数据源<br/>dataset id<br/>指标/字段/术语关键词 |
 | 输出 | validate 结果<br/>metadata/index/*.jsonl<br/>search 结果<br/>context pack<br/>可选 OSI export |
-| 下一步 | `analysis-plan` |
+| 下一步 | `RA:analysis-plan` |
 
 ---
 
@@ -35,7 +35,7 @@ flowchart LR
     Mappings --> Index
     Datasets --> Validate[validate]
     Datasets --> Index
-    Index --> Search[search] --> Context[context pack] --> Plan[analysis-plan]
+    Index --> Search[search] --> Context[context pack] --> Plan[RA:analysis-plan]
 ```
 
 ---
@@ -67,9 +67,9 @@ python3 skills/metadata/scripts/metadata.py context --dataset-id demo.retail.ord
 
 | 卡点 | 处理方式 |
 | --- | --- |
-| 不知道是否该用这个 skill | 先看“什么时候用”；不确定时从 `analysis-run` 开始 |
+| 不知道是否该用这个 skill | 先看“什么时候用”；不确定时从 `RA:analysis-run` 开始 |
 | 找不到输入文件 | 回到上游 skill，确认是否已经生成正式产物 |
-| 输出和预期不一致 | 检查 YAML 中的 source id、metric id 和 review 状态 |
+| 输出和预期不一致 | 检查 YAML 中的 dataset id、metric id、mapping_ref 和 review 状态 |
 | 公共字典被放进 datasets | 拆到 `metadata/dictionaries/`，`datasets/` 只放真实数据源 |
 | 原始材料只在 Downloads | 复制到 `metadata/sources/` 后再引用 |
 | 涉及 `needs_review` | 报告里必须标注为待确认或推断口径 |

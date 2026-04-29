@@ -33,7 +33,9 @@ flowchart TD
     Dictionaries["metadata/dictionaries/*.yaml<br/>shared semantics"] --> IndexFile["metadata/index/*.jsonl<br/>generated lookup index"]
     Mappings["metadata/mappings/*.yaml<br/>source field mappings"] --> IndexFile
     Dataset["metadata/datasets/*.yaml<br/>real source metadata"] --> IndexFile
-    Dataset --> ContextJson["metadata context JSON<br/>planning input"]
+    Dictionaries --> ContextJson["metadata context JSON<br/>planning input"]
+    Mappings --> ContextJson
+    Dataset --> ContextJson
     Registry["runtime/**/registry.db<br/>local execution registry"] --> ExportScript["data-export scripts"]
     ContextJson --> PlanDoc["jobs/{SESSION_ID}/.meta/analysis_plan.md"]
     ExportScript --> JobData["jobs/{SESSION_ID}/<br/>CSV / summary / manifest"]

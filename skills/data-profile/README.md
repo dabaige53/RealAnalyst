@@ -19,7 +19,7 @@
 | --- | --- |
 | 输入 | 正式 CSV<br/>export_summary.json 或 duckdb_export_summary.json<br/>SESSION_ID |
 | 输出 | profile/manifest.json<br/>profile/profile.json<br/>artifact_index 更新 |
-| 下一步 | `report` |
+| 下一步 | `RA:report` |
 
 ---
 
@@ -53,7 +53,7 @@ python3 skills/data-profile/scripts/run.py --data-csv jobs/$SESSION_ID/data/<正
 
 | 卡点 | 处理方式 |
 | --- | --- |
-| 不知道是否该用这个 skill | 先看“什么时候用”；不确定时从 `analysis-run` 开始 |
+| 不知道是否该用这个 skill | 先看“什么时候用”；不确定时从 `RA:analysis-run` 开始 |
 | 找不到输入文件 | 回到上游 skill，确认是否已经生成正式产物 |
 | 输出和预期不一致 | 检查 CSV 是否是正式导出文件，而不是临时样本 |
 | 涉及 `needs_review` | 报告里必须标注为待确认或推断口径 |

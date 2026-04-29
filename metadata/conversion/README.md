@@ -49,7 +49,7 @@ flowchart LR
 python3 skills/metadata/scripts/metadata.py validate
 python3 skills/metadata/scripts/metadata.py index
 python3 skills/metadata/scripts/metadata.py search --type all --query <关键词>
-python3 skills/metadata/scripts/metadata.py context --source-id <source_id> --metric <metric_id>
+python3 skills/metadata/scripts/metadata.py context --dataset-id <dataset_id> --metric <metric_id>
 ```
 
 ---

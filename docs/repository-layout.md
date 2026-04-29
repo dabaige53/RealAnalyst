@@ -18,4 +18,4 @@ RealAnalyst 将 skills、元数据真源、connector 同步快照、生成物和
 | `examples/` | 项目 | 跟踪 | 脱敏示例。 |
 | `jobs/` | 运行时 | 忽略 | 单次分析任务产物。 |
 
-首次使用应从 `/skill getting-started` 开始，先初始化 metadata，再进入分析。
+首次使用应从 `/skill RA:getting-started` 开始，先初始化 metadata，再进入分析。

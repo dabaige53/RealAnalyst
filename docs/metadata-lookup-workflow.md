@@ -1,6 +1,6 @@
 # Metadata Lookup Workflow
 
-本文说明统一 `metadata` 入口下的元数据查找流程。目标是在需求理解阶段用轻量、可检索的上下文支撑分析规划，而不是让 agent 直接扫完整元数据文件。
+本文说明统一 `RA:metadata` 入口下的元数据查找流程。目标是在需求理解阶段用轻量、可检索的上下文支撑分析规划，而不是让 agent 直接扫完整元数据文件。
 
 ## 四层结构
 
@@ -18,7 +18,7 @@
 
 4. 上下文包：`metadata context` 输出 JSON
 
-   当轻量索引命中候选对象后，`metadata context` 会从 YAML 真源抽取小型 JSON 上下文包，供规划阶段读取。上下文包只包含本次分析需要的 dataset、grain、time fields、metrics、fields、review 提示和缺失对象信息。
+   当轻量索引命中候选对象后，`metadata context` 会从 YAML 真源抽取小型 JSON 上下文包，供规划阶段读取。上下文包只包含本次分析需要的 dataset、dictionary_refs、mapping_refs、metrics、fields、glossary、mappings、review 提示和缺失对象信息。
 
 ## 端到端流程
 
@@ -36,7 +36,7 @@ python3 skills/metadata/scripts/metadata.py context --dataset-id <dataset_id> --
 - `metadata.py validate` 校验 YAML 真源是否满足元数据契约。
 - `metadata.py index` 将 dictionaries、mappings、datasets 编译成 `metadata/index/*.jsonl`。
 - `metadata.py search` 在轻量索引中检索候选 dataset、field、metric、mapping 或术语。
-- `metadata.py context` 根据命中的 `dataset_id` 和指标/字段参数，输出可供分析规划读取的 JSON 上下文包。旧参数 `--source-id` 仍保留兼容，但新文档统一使用 `--dataset-id`。
+- `metadata.py context` 根据命中的 `dataset_id` 和指标/字段参数，输出可供分析规划读取的 JSON 上下文包。`metadata context` 只接受 `--dataset-id`；runtime/export 阶段才使用 registry 的 `source_id`。
 
 ## 当前边界
 

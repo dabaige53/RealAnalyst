@@ -33,6 +33,9 @@ maintenance:
     - field: revenue
       question: Does revenue include tax and shipping?
       reason: The column name alone does not confirm revenue boundary.
+dictionary_refs:
+  - demo.retail.dictionary
+mapping_ref: demo.retail.orders.mapping
 fields:
   - name: order_id
     physical_name: order_id

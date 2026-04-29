@@ -53,56 +53,56 @@ TABLEAU_PAT_SECRET=your-personal-access-token-secret
 ### 先开始
 
 ```text
-/skill getting-started
+/skill RA:getting-started
 帮我确认数据源类型，并列出抽取元数据前需要准备的信息。
 ```
 
 ### 整理元数据
 
 ```text
-/skill metadata
+/skill RA:metadata
 我有一个数据源需要整理 metadata。请先问我要来源、字段、指标、筛选器和证据，不要直接创建文件。
 ```
 
 ### 整理指标口径
 
 ```text
-/skill metadata
+/skill RA:metadata
 帮我整理这些指标的业务口径：指标名称、计算公式、单位、粒度、适用范围、证据和待确认问题。
 ```
 
 ### 整理术语表
 
 ```text
-/skill metadata
+/skill RA:metadata
 帮我把这些业务术语整理成 glossary，包含中文名、英文名、同义词、定义、来源证据和是否需要 review。
 ```
 
 ### 从 Tableau 抽取 metadata
 
 ```text
-/skill metadata
+/skill RA:metadata
 我要从 Tableau workbook 抽取字段、筛选器、参数和指标口径。请先检查 .env 需要哪些信息，再问我要 workbook/view/dashboard 名称。
 ```
 
 ### 从 DuckDB / CSV / Excel 抽取 metadata
 
 ```text
-/skill metadata
+/skill RA:metadata
 我要从本地 DuckDB/CSV/Excel 抽取字段和指标口径。请先问我要文件路径、表名或 sheet 名、关键字段和分析目标。
 ```
 
 ### 生成分析计划
 
 ```text
-/skill analysis-plan
+/skill RA:analysis-plan
 基于已经整理好的 metadata，帮我生成分析计划。先列出需要确认的数据源、指标、维度、筛选条件和风险。
 ```
 
 ### 执行完整分析
 
 ```text
-/skill analysis-run
+/skill RA:analysis-run
 基于已确认的 metadata 和分析计划，帮我执行取数、画像、分析和报告。每一步都保留证据和产物路径。
 ```
 

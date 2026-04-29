@@ -19,7 +19,7 @@
 | --- | --- |
 | 输入 | 用户的初始化问题<br/>当前仓库是否已有 demo metadata<br/>是否已有 Tableau / DuckDB source 素材 |
 | 输出 | 准备清单<br/>推荐路径<br/>可执行的 metadata 初始化命令 |
-| 下一步 | `metadata` |
+| 下一步 | `RA:metadata` |
 
 ---
 
@@ -45,7 +45,7 @@ python3 skills/metadata/scripts/metadata.py validate
 
 - 一份首次使用准备清单。
 - 是否可以直接跑 demo 的判断。
-- 下一步应该进入 `metadata` 还是 `analysis-run`。
+- 下一步应该进入 `RA:metadata` 还是 `RA:analysis-run`。
 - 初始化和校验 metadata 的可执行命令。
 
 ---
@@ -54,7 +54,7 @@ python3 skills/metadata/scripts/metadata.py validate
 
 | 卡点 | 处理方式 |
 | --- | --- |
-| 不知道是否该用这个 skill | 先看“什么时候用”；不确定时从 `analysis-run` 开始 |
+| 不知道是否该用这个 skill | 先看“什么时候用”；不确定时从 `RA:analysis-run` 开始 |
 | 找不到输入文件 | 回到上游 skill，确认是否已经生成正式产物 |
 | 输出和预期不一致 | 先确认仓库是否已经初始化 demo metadata |
 | 涉及 `needs_review` | 报告里必须标注为待确认或推断口径 |

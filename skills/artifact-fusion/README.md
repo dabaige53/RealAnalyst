@@ -18,7 +18,7 @@
 | --- | --- |
 | 输入 | 多个包含 manifest.json + data.csv 的输入目录<br/>strategy<br/>output_dir |
 | 输出 | 合并后的 data.csv<br/>manifest.json<br/>lineage 信息 |
-| 下一步 | `data-profile / report` |
+| 下一步 | `RA:data-profile / RA:report` |
 
 ---
 
@@ -54,7 +54,7 @@ python3 skills/artifact-fusion/scripts/fusion.py union jobs/job_001/merged jobs/
 
 | 卡点 | 处理方式 |
 | --- | --- |
-| 不知道是否该用这个 skill | 先看“什么时候用”；不确定时从 `analysis-run` 开始 |
+| 不知道是否该用这个 skill | 先看“什么时候用”；不确定时从 `RA:analysis-run` 开始 |
 | 找不到输入文件 | 回到上游 skill，确认是否已经生成正式产物 |
 | 输出和预期不一致 | 检查输入数据粒度、join key 和合并策略 |
 | 涉及 `needs_review` | 报告里必须标注为待确认或推断口径 |

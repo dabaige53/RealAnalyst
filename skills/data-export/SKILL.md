@@ -1,5 +1,5 @@
 ---
-name: data-export
+name: "RA:data-export"
 description: |
   Controlled Tableau and DuckDB data export for RealAnalyst/Codex. Use when an analysis task needs to fetch formal CSV data from a registered source in the unified SQLite registry, including Tableau view/domain exports with vf/vp filters and DuckDB table/view exports with field whitelist, filters, aggregation, and audited metadata write-back. Triggers: tableau export, duckdb export, 受控取数, 数据导出, 补数, 追加分析, export_summary, duckdb_export_summary.
 ---

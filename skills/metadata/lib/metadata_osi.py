@@ -105,6 +105,9 @@ def _dataset_extension(dataset: dict[str, Any]) -> dict[str, Any]:
     return {
         "dataset_name": _dataset_name(dataset),
         "source_id": _as_text(dataset.get("source_id") or dataset.get("id")),
+        "dictionary_refs": _as_list(dataset.get("dictionary_refs")),
+        "mapping_ref": _as_text(dataset.get("mapping_ref")),
+        "mappings": _as_list(dataset.get("mappings")),
         "maintenance": {
             "managed_by": maintenance.get("managed_by"),
             "status": maintenance.get("status"),

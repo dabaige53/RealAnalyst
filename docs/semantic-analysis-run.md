@@ -18,8 +18,8 @@
 2. `metadata index` 从 YAML 生成轻量 index。
 3. `metadata search` 在需求理解阶段召回候选数据集、字段和指标。
 4. `metadata context` 把候选结果压缩成 context pack，交给对话和规划使用。
-5. `analysis-run` 在执行阶段通过 `query_registry` 读取运行层信息。
-6. 报告生成后进入 `report-verify`，重点检查推断口径、review 标记和结果可复核性。
+5. `RA:analysis-run` 在执行阶段通过 `query_registry` 读取运行层信息。
+6. 报告生成后进入 `RA:report-verify`，重点检查推断口径、review 标记和结果可复核性。
 7. 需要跨系统交换时，走 OSI export；这是交换路径，不是分析主路径。
 
 ## 边界

@@ -1,5 +1,5 @@
 ---
-name: artifact-fusion
+name: "RA:artifact-fusion"
 description: |
   Merge multiple datasets into unified data with lineage tracking. Use when: (1) Combine datasets 
   from different sources, (2) Union datasets with same schema, (3) Join datasets on common keys, 

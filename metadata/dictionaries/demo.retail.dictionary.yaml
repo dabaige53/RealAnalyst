@@ -1,0 +1,47 @@
+version: "0.1"
+id: demo.retail.dictionary
+kind: dictionary
+display_name: Retail Demo Dictionary
+source_evidence:
+  - type: document
+    source: metadata/sources/demo.md
+    quote: Public demo metadata example.
+metrics:
+  - name: total_revenue
+    display_name: Total Revenue
+    expression: SUM(revenue)
+    aggregation: sum
+    unit: USD
+    category: sales
+    metric_group: revenue
+    direction: higher_better
+    benchmark: ""
+    description: Sum of order revenue.
+    synonyms: [sales, total sales, revenue]
+    business_definition:
+      text: Total order revenue calculated by summing the revenue field.
+      confidence: 0.64
+      source_evidence:
+        - type: metric_expression
+          source: metadata/datasets/demo.retail.orders.yaml
+          quote: SUM(revenue)
+      needs_review: true
+glossary:
+  - section: retail
+    key: region
+    display_name: Region
+    english_name: region
+    type: dimension
+    synonyms: [sales region, territory]
+    definition: Sales region attached to the order.
+    formula: ""
+    unit: ""
+    values: []
+    business_definition:
+      text: Region used for grouping order performance.
+      confidence: 0.82
+      source_evidence:
+        - type: column_name
+          source: metadata/datasets/demo.retail.orders.yaml
+          quote: region
+      needs_review: false

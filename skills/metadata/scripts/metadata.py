@@ -56,7 +56,7 @@ def adapter_plan(workspace: Path, *, backend: str, source_id: str, dry_run: bool
         "dry_run": dry_run,
         "workspace": str(workspace),
         "adapter_scripts": scripts,
-        "next_step": "Use adapter output as source material, then maintain metadata/datasets/*.yaml.",
+        "next_step": "Archive adapter output in metadata/sources/, then maintain metadata/dictionaries/*.yaml, metadata/mappings/*.yaml, and metadata/datasets/*.yaml.",
     }
 
 
@@ -86,9 +86,7 @@ def build_parser() -> argparse.ArgumentParser:
     search.add_argument("--limit", type=int, default=10)
 
     context = subparsers.add_parser("context", help="Build an analysis context pack.")
-    context_ref = context.add_mutually_exclusive_group(required=True)
-    context_ref.add_argument("--dataset-id", dest="dataset_ref", help="Metadata dataset id, for example demo.retail.orders")
-    context_ref.add_argument("--source-id", dest="dataset_ref", help="Backward-compatible alias for dataset/source references")
+    context.add_argument("--dataset-id", required=True, help="Metadata dataset id, for example demo.retail.orders")
     context.add_argument("--metric", action="append", default=[])
     context.add_argument("--field", action="append", default=[])
 
@@ -138,7 +136,7 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     if args.command == "context":
-        forwarded = [*workspace_args(workspace), "--dataset-id", args.dataset_ref]
+        forwarded = [*workspace_args(workspace), "--dataset-id", args.dataset_id]
         for metric in args.metric:
             forwarded.extend(["--metric", metric])
         for field in args.field:

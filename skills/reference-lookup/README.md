@@ -19,7 +19,7 @@
 | --- | --- |
 | 输入 | 关键词<br/>查询类型：template / glossary / metric / framework / dimension |
 | 输出 | 机器可读 JSON 查询结果<br/>matches<br/>framework 定义 |
-| 下一步 | `analysis-plan / report` |
+| 下一步 | `RA:analysis-plan / RA:report` |
 
 ---
 
@@ -54,7 +54,7 @@ python3 skills/reference-lookup/scripts/query_config.py --framework mece
 
 | 卡点 | 处理方式 |
 | --- | --- |
-| 不知道是否该用这个 skill | 先看“什么时候用”；不确定时从 `analysis-run` 开始 |
+| 不知道是否该用这个 skill | 先看“什么时候用”；不确定时从 `RA:analysis-run` 开始 |
 | 找不到输入文件 | 回到上游 skill，确认是否已经生成正式产物 |
 | 输出和预期不一致 | 换更具体的关键词，或回到 metadata 补定义 |
 | 涉及 `needs_review` | 报告里必须标注为待确认或推断口径 |
