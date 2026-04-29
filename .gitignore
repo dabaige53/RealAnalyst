@@ -1,0 +1,52 @@
+# Local OS and Python cache files
+.DS_Store
+__pycache__/
+*.pyc
+*.py[cod]
+
+# Generated local databases and caches
+*.db
+*.duckdb
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+*.log
+jobs/
+logs/
+tests/
+tableau_sync/
+duckdb_sync/
+metadata/index/
+metadata/osi/
+metadata/sync/**/*.json
+metadata/sync/**/reports/
+!metadata/sync/**/*.example.json
+
+# Local secrets and runtime credentials
+.env
+.env.*
+!.env.example
+.venv/
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Local/private workspace materials
+runtime/*.yaml
+runtime/**/*.yaml
+runtime/*.json
+runtime/**/*.json
+runtime/**/*.db
+runtime/**/*.sqlite
+!runtime/**/*.example.yaml
+!runtime/**/*.example.json
+!runtime/*.example.yaml
+!runtime/*.example.json
+config/
+context/
+doc/
+docs/superpowers/
+diagrams/drawio/
+realanalyst_readme_package/

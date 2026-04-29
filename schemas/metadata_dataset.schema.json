@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://realanalyst.dev/schemas/metadata_dataset.schema.json",
+  "title": "RealAnalyst LLM-Native Dataset Metadata",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "id", "display_name", "source", "business", "maintenance", "fields"],
+  "properties": {
+    "version": { "type": "string" },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]*$" },
+    "display_name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "source": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["connector", "object"],
+      "properties": {
+        "connector": { "type": "string", "enum": ["tableau", "duckdb", "csv"] },
+        "object": { "type": "string", "minLength": 1 },
+        "dialect": { "type": "string" }
+      }
+    },
+    "business": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["description", "grain", "suitable_for", "not_suitable_for"],
+      "properties": {
+        "domain": { "type": "string" },
+        "description": { "type": "string", "minLength": 1 },
+        "grain": { "type": "array", "items": { "type": "string" } },
+        "primary_key": { "type": "array", "items": { "type": "string" } },
+        "time_fields": { "type": "array", "items": { "type": "string" } },
+        "suitable_for": { "type": "array", "items": { "type": "string" } },
+        "not_suitable_for": { "type": "array", "items": { "type": "string" } },
+        "sample_questions": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "maintenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["managed_by", "status", "confidence", "pending_questions"],
+      "properties": {
+        "managed_by": { "type": "string", "enum": ["llm"] },
+        "status": { "type": "string", "enum": ["draft", "verified", "deprecated"] },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "last_updated_by": { "type": "string" },
+        "last_updated_at": { "type": "string" },
+        "pending_questions": { "type": "array", "items": { "$ref": "#/$defs/pending_question" } }
+      }
+    },
+    "fields": { "type": "array", "items": { "$ref": "#/$defs/field" } },
+    "metrics": { "type": "array", "items": { "$ref": "#/$defs/metric" } },
+    "relationships": { "type": "array", "items": { "$ref": "#/$defs/relationship" } }
+  },
+  "$defs": {
+    "source_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "value"],
+      "properties": {
+        "type": { "type": "string" },
+        "value": { "type": "string" },
+        "source": { "type": "string" }
+      }
+    },
+    "business_definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "confidence", "source_evidence", "needs_review"],
+      "properties": {
+        "text": { "type": "string" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "source_evidence": { "type": "array", "items": { "$ref": "#/$defs/source_evidence" } },
+        "needs_review": { "type": "boolean" }
+      }
+    },
+    "field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "role", "type", "description", "business_definition"],
+      "properties": {
+        "name": { "type": "string" },
+        "physical_name": { "type": "string" },
+        "display_name": { "type": "string" },
+        "role": { "type": "string", "enum": ["dimension", "time_dimension", "metric_source", "identifier", "attribute"] },
+        "type": { "type": "string" },
+        "description": { "type": "string" },
+        "business_definition": { "$ref": "#/$defs/business_definition" },
+        "synonyms": { "type": "array", "items": { "type": "string" } },
+        "allowed_values": { "type": "array", "items": { "type": "string" } },
+        "sensitive_level": { "type": "string", "enum": ["public", "internal", "restricted"] }
+      }
+    },
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "expression", "description", "business_definition"],
+      "properties": {
+        "name": { "type": "string" },
+        "expression": { "type": "string" },
+        "unit": { "type": "string" },
+        "aggregation": { "type": "string" },
+        "valid_grains": { "type": "array", "items": { "type": "string" } },
+        "description": { "type": "string" },
+        "business_definition": { "$ref": "#/$defs/business_definition" },
+        "synonyms": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "from", "to", "from_columns", "to_columns"],
+      "properties": {
+        "name": { "type": "string" },
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "from_columns": { "type": "array", "items": { "type": "string" } },
+        "to_columns": { "type": "array", "items": { "type": "string" } },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "pending_question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "question", "reason"],
+      "properties": {
+        "field": { "type": "string" },
+        "question": { "type": "string" },
+        "reason": { "type": "string" }
+      }
+    }
+  }
+}

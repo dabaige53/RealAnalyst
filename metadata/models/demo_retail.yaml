@@ -1,0 +1,12 @@
+version: "0.1"
+id: demo.retail
+display_name: Demo Retail Semantic Model
+description: Public demo semantic model for validating RealAnalyst metadata workflows.
+datasets:
+  - demo.retail.orders
+relationships: []
+ai_context:
+  instructions: Use this model for simple retail revenue and order exploration demos.
+  examples:
+    - What was revenue by month?
+    - Which region had the highest revenue?

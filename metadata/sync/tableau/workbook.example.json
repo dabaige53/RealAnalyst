@@ -1,0 +1,8 @@
+{
+  "source_id": "tableau.example.dashboard",
+  "connector": "tableau",
+  "workbook_name": "Example Sales Dashboard",
+  "view_name": "Sales Overview",
+  "content_url": "ExampleSalesDashboard/sheets/SalesOverview",
+  "description": "Example Tableau workbook snapshot for onboarding metadata maintenance."
+}

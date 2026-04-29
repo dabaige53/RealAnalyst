@@ -1,0 +1,7 @@
+{
+  "source_id": "tableau.example.dashboard",
+  "filters": [
+    {"name": "Order Date", "type": "date_range", "sample_values": ["2026-01-01|2026-01-31"]},
+    {"name": "Region", "type": "categorical", "sample_values": ["North", "South", "East", "West"]}
+  ]
+}

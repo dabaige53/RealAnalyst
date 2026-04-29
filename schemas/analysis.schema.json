@@ -1,0 +1,161 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "dataagent://schemas/analysis.json",
+  "title": "Structured Analysis Output",
+  "description": "结构化分析结果，每个发现必须包含数据证据",
+  "type": "object",
+  "required": ["job_id", "dataset_id", "created_at", "findings"],
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "description": "任务ID"
+    },
+    "dataset_id": {
+      "type": "string",
+      "description": "分析的数据集ID (对应 manifest.id)"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "analysis_type": {
+      "type": "string",
+      "enum": ["executive_summary", "trend_analysis", "comparison", "deep_dive", "forecast"],
+      "description": "分析类型 (用于选择报告模板)"
+    },
+    "findings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/Finding"
+      }
+    },
+    "statistics": {
+      "type": "object",
+      "description": "汇总统计数据",
+      "additionalProperties": true
+    },
+    "charts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ChartSpec"
+      },
+      "description": "推荐图表列表"
+    }
+  },
+  "definitions": {
+    "Finding": {
+      "type": "object",
+      "required": ["id", "type", "claim", "evidence"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^f_[0-9]{3}$",
+          "description": "发现ID，格式: f_001"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["ranking", "trend", "comparison", "anomaly", "correlation", "summary"],
+          "description": "发现类型"
+        },
+        "claim": {
+          "type": "string",
+          "description": "结论声明 (自然语言)"
+        },
+        "value": {
+          "type": ["number", "string"],
+          "description": "核心数值"
+        },
+        "unit": {
+          "type": "string",
+          "description": "单位 (人次/元/百分比)"
+        },
+        "metric": {
+          "type": "string",
+          "description": "指标名 (对应CSV列名)"
+        },
+        "dimension": {
+          "type": "string",
+          "description": "维度名 (分组依据)"
+        },
+        "evidence": {
+          "$ref": "#/definitions/Evidence"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "置信度 (0-1)"
+        },
+        "yoy_change": {
+          "type": "number",
+          "description": "同比变化率 (可选)"
+        },
+        "mom_change": {
+          "type": "number",
+          "description": "环比变化率 (可选)"
+        }
+      }
+    },
+    "Evidence": {
+      "type": "object",
+      "required": ["source_file", "calculation"],
+      "properties": {
+        "source_file": {
+          "type": "string",
+          "description": "数据源文件名",
+          "examples": ["data.csv"]
+        },
+        "row_indices": {
+          "type": "array",
+          "items": {"type": "integer"},
+          "description": "支撑该结论的CSV行号 (1-based)"
+        },
+        "calculation": {
+          "type": "string",
+          "description": "计算逻辑 (SQL-like 或 pandas 表达式)",
+          "examples": [
+            "SUM(Passengers) GROUP BY Route ORDER BY DESC LIMIT 1",
+            "df.groupby('Route')['Passengers'].sum().idxmax()"
+          ]
+        },
+        "raw_values": {
+          "type": "object",
+          "description": "原始计算值 (用于验证)",
+          "additionalProperties": true
+        }
+      }
+    },
+    "ChartSpec": {
+      "type": "object",
+      "required": ["chart_type", "title", "x_column", "y_column"],
+      "properties": {
+        "chart_type": {
+          "type": "string",
+          "enum": ["line", "bar", "barh", "pie", "scatter", "heatmap", "area"],
+          "description": "图表类型"
+        },
+        "title": {
+          "type": "string",
+          "description": "图表标题"
+        },
+        "x_column": {
+          "type": "string",
+          "description": "X轴列名"
+        },
+        "y_column": {
+          "type": "string",
+          "description": "Y轴列名"
+        },
+        "group_by": {
+          "type": "string",
+          "description": "分组列 (可选)"
+        },
+        "top_n": {
+          "type": "integer",
+          "description": "只展示前N项 (可选)"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+version: "0.1"
+description: Example runtime settings. Copy to local private runtime files before production use.
+metrics:
+  total_revenue:
+    name: Total Revenue
+    definition: Sum of revenue for the selected dataset scope.
+dimensions:
+  region:
+    name: Region
+    definition: Business region or market area.

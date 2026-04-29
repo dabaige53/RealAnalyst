@@ -1,0 +1,9 @@
+{
+  "source_id": "tableau.example.dashboard",
+  "fields": [
+    {"name": "Order Date", "role": "dimension", "data_type": "date"},
+    {"name": "Region", "role": "dimension", "data_type": "string"},
+    {"name": "Product Category", "role": "dimension", "data_type": "string"},
+    {"name": "Revenue", "role": "measure", "data_type": "number"}
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://realanalyst.dev/schemas/metadata_conversion_manifest.schema.json",
+  "title": "RealAnalyst Metadata Conversion Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "source_of_truth",
+    "current_derivatives",
+    "future_targets",
+    "phase_boundaries",
+    "conversion_steps"
+  ],
+  "properties": {
+    "version": { "type": "string" },
+    "source_of_truth": { "type": "string" },
+    "current_derivatives": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "future_targets": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "phase_boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["phase_3", "phase_4"],
+      "properties": {
+        "phase_3": { "type": "string" },
+        "phase_4": { "type": "string" }
+      }
+    },
+    "conversion_steps": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/conversion_step" }
+    }
+  },
+  "$defs": {
+    "conversion_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "input", "output", "skill"],
+      "properties": {
+        "name": { "type": "string" },
+        "input": { "type": "string" },
+        "output": { "type": "string" },
+        "skill": { "type": "string" },
+        "phase": { "type": "integer" }
+      }
+    }
+  }
+}

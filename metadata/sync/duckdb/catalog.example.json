@@ -1,0 +1,54 @@
+{
+  "db_path": "examples/data/demo_retail.duckdb",
+  "object_count": 2,
+  "objects": [
+    {
+      "db_path": "examples/data/demo_retail.duckdb",
+      "schema": "main",
+      "object_name": "orders",
+      "object_kind": "base table",
+      "business_domain": "retail",
+      "recommended_usage": "analysis_ready_with_context",
+      "display_name": "Retail Orders",
+      "description": "Example order-level transaction dataset for revenue, customer, product, and regional analysis.",
+      "grain": ["order_id"],
+      "suitable_for": ["revenue trend analysis", "regional sales comparison", "customer segment analysis"],
+      "not_suitable_for": ["inventory availability analysis"],
+      "row_count": 12,
+      "column_count": 7,
+      "time_fields": ["order_date"],
+      "columns": [
+        {"name": "order_id", "type": "VARCHAR"},
+        {"name": "order_date", "type": "DATE"},
+        {"name": "customer_id", "type": "VARCHAR"},
+        {"name": "region", "type": "VARCHAR"},
+        {"name": "product_category", "type": "VARCHAR"},
+        {"name": "quantity", "type": "INTEGER"},
+        {"name": "revenue", "type": "DOUBLE"}
+      ]
+    },
+    {
+      "db_path": "examples/data/demo_retail.duckdb",
+      "schema": "main",
+      "object_name": "forecast",
+      "object_kind": "base table",
+      "business_domain": "retail",
+      "recommended_usage": "forecast_reference",
+      "display_name": "Retail Forecast",
+      "description": "Example monthly forecast dataset for product category, region, units, and forecast revenue.",
+      "grain": ["forecast_date", "product_category", "region"],
+      "suitable_for": ["forecast revenue comparison", "category forecast ranking", "regional demand planning"],
+      "not_suitable_for": ["actual revenue reconciliation without orders data"],
+      "row_count": 8,
+      "column_count": 5,
+      "time_fields": ["forecast_date"],
+      "columns": [
+        {"name": "forecast_date", "type": "DATE"},
+        {"name": "product_category", "type": "VARCHAR"},
+        {"name": "region", "type": "VARCHAR"},
+        {"name": "forecast_units", "type": "INTEGER"},
+        {"name": "forecast_revenue", "type": "DOUBLE"}
+      ]
+    }
+  ]
+}

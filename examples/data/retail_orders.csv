@@ -1,0 +1,13 @@
+order_id,order_date,customer_id,region,product_category,quantity,revenue
+O-1001,2026-01-03,C-001,North,Electronics,2,429.90
+O-1002,2026-01-05,C-002,East,Home,1,129.50
+O-1003,2026-01-08,C-003,South,Apparel,3,210.00
+O-1004,2026-01-12,C-004,West,Electronics,1,899.00
+O-1005,2026-02-02,C-005,North,Home,4,312.40
+O-1006,2026-02-08,C-006,East,Apparel,2,84.00
+O-1007,2026-02-18,C-007,South,Electronics,1,520.00
+O-1008,2026-03-01,C-008,West,Home,2,245.20
+O-1009,2026-03-11,C-009,North,Apparel,5,175.00
+O-1010,2026-03-17,C-010,East,Electronics,1,760.00
+O-1011,2026-04-02,C-011,South,Home,3,390.00
+O-1012,2026-04-14,C-012,West,Apparel,2,118.00

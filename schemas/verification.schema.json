@@ -1,0 +1,122 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "dataagent://schemas/verification.json",
+  "title": "Verification Result",
+  "description": "报告验证结果，确保零幻觉",
+  "type": "object",
+  "required": ["job_id", "verified_at", "status", "checks"],
+  "properties": {
+    "job_id": {
+      "type": "string"
+    },
+    "verified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["passed", "failed", "warning"],
+      "description": "验证状态"
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Check"
+      }
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "total_checks": {"type": "integer"},
+        "passed": {"type": "integer"},
+        "failed": {"type": "integer"},
+        "warnings": {"type": "integer"}
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/VerificationError"
+      },
+      "description": "验证失败详情 (仅当 status=failed 时)"
+    }
+  },
+  "definitions": {
+    "Check": {
+      "type": "object",
+      "required": ["check_id", "check_type", "target", "status"],
+      "properties": {
+        "check_id": {
+          "type": "string",
+          "pattern": "^chk_[0-9]{3}$"
+        },
+        "check_type": {
+          "type": "string",
+          "enum": [
+            "value_existence",
+            "ranking_accuracy",
+            "numeric_consistency",
+            "entity_existence",
+            "trend_direction",
+            "percentage_validity"
+          ],
+          "description": "检查类型"
+        },
+        "target": {
+          "type": "string",
+          "description": "被检查的内容 (报告中的声明)"
+        },
+        "finding_id": {
+          "type": "string",
+          "description": "关联的 analysis.json 中的 finding.id"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["passed", "failed", "warning", "skipped"]
+        },
+        "expected": {
+          "description": "预期值"
+        },
+        "actual": {
+          "description": "实际值"
+        },
+        "message": {
+          "type": "string",
+          "description": "检查结果说明"
+        }
+      }
+    },
+    "VerificationError": {
+      "type": "object",
+      "required": ["error_type", "location", "description", "severity"],
+      "properties": {
+        "error_type": {
+          "type": "string",
+          "enum": [
+            "hallucination",
+            "ranking_mismatch",
+            "value_mismatch",
+            "missing_evidence",
+            "calculation_error"
+          ]
+        },
+        "location": {
+          "type": "string",
+          "description": "错误位置 (报告章节或行号)"
+        },
+        "description": {
+          "type": "string",
+          "description": "错误描述"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "major", "minor"]
+        },
+        "suggestion": {
+          "type": "string",
+          "description": "修复建议"
+        }
+      }
+    }
+  }
+}

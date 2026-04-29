@@ -1,0 +1,6 @@
+interface:
+  display_name: "Metadata"
+  short_description: "统一维护数据集、指标和业务元数据"
+  default_prompt: "Use $metadata to initialize and validate a dataset's metadata before analysis."
+policy:
+  allow_implicit_invocation: true

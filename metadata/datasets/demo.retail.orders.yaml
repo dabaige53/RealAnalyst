@@ -1,0 +1,114 @@
+version: "0.1"
+id: demo.retail.orders
+display_name: Retail Orders
+description: Generic order-level retail transaction dataset for public demos.
+source:
+  connector: duckdb
+  object: demo.main.orders
+  dialect: ANSI_SQL
+  duckdb:
+    db_path: examples/data/demo_retail.duckdb
+    schema: main
+    object_name: orders
+business:
+  domain: retail
+  description: Order transactions with order date, customer, region, and revenue fields.
+  grain: [order_id]
+  primary_key: [order_id]
+  time_fields: [order_date]
+  suitable_for:
+    - revenue trend analysis
+    - regional sales comparison
+  not_suitable_for:
+    - inventory availability analysis
+  sample_questions:
+    - What was revenue by month?
+maintenance:
+  managed_by: llm
+  status: draft
+  confidence: 0.86
+  last_updated_by: metadata-init
+  last_updated_at: "2026-04-27"
+  pending_questions:
+    - field: revenue
+      question: Does revenue include tax and shipping?
+      reason: The column name alone does not confirm revenue boundary.
+fields:
+  - name: order_id
+    physical_name: order_id
+    display_name: Order ID
+    role: identifier
+    type: string
+    description: Unique order identifier.
+    business_definition:
+      text: Identifier for one order record.
+      confidence: 0.95
+      source_evidence:
+        - type: column_name
+          value: order_id
+      needs_review: false
+    synonyms: [order number]
+    sensitive_level: public
+  - name: order_date
+    physical_name: order_date
+    display_name: Order Date
+    role: time_dimension
+    type: date
+    description: Date when the order was placed.
+    business_definition:
+      text: Calendar date used for order trend analysis.
+      confidence: 0.9
+      source_evidence:
+        - type: column_name
+          value: order_date
+      needs_review: false
+    synonyms: [purchase date, transaction date]
+    sensitive_level: public
+  - name: region
+    physical_name: region
+    display_name: Region
+    role: dimension
+    type: string
+    description: Sales region attached to the order.
+    business_definition:
+      text: Region used for grouping order performance.
+      confidence: 0.82
+      source_evidence:
+        - type: column_name
+          value: region
+      needs_review: false
+    synonyms: [sales region, territory]
+    sensitive_level: public
+  - name: revenue
+    physical_name: revenue
+    display_name: Revenue
+    role: metric_source
+    type: number
+    description: Monetary revenue value on the order record.
+    business_definition:
+      text: Order revenue amount. Tax and shipping inclusion is not confirmed.
+      confidence: 0.64
+      source_evidence:
+        - type: column_name
+          value: revenue
+      needs_review: true
+    synonyms: [sales, order amount]
+    sensitive_level: public
+metrics:
+  - name: total_revenue
+    expression: SUM(revenue)
+    aggregation: sum
+    unit: USD
+    valid_grains: [order_id, order_date, region]
+    description: Sum of order revenue.
+    business_definition:
+      text: Total order revenue calculated by summing the revenue field.
+      confidence: 0.64
+      source_evidence:
+        - type: metric_expression
+          value: SUM(revenue)
+        - type: source_field
+          value: revenue
+      needs_review: true
+    synonyms: [sales, total sales]
+relationships: []

@@ -1,0 +1,146 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "dataagent://schemas/manifest.json",
+  "title": "Dataset Manifest",
+  "description": "数据集元数据清单，记录数据来源、结构和血缘信息",
+  "type": "object",
+  "required": ["id", "source_type", "created_at", "schema", "row_count", "source_key", "display_name", "view_luid", "api_url", "filters"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^ds_[a-z0-9_]+$",
+      "description": "数据集唯一标识，格式: ds_{描述}",
+      "examples": ["ds_2025_sales", "ds_monthly_revenue"]
+    },
+    "source_key": {
+      "type": "string",
+      "description": "数据源标识键，如 sales.ai_",
+      "examples": ["sales.ai_", "market.1-1", "mixed.sheet0"]
+    },
+    "display_name": {
+      "type": "string",
+      "description": "数据源显示名称",
+      "examples": ["示例销售报表", "市场份额分析"]
+    },
+    "view_luid": {
+      "type": "string",
+      "description": "Tableau 视图 LUID",
+      "examples": ["83a275f4-904f-490c-80ed-9fd07b5c6797"]
+    },
+    "api_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "原始 Tableau API 调用 URL (不含认证信息)",
+      "examples": ["https://tbi.example.com/api/3.19/sites/{site}/views/{view}/data"]
+    },
+    "filters": {
+      "type": "object",
+      "description": "应用的筛选器，格式: {\"字段名\": \"值\"}",
+      "additionalProperties": { "type": "string" },
+      "examples": [{"Region": "East"}]
+    },
+    "source_type": {
+      "type": "string",
+      "enum": ["tableau", "csv", "sql", "api", "simulated"],
+      "description": "数据来源类型"
+    },
+    "tableau": {
+      "type": "object",
+      "description": "Tableau 页面元信息",
+      "properties": {
+        "workbook_name": {
+          "type": "string",
+          "description": "Tableau 工作簿原始名称"
+        },
+        "view_name": {
+          "type": "string",
+          "description": "Tableau 视图原始名称"
+        },
+        "content_url": {
+          "type": "string",
+          "description": "Tableau content_url"
+        },
+        "page_url": {
+          "type": "string",
+          "description": "Tableau 页面地址"
+        }
+      }
+    },
+    "source_ref": {
+      "type": "string",
+      "description": "数据源引用 (已废弃，使用 view_luid 和 api_url)",
+      "examples": [
+        "https://tableau.example.com/#/views/Sales/Overview",
+        "SELECT * FROM orders WHERE order_year = 2025"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "数据集创建时间 (ISO 8601)"
+    },
+    "row_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "数据行数"
+    },
+    "schema": {
+      "type": "object",
+      "required": ["columns"],
+      "properties": {
+        "columns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "type"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "列名"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["string", "integer", "float", "date", "datetime", "boolean"],
+                "description": "数据类型"
+              },
+              "description": {
+                "type": "string",
+                "description": "列含义说明"
+              },
+              "semantic_type": {
+                "type": "string",
+                "enum": ["route", "airport_code", "city", "currency", "percentage", "count", "date_month"],
+                "description": "语义类型 (可选)"
+              }
+            }
+          }
+        },
+        "primary_key": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "主键列 (可选)"
+        }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "description": "数据血缘信息",
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "原始数据源标识"
+        },
+        "transforms": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "数据变换操作列表"
+        },
+        "parent_datasets": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "父数据集ID列表 (融合场景)"
+        }
+      }
+    }
+  }
+}

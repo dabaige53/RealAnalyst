@@ -1,0 +1,42 @@
+{
+  "name": "realanalyst",
+  "version": "0.2.0",
+  "description": "Metadata-first autonomous data analysis skill suite for Codex with unified Tableau/DuckDB export.",
+  "author": {
+    "name": "dabaige53",
+    "email": "dabaige53@users.noreply.github.com",
+    "url": "https://github.com/dabaige53"
+  },
+  "homepage": "https://github.com/dabaige53/RealAnalyst",
+  "repository": "https://github.com/dabaige53/RealAnalyst",
+  "license": "MIT",
+  "keywords": [
+    "data-analysis",
+    "metadata",
+    "tableau",
+    "duckdb",
+    "reporting"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "RealAnalyst",
+    "shortDescription": "Metadata-first autonomous data analysis skills.",
+    "longDescription": "RealAnalyst provides Codex skills for dataset registration, metadata maintenance, semantic lookup, unified Tableau/DuckDB controlled data acquisition, profiling, report writing, verification, and OSI export.",
+    "developerName": "dabaige53",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/dabaige53/RealAnalyst",
+    "privacyPolicyURL": "https://github.com/dabaige53/RealAnalyst/blob/main/docs/PRIVACY.md",
+    "termsOfServiceURL": "https://github.com/dabaige53/RealAnalyst/blob/main/docs/TERMS.md",
+    "defaultPrompt": [
+      "从 getting-started 开始初始化 RealAnalyst 项目，并告诉我第一步需要准备哪些信息。",
+      "注册一个数据集并维护字段、指标和业务口径。",
+      "根据现有元数据检索指标并生成分析计划。",
+      "用 data-export 从 Tableau 或 DuckDB 产出可复核分析报告所需 CSV。"
+    ],
+    "brandColor": "#0F766E"
+  }
+}

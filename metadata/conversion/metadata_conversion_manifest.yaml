@@ -1,0 +1,35 @@
+version: "0.1"
+source_of_truth: metadata/datasets/*.yaml
+current_derivatives:
+  - metadata/index/*.jsonl
+  - metadata context JSON output
+future_targets:
+  - runtime/tableau/registry.db
+  - metadata/osi/*.osi.yaml
+  - skills/analysis-run/SKILL.md
+phase_boundaries:
+  phase_3: inventory_and_conversion_design_only
+  phase_4: runtime_registry_osi_analysis_integration
+conversion_steps:
+  - name: validate_metadata_source
+    input: metadata/datasets/*.yaml
+    output: validation JSON
+    command: metadata validate
+  - name: build_lookup_index
+    input: metadata/datasets/*.yaml
+    output: metadata/index/*.jsonl
+    command: metadata index
+  - name: resolve_analysis_context
+    input: metadata/index/*.jsonl
+    output: metadata context JSON output
+    command: metadata search + metadata context
+  - name: compile_runtime_registry
+    input: metadata/datasets/*.yaml
+    output: runtime/tableau/registry.db
+    command: not exposed in current phase
+    phase: 4
+  - name: export_osi_model
+    input: metadata/datasets/*.yaml
+    output: metadata/osi/*.osi.yaml
+    command: metadata export-osi
+    phase: 4

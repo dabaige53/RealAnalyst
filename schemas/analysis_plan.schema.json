@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "http://dataagent.ai/schemas/analysis_plan.json",
+  "title": "DataAgent Analysis Plan",
+  "description": "定义 LLM 生成的分析计划结构，用于驱动 Plan Executor 执行业务分析",
+  "type": "object",
+  "required": ["version", "job_id", "dataset", "operators"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Schema 版本号"
+    },
+    "job_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "任务标识符"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "计划创建时间 (ISO 8601)"
+    },
+    "dataset": {
+      "type": "object",
+      "required": ["data_file"],
+      "additionalProperties": false,
+      "properties": {
+        "data_file": {
+          "type": "string",
+          "minLength": 1,
+          "description": "数据文件路径，如 temp/{job_id}/data.csv"
+        },
+        "profile_file": {
+          "type": "string",
+          "description": "数据画像文件路径，如 temp/{job_id}/profile.json"
+        },
+        "manifest_file": {
+          "type": "string",
+          "description": "数据元信息文件路径，如 temp/{job_id}/manifest.json"
+        }
+      }
+    },
+    "column_bindings": {
+      "type": "object",
+      "description": "从 profile 推断的列绑定",
+      "additionalProperties": false,
+      "properties": {
+        "date_col": {
+          "type": ["string", "null"],
+          "description": "时间列名"
+        },
+        "dimensions": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "维度列列表（分类变量）"
+        },
+        "metrics": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "指标列列表（数值变量）"
+        }
+      }
+    },
+    "operators": {
+      "type": "array",
+      "minItems": 1,
+      "description": "要执行的算子列表",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "params"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^op_[0-9]{3}$",
+            "description": "算子唯一标识，如 op_001"
+          },
+          "name": {
+            "type": "string",
+            "enum": [
+              "ranking",
+              "trend",
+              "period_comparison",
+              "composition",
+              "contribution_delta",
+              "segmentation_pivot",
+              "correlation_screen",
+              "anomaly_simple"
+            ],
+            "description": "算子名称"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "是否启用此算子"
+          },
+          "params": {
+            "type": "object",
+            "description": "算子参数，具体结构取决于算子类型",
+            "additionalProperties": true
+          },
+          "finding_type": {
+            "type": "string",
+            "enum": [
+              "summary",
+              "ranking",
+              "trend",
+              "seasonality",
+              "comparison",
+              "composition",
+              "contribution",
+              "correlation",
+              "anomaly",
+              "segmentation"
+            ],
+            "description": "生成的 finding 类型"
+          },
+          "chart_hint": {
+            "type": ["object", "null"],
+            "description": "图表建议",
+            "additionalProperties": false,
+            "properties": {
+              "chart_type": {
+                "type": "string",
+                "enum": ["line", "bar", "barh", "heatmap", "pie"]
+              },
+              "title": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "string",
+      "description": "可选的人类可读说明，禁止包含计算结果数字"
+    }
+  }
+}

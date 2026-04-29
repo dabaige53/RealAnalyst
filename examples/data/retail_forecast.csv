@@ -1,0 +1,9 @@
+forecast_date,product_category,region,forecast_units,forecast_revenue
+2026-05-01,Electronics,North,40,21000
+2026-05-01,Electronics,East,35,18500
+2026-05-01,Home,South,55,9800
+2026-05-01,Apparel,West,70,8400
+2026-06-01,Electronics,North,44,23100
+2026-06-01,Electronics,East,39,20500
+2026-06-01,Home,South,58,10400
+2026-06-01,Apparel,West,75,9000

@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "http://dataagent.ai/schemas/normalized_request.json",
+  "title": "DataAgent Normalized Request",
+  "description": "定义系统对用户需求的结构化理解结果，用于驱动分析规划与报告模板锁定。",
+  "type": "object",
+  "required": [
+    "request_type",
+    "business_goal",
+    "audience",
+    "time_scope",
+    "expected_detail_level"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "request_type": {
+      "type": "string",
+      "enum": [
+        "monitoring",
+        "reporting",
+        "diagnosis",
+        "attribution",
+        "benchmark",
+        "ranking",
+        "exploration",
+        "special_topic"
+      ]
+    },
+    "business_goal": {
+      "type": "string",
+      "minLength": 1
+    },
+    "audience": {
+      "type": "string",
+      "enum": [
+        "management",
+        "business_owner",
+        "analyst",
+        "mixed",
+        "unknown"
+      ]
+    },
+    "time_scope": {
+      "type": "string",
+      "minLength": 1
+    },
+    "entity_scope": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "metrics_focus": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "comparison_requirement": {
+      "type": "string",
+      "enum": [
+        "none",
+        "yoy",
+        "mom",
+        "target",
+        "benchmark",
+        "mixed"
+      ],
+      "default": "none"
+    },
+    "benchmark_requirement": {
+      "type": "boolean",
+      "default": false
+    },
+    "diagnosis_requirement": {
+      "type": "boolean",
+      "default": false
+    },
+    "expected_detail_level": {
+      "type": "string",
+      "enum": [
+        "executive",
+        "standard",
+        "detailed"
+      ]
+    },
+    "output_preference": {
+      "type": "string",
+      "enum": [
+        "continuous_reading",
+        "executive_summary",
+        "diagnostic_report",
+        "comparative_report"
+      ],
+      "default": "continuous_reading"
+    },
+    "missing_information": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "confidence": {
+      "type": "string",
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "default": "medium"
+    },
+    "reasoning_summary": {
+      "type": "string"
+    }
+  }
+}

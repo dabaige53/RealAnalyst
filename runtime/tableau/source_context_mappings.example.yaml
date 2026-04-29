@@ -1,0 +1,11 @@
+version: "0.1"
+sources:
+  tableau.example.dashboard:
+    metrics:
+      Revenue:
+        metric_id: total_revenue
+        definition_override: Revenue in the current Tableau filter scope.
+    dimensions:
+      Region:
+        dimension_id: region
+        definition_override: Region in the current Tableau view.
