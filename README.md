@@ -18,6 +18,25 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 /skill getting-started
 ```
 
+如果你想让 LLM / Codex 代为安装，可以直接把下面这段完整指令发给它：
+
+```text
+请在当前项目内安装 RealAnalyst Codex 插件，只在当前项目启用，不要全局启用。直接执行：
+
+curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 -
+
+安装完成后检查当前项目的 .agents/plugins/marketplace.json 是否已包含 realanalyst，并告诉我是否成功。
+```
+
+预期成功输出类似：
+
+```text
+Installed RealAnalyst for Codex.
+Enabled marketplace: /your/project/.agents/plugins/marketplace.json
+Restart Codex, then run:
+/skill getting-started
+```
+
 更多安装说明见 `INSTALL.md`。
 
 ---
