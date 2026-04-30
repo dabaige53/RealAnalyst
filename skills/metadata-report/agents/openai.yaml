@@ -1,0 +1,6 @@
+interface:
+  display_name: "Metadata Report"
+  short_description: "生成可复核的元数据 Markdown 报告"
+  default_prompt: "Use $metadata-report to generate a Markdown report that explains dataset metadata, fields, metrics, filters, and review gaps."
+policy:
+  allow_implicit_invocation: true
