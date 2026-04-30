@@ -153,6 +153,7 @@ DuckDB 报告至少包含：
 7. 报告是给业务和分析人员复核的，少写系统实现细节，多写口径、边界和使用方式。
 8. Tableau 报告必须分清 `--vf` 筛选器和 `--vp` 参数；DuckDB 报告必须分清 `sql_where` 筛选器和字段/指标。
 9. DuckDB YAML 模式下，`registry=not_written` 是正常状态；报告必须说明“未反写 registry，不把 registry.db 当业务口径真源”。
+10. 不展示旧 YAML 的 `schema_note`，也不要生成“Schema 说明”列；字段存在性、DuckDB 类型、Tableau 字段名只能作为结构化类型或证据来源，不作为业务定义。
 
 ## 质量门禁
 
@@ -171,6 +172,7 @@ DuckDB 报告至少包含：
 | 只写“已同步成功” | 列清同步对象、字段、指标、筛选器、参数和 review 问题 |
 | 用字段名猜业务定义 | 回到 dictionaries / mappings / sources 找证据；找不到就标记待确认 |
 | 把 metadata report 写成分析报告 | 只说明元数据能力和边界，不输出业务经营结论 |
+| 把 `schema_note` 当业务说明展示 | 报告只展示 `business_definition.text`、定义来源、证据和 review 状态 |
 | 忽略筛选器枚举值 | 可列举值、默认值、参数用法必须单独写 |
 | 遇到 validate 失败仍继续写确定口径 | 报告降级为"元数据待修复报告"，失败项进入待确认问题 |
 

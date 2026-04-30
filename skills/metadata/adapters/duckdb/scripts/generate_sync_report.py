@@ -81,10 +81,6 @@ def _definition_source(item: dict[str, Any]) -> str:
     return str(definition.get("source_type") or item.get("definition_source") or "未配置")
 
 
-def _schema_note(item: dict[str, Any]) -> str:
-    return str(item.get("schema_note") or item.get("description") or "未配置")
-
-
 def _review_text(item: dict[str, Any]) -> str:
     definition = _definition(item)
     if definition.get("needs_review") is True:
@@ -114,7 +110,7 @@ def _evidence_sources(item: dict[str, Any]) -> list[str]:
 
 def _evidence_cell(item: dict[str, Any]) -> str:
     sources = _evidence_sources(item)
-    return "<br>".join(sources) if sources else "未配置"
+    return _cell("；".join(sources)) if sources else "未配置"
 
 
 def _source_type(dataset: dict[str, Any]) -> str:
@@ -459,8 +455,8 @@ def render_yaml_metadata_report(
     lines.append("## 5. 字段明细")
     lines.append("")
     if fields:
-        lines.append("| 展示名 | 源字段 | DuckDB 类型 | metadata 类型 | 角色 | 业务定义 | 定义来源 | Schema 说明 | 证据 | Review |")
-        lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+        lines.append("| 展示名 | 源字段 | DuckDB 类型 | metadata 类型 | 角色 | 业务定义 | 定义来源 | 证据 | Review |")
+        lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
         for field in fields:
             source_field = field.get("source_field") or field.get("physical_name") or field.get("name")
             lines.append(
@@ -474,7 +470,6 @@ def render_yaml_metadata_report(
                         _code(field.get("role")),
                         _cell(_definition_text(field)),
                         _code(_definition_source(field)),
-                        _cell(_schema_note(field)),
                         _evidence_cell(field),
                         _cell(_review_text(field)),
                     ]
@@ -488,8 +483,8 @@ def render_yaml_metadata_report(
     lines.append("## 6. 指标明细")
     lines.append("")
     if metrics:
-        lines.append("| 指标 | 源字段 | 表达式 | 聚合方式 | 单位 | 业务定义 | 定义来源 | Schema 说明 | 证据 | Review |")
-        lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+        lines.append("| 指标 | 源字段 | 表达式 | 聚合方式 | 单位 | 业务定义 | 定义来源 | 证据 | Review |")
+        lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
         for metric in metrics:
             lines.append(
                 "| "
@@ -502,7 +497,6 @@ def render_yaml_metadata_report(
                         _code(metric.get("unit")),
                         _cell(_definition_text(metric)),
                         _code(_definition_source(metric)),
-                        _cell(_schema_note(metric)),
                         _evidence_cell(metric),
                         _cell(_review_text(metric)),
                     ]

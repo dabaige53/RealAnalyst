@@ -53,6 +53,30 @@ def read_install_config(plugin_dir: Path) -> dict:
     return payload if isinstance(payload, dict) else {}
 
 
+def read_plugin_version(plugin_dir: Path) -> str:
+    path = plugin_dir / ".codex-plugin" / "plugin.json"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return "unknown"
+    version = payload.get("version") if isinstance(payload, dict) else None
+    return str(version or "unknown")
+
+
+def read_git_revision(plugin_dir: Path) -> str:
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=plugin_dir,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown"
+    return completed.stdout.strip() or "unknown"
+
+
 def resolve_version(plugin_dir: Path, requested: str | None) -> str:
     if requested is not None:
         return normalize_version(requested)
@@ -251,6 +275,8 @@ def main() -> int:
 
     print("\nInstalled RealAnalyst for Codex.")
     print(f"Version strategy: {version}")
+    print(f"Installed plugin version: {read_plugin_version(plugin_dir)}")
+    print(f"Installed plugin commit: {read_git_revision(plugin_dir)}")
     print(f"Enabled marketplace: {marketplace}")
     print(f"Plugin env file: {env_path}")
     print(f"Online LLM guide: {GUIDE_URL}")

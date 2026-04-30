@@ -28,6 +28,8 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 
 安装器默认会更新项目内 `runtime/` 支持文件，但不会复制 `registry.db`、缓存、本地生成数据，也不会创建 `metadata/`、`jobs/`、`logs/` 或业务工作区内容。
 
+安装完成后必须读取 installer 输出里的 `Installed plugin version` 和 `Installed plugin commit`。如果用户明确要求某个版本（例如 `0.3.1`），但实际版本或 commit 不匹配，先停止并说明版本未对齐，不要继续做后续适配检查。
+
 先读取以下 RealAnalyst 架构文档建立上下文，不要跳过。优先读取线上 raw URL；如果网络不可用，再读取插件仓库 `~/plugins/realanalyst/` 下的同名文件。不要去目标业务项目根目录查找这些仓库文档。
 
 | 文档 | 了解什么 |
@@ -215,6 +217,8 @@ TABLEAU_PAT_SECRET=
 | artifact-fusion | 检查 `skills/artifact-fusion/SKILL.md` 存在 | skill 已安装 |
 
 如有命令报错，记录错误信息，判断是缺失依赖、缺失数据还是代码问题，给出修复建议。
+
+如果生成 metadata report 或 review gap report，额外确认报告中没有旧列名 `Schema 说明`，也没有把 `schema_note` 中“字段存在于 DuckDB/Tableau 对象...”这类技术旁注展示为业务说明。报告应展示 `business_definition.text`、定义来源、证据和 review 状态。
 
 ✅ 汇报：哪些能力通过、哪些失败、具体错误。
 ➡️ 下一步：第 5 步文档层。

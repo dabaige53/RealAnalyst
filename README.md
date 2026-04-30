@@ -100,6 +100,8 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 
 ```text
 Installed RealAnalyst for Codex.
+Installed plugin version: 0.3.1
+Installed plugin commit: <git-commit>
 Enabled marketplace: /your/project/.agents/plugins/marketplace.json
 Plugin env file: /Users/you/plugins/realanalyst/.env
 Online LLM guide: https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/llm-next-steps.md

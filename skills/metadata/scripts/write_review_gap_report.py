@@ -35,18 +35,18 @@ def write_report(workspace: Path, dataset_ids: list[str], output: Path) -> Path:
                         "字段" if section == "fields" else "指标",
                         _text(item.get("display_name") or item.get("name")),
                         _text(item.get("source_field") or item.get("physical_name")),
-                        _text(item.get("schema_note") or item.get("description")),
+                        _text(definition.get("text") or "业务定义待确认"),
                     )
                 )
         if not rows:
             lines.append("- 无待确认字段或指标。")
             lines.append("")
             continue
-        lines.append("| 类型 | 展示名 | 源字段 | Schema 说明 |")
+        lines.append("| 类型 | 展示名 | 源字段 | 当前业务定义 |")
         lines.append("| --- | --- | --- | --- |")
-        for kind, display_name, source_field, schema_note in rows:
-            escaped_schema_note = schema_note.replace("|", r"\|")
-            lines.append(f"| {kind} | {display_name} | `{source_field}` | {escaped_schema_note} |")
+        for kind, display_name, source_field, definition_text in rows:
+            escaped_definition = definition_text.replace("|", r"\|")
+            lines.append(f"| {kind} | {display_name} | `{source_field}` | {escaped_definition} |")
         lines.append("")
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text("\n".join(lines), encoding="utf-8")
