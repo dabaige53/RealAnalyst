@@ -165,7 +165,22 @@ flowchart TD
 | --- | --- | --- | --- |
 | `RA:artifact-fusion` | 数据融合：source group 内 union / join / passthrough | 多个 dataset pack | 合并 CSV + lineage manifest |
 | `RA:reference-lookup` | 配置查询：模板、指标、术语、框架、维度 | 关键词 | JSON 查询结果 |
-| `RA:metadata-report` | 元数据报告：同步报告、注册说明、review gap | dataset YAML、sync 产物 | Markdown 元数据报告 |
+| `RA:metadata-report` | 元数据报告：metadata report、注册说明、review gap | dataset YAML、discovery/sync 素材 | Markdown 元数据报告 |
+
+---
+
+## 产物归属
+
+| 产物 | Owner skill |
+| --- | --- |
+| metadata YAML / index / context / registry sync | `RA:metadata` |
+| metadata Markdown report | `RA:metadata-report` |
+| CSV / export_summary / acquisition_log | `RA:data-export` |
+| `profile/manifest.json` + `profile/profile.json` | `RA:data-profile` |
+| `analysis.json` / `analysis_journal` | `RA:analysis-run` |
+| 业务报告 Markdown | `RA:report` |
+| `verification.json` | `RA:report-verify` |
+| refine reference pack | `RA:metadata-refine` |
 
 ---
 

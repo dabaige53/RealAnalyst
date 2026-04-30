@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import argparse
 import csv
 import shutil
 import sys
@@ -228,12 +227,25 @@ def _definition(item: dict[str, Any]) -> dict[str, Any]:
     return _safe_mapping(item.get("business_definition"))
 
 
-def _definition_text(item: dict[str, Any]) -> str:
+def _is_pending_definition(item: dict[str, Any]) -> bool:
     definition = _definition(item)
-    return str(definition.get("text") or item.get("description") or "未配置")
+    return (
+        definition.get("needs_review") is True
+        or item.get("review_required") is True
+        or definition.get("source_type") == "pending"
+    )
+
+
+def _definition_text(item: dict[str, Any]) -> str:
+    if _is_pending_definition(item):
+        return "业务定义待确认"
+    definition = _definition(item)
+    return str(definition.get("text") or item.get("description") or "业务定义待确认")
 
 
 def _definition_source(item: dict[str, Any]) -> str:
+    if _is_pending_definition(item):
+        return "pending"
     definition = _definition(item)
     return str(definition.get("source_type") or item.get("definition_source") or "未配置")
 
@@ -306,6 +318,16 @@ def _metric_lookup_by_source(metrics: list[dict[str, Any]]) -> dict[str, dict[st
 def _metric_for_field(field: dict[str, Any], metric_lookup: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
     source_name = _field_source_name(field)
     return metric_lookup.get(source_name) if source_name else None
+
+
+def _mapping_note(row: dict[str, Any]) -> str:
+    note = str(row.get("definition_override") or row.get("notes") or "").strip()
+    if not note:
+        return "未配置"
+    pending_markers = ["待确认", "需确认", "具体业务口径", "作为指标候选"]
+    if any(marker in note for marker in pending_markers):
+        return "业务定义待确认"
+    return note
 
 
 def _source_type(dataset: dict[str, Any]) -> str:
@@ -451,7 +473,7 @@ def render_sync_report(
     lines.append(f"- 同步对象：`{entry.get('source_id', '')}`")
     lines.append(f"- 显示名称：`{entry.get('display_name', '')}`")
     lines.append(f"- 默认报告目录：`{report_dir}`")
-    lines.append("- 本次执行链路：" + " -> ".join(f"`{x}`" for x in ["register", "sync_registry", "validate", "generate_sync_report"]))
+    lines.append("- 本次执行链路：" + " -> ".join(f"`{x}`" for x in ["register", "sync_registry", "validate", "generate_report"]))
     lines.append(f"- 同步模式：`{sync_mode}`")
     lines.append(
         "- 步骤状态："
@@ -594,7 +616,7 @@ def render_yaml_metadata_report(
     lines.append(f"- 同步对象：`{dataset_id}`")
     lines.append(f"- 显示名称：`{_cell(dataset.get('display_name'))}`")
     lines.append(f"- 默认报告目录：`{report_dir}`")
-    lines.append("- 本次执行链路：`metadata_yaml` -> `validate` -> `generate_sync_report`")
+    lines.append("- 本次执行链路：`metadata_yaml` -> `validate` -> `generate_report`")
     lines.append("- 同步模式：`metadata-yaml`")
     lines.append(
         "- 步骤状态："
@@ -746,10 +768,9 @@ def render_yaml_metadata_report(
         lines.append("| 源字段 | 类型 | 标准 ID | 字段 ID/覆盖 | 说明 |")
         lines.append("| --- | --- | --- | --- | --- |")
         for row in mapping_rows:
-            note = row.get("definition_override") or row.get("notes") or "未配置"
-            lines.append(f"| {_code(row.get('view_field'))} | {_code(row.get('type'))} | {_code(row.get('standard_id'))} | {_code(row.get('field_id_or_override'))} | {_cell(note)} |")
+            lines.append(f"| {_code(row.get('view_field'))} | {_code(row.get('type'))} | {_code(row.get('standard_id'))} | {_code(row.get('field_id_or_override'))} | {_cell(_mapping_note(row))} |")
     else:
-        lines.append("- 未配置 mapping 文件。")
+        lines.append("- 待补充映射。")
     lines.append("")
     lines.append("### 8.2 待确认问题")
     lines.append("")
@@ -775,7 +796,7 @@ def render_yaml_metadata_report(
         lines.append("- `metadata validate`：失败；本报告仅可作为待修复清单。")
     else:
         lines.append("- `metadata validate`：未执行。")
-    lines.append("- 本报告基于 metadata YAML、mapping YAML 和 source evidence，不把 `registry.db` 当作业务口径真源。")
+    lines.append("- 本报告基于 metadata YAML、mapping YAML 和 source evidence，不把 `registry.db` 当作业务口径来源。")
     lines.append("")
 
     lines.append("## 10. 本条数据源的结论")
@@ -843,94 +864,11 @@ def write_yaml_report(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate DuckDB metadata Markdown reports")
-    parser.add_argument("--workspace", help="Workspace root. Defaults to discovered RealAnalyst root.")
-    parser.add_argument("--key", help="Generate registry report for a specific runtime entry key")
-    parser.add_argument("--all", action="store_true", help="Generate registry reports for all active DuckDB entries")
-    parser.add_argument("--dataset-id", help="Generate YAML metadata report for one dataset id")
-    parser.add_argument("--source", dest="dataset_id_alias", help="Alias for --dataset-id, kept for connector docs")
-    parser.add_argument("--all-yaml", action="store_true", help="Generate YAML metadata reports for all DuckDB datasets")
-    parser.add_argument("--report-dir", help="Output directory for Markdown reports")
-    parser.add_argument("--sync-mode", choices=["live", "dry-run", "metadata-yaml"], default="live")
-    parser.add_argument("--register-step-status", choices=["success", "failed", "skipped"], default="success")
-    parser.add_argument("--registry-step-status", choices=["success", "failed", "skipped", "not_written"], default="success")
-    parser.add_argument("--validate-step-status", choices=["success", "failed", "skipped"], default="success")
-    args = parser.parse_args()
-
-    workspace = Path(args.workspace).expanduser().resolve() if args.workspace else WORKSPACE_DIR
-    report_dir = Path(args.report_dir).expanduser().resolve() if args.report_dir else default_report_dir(workspace)
-    dataset_id = args.dataset_id or args.dataset_id_alias
-    use_yaml = bool(dataset_id or args.all_yaml)
-
-    if use_yaml and (args.key or args.all):
-        print("[Error] Use either registry mode (--key/--all) or YAML mode (--dataset-id/--all-yaml), not both")
-        raise SystemExit(2)
-    if not use_yaml and not args.key and not args.all:
-        print("[Error] Specify --dataset-id, --source, --all-yaml, --key, or --all")
-        raise SystemExit(2)
-
-    generated_at = datetime.now().astimezone()
-    step_results = {
-        "register": args.register_step_status,
-        "registry": "not_written" if use_yaml and args.registry_step_status == "success" else args.registry_step_status,
-        "validate": args.validate_step_status,
-    }
-
-    if use_yaml:
-        try:
-            datasets = _load_yaml_datasets(workspace, dataset_id=dataset_id, all_yaml=args.all_yaml)
-        except MetadataError as exc:
-            print(f"[Error] {exc}")
-            raise SystemExit(2) from exc
-        if not datasets:
-            print("[WARN] No DuckDB dataset YAML matched")
-            return
-        validation_errors = _validate_yaml_datasets(workspace, datasets)
-        if validation_errors:
-            print("[Error] metadata validate failed:")
-            for error in validation_errors:
-                print(f"- {error}")
-            raise SystemExit(1)
-        step_results["validate"] = "success"
-        for dataset in datasets:
-            report_path = write_yaml_report(
-                workspace=workspace,
-                dataset=dataset,
-                report_dir=report_dir,
-                generated_at=generated_at,
-                step_results=step_results,
-            )
-            print(f"[OK] report -> {report_path}")
-        return
-
-    targets = _load_targets(key=args.key, all_entries=args.all)
-    if not targets:
-        print("[WARN] No registry entries matched")
-        return
-
-    for entry in targets:
-        key = str(entry.get("key") or "")
-        yaml_dataset = _load_yaml_dataset_if_exists(workspace, str(entry.get("source_id") or key))
-        if yaml_dataset is not None:
-            report_path = write_yaml_report(
-                workspace=workspace,
-                dataset=yaml_dataset,
-                report_dir=report_dir,
-                generated_at=generated_at,
-                step_results=step_results,
-            )
-            print(f"[OK] report -> {report_path}")
-            continue
-        spec = load_spec_by_entry_key(key) or {}
-        report_path = write_report(
-            entry=entry,
-            spec=spec,
-            report_dir=report_dir,
-            generated_at=generated_at,
-            sync_mode=args.sync_mode,
-            step_results=step_results,
-        )
-        print(f"[OK] report -> {report_path}")
+    print(
+        "[Error] duckdb_report.py is an internal renderer. "
+        "Use skills/metadata-report/scripts/generate_report.py --connector duckdb ..."
+    )
+    raise SystemExit(2)
 
 
 if __name__ == "__main__":

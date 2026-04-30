@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.10 - 2026-04-30
+
+- Tightened skill ownership boundaries across metadata, metadata-report, data-export, data-profile, analysis-run, report, and report-verify.
+- Made `skills/metadata-report/scripts/generate_report.py` the only public metadata report CLI; DuckDB and Tableau report modules are now internal renderers.
+- Updated artifact ownership docs so `runtime/registry.db` is execution-layer source registry, not a business semantic source.
+- Clarified Tableau export validation files under `profile/*_{tag}.json` are not official `RA:data-profile` outputs.
+- Standardized DuckDB and Tableau pending-definition report text and report filenames around metadata report semantics.
+
 ## 0.3.9 - 2026-04-30
 
 - Split metadata synchronization from metadata report generation: connector adapters no longer own Markdown report output.

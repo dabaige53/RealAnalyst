@@ -61,10 +61,10 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 - --version latest
 ```
 
-如果你希望项目稳定在某个发布版，指定版本号即可。`0.3.9` 和 `v0.3.9` 都可以：
+如果你希望项目稳定在某个发布版，指定版本号即可。`0.3.10` 和 `v0.3.10` 都可以：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 - --version 0.3.9
+curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 - --version 0.3.10
 ```
 
 以后重新运行安装器且不传 `--version` 时，会优先沿用上次保存的版本策略。

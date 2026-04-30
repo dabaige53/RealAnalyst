@@ -11,8 +11,10 @@ python3 {baseDir}/skills/data-export/scripts/tableau/export_source.py --source-i
 
 - `data/交叉_{source_key}.csv`
 - `export_summary.json`
-- `profile/manifest_{tag}.json`
-- `profile/assertions_{tag}.json`
+- `profile/manifest_{tag}.json`（export validation artifact，不是 `RA:data-profile` 的正式 `profile/manifest.json`）
+- `profile/assertions_{tag}.json`（export validation artifact，不是 `RA:data-profile` 的正式 `profile/profile.json`）
+
+正式画像产物只由 `RA:data-profile` 生成：`profile/manifest.json` 和 `profile/profile.json`。上述 `{tag}` 文件保留为 Tableau 导出阶段的兼容校验材料，后续可迁移到 validation/export 目录。
 
 ## Domain 模式
 

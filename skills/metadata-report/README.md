@@ -7,7 +7,7 @@
 ## 什么时候用？
 
 - 需要生成、补齐或解释 metadata Markdown 报告。
-- 需要说明 Tableau / DuckDB sync report 中同步了什么、哪些字段进入 metadata、哪些仍待确认。
+- 需要说明 Tableau / DuckDB metadata report 中同步了什么、哪些字段进入 metadata、哪些仍待确认。
 - 需要做 metadata inventory、注册结果说明、字段口径审阅清单或 review gap 报告。
 
 **不要用于**：
@@ -27,7 +27,7 @@
 | `metadata/mappings/*.yaml` | 源字段到标准语义的映射 |
 | `metadata/dictionaries/*.yaml` | 公共指标、维度、术语定义 |
 | `metadata/sources/` | 原始证据、用户文档、connector discovery 归档 |
-| connector sync 脚本输出 | Tableau / DuckDB 同步明细 |
+| connector discovery/sync 素材 | Tableau / DuckDB 字段、筛选器、参数或 catalog 发现结果 |
 
 ## 主要输出
 

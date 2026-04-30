@@ -183,7 +183,7 @@ class MetadataProductFixTests(unittest.TestCase):
         self.assertIn("Controlled export", proc.stdout)
 
     def test_duckdb_metadata_report_uses_metric_definition_for_metric_source_field(self) -> None:
-        module = load_script(DUCKDB_REPORTER, "generate_sync_report_for_test")
+        module = load_script(DUCKDB_REPORTER, "duckdb_report_for_test")
 
         dataset = {
             "id": "test.duckdb.issue1",
@@ -217,7 +217,16 @@ class MetadataProductFixTests(unittest.TestCase):
 
         report = module.render_yaml_metadata_report(
             dataset=dataset,
-            mapping=None,
+            mapping={
+                "mappings": [
+                    {
+                        "view_field": "cnf",
+                        "type": "metric",
+                        "standard_id": "cnf",
+                        "notes": "Cnf 在该数据源中作为指标候选字段使用；具体业务口径需确认。",
+                    }
+                ]
+            },
             generated_at=datetime(2026, 4, 30),
             report_dir=Path("/tmp/ra-test-reports"),
             step_results={"validate": "success"},
@@ -228,8 +237,55 @@ class MetadataProductFixTests(unittest.TestCase):
         self.assertNotIn("Field pending definition", report)
         self.assertIn("- 无待确认字段或指标。", report)
 
+    def test_duckdb_metadata_report_pending_definition_matches_tableau_default(self) -> None:
+        module = load_script(DUCKDB_REPORTER, "duckdb_report_pending_default_test")
+
+        dataset = {
+            "id": "test.duckdb.pending",
+            "display_name": "Pending Dataset",
+            "source": {"connector": "duckdb"},
+            "fields": [
+                {
+                    "name": "cnf",
+                    "display_name": "Cnf",
+                    "role": "metric_source",
+                    "type": "number",
+                    "description": "Cnf 在该数据源中作为指标候选字段使用；具体业务口径需确认。",
+                    "business_definition": {
+                        "text": "Cnf 在该数据源中作为指标候选字段使用；具体业务口径需确认。",
+                        "source_type": "industry_draft",
+                        "confidence": 0.65,
+                        "needs_review": True,
+                    },
+                }
+            ],
+            "metrics": [],
+        }
+
+        report = module.render_yaml_metadata_report(
+            dataset=dataset,
+            mapping=None,
+            generated_at=datetime(2026, 4, 30),
+            report_dir=Path("/tmp/ra-test-reports"),
+            step_results={"validate": "success"},
+        )
+
+        self.assertIn("业务定义待确认", report)
+        self.assertIn("`pending`", report)
+        self.assertIn("待确认（置信度 0.65）", report)
+        self.assertNotIn("在该数据源中作为指标候选字段使用", report)
+
+        no_mapping_report = module.render_yaml_metadata_report(
+            dataset=dataset,
+            mapping=None,
+            generated_at=datetime(2026, 4, 30),
+            report_dir=Path("/tmp/ra-test-reports"),
+            step_results={"validate": "success"},
+        )
+        self.assertIn("- 待补充映射。", no_mapping_report)
+
     def test_duckdb_metadata_report_collapses_datetime_samples_to_regex(self) -> None:
-        module = load_script(DUCKDB_REPORTER, "generate_sync_report_pattern_test")
+        module = load_script(DUCKDB_REPORTER, "duckdb_report_pattern_test")
 
         formatted = module._format_sample_values_with_pattern(
             ["2026-04-15 00:00:00", "2026-04-16 00:00:00", "2026-04-17 00:00:00"]
@@ -395,6 +451,7 @@ class MetadataProductFixTests(unittest.TestCase):
         self.assertIn("## 10. 校验结果", report)
         self.assertIn("Tableau 正式 CSV 导出：未执行", report)
         self.assertNotIn("人数指标，需确认去重口径。", report)
+        self.assertTrue(module.build_report_filename("tableau.test.view", generated_at=datetime(2026, 4, 30)).endswith("_metadata_report.md"))
 
     def test_metadata_report_unified_cli_generates_duckdb_yaml_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -420,6 +477,14 @@ class MetadataProductFixTests(unittest.TestCase):
             content = reports[0].read_text(encoding="utf-8")
             self.assertIn("## 5. 字段明细", content)
             self.assertIn("## 8. 映射与 Review 问题", content)
+
+    def test_metadata_report_renderer_modules_are_internal_only(self) -> None:
+        for path, connector in [(DUCKDB_REPORTER, "duckdb"), (TABLEAU_REPORTER, "tableau")]:
+            proc = self.run_cmd([sys.executable, str(path), "--help"])
+            output = proc.stdout + proc.stderr
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("generate_report.py", output)
+            self.assertIn(connector, output)
 
     def test_adapter_sync_scripts_no_longer_generate_reports(self) -> None:
         for path in [

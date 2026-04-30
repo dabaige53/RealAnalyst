@@ -8,7 +8,7 @@ description: |
 
 # Profiling Skill
 
-生成数据集的正式画像产物。当前业务语义注入（metrics）运行时真源为 `runtime/registry.db`：
+生成数据集的正式画像产物。画像可以读取 `runtime/registry.db` 中的运行时 source/spec 提示来辅助字段角色识别；业务定义、指标口径和 review 状态以 `RA:metadata` 生成的 YAML / context pack 为准：
 
 - `profile/manifest.json`：schema、lineage、profile_summary
 - `profile/profile.json`：signals、quality、statistics

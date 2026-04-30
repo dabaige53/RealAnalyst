@@ -373,7 +373,7 @@ sequenceDiagram
 
 | 项目 | 说明 |
 | --- | --- |
-| **触发条件** | 需要查询运行时配置 |
+| **触发条件** | 需要查询模板、指标、术语、框架或维度定义 |
 | **输入** | 关键词 + 查询类型 |
 | **输出** | JSON 查询结果 |
 | **消费者** | analysis-plan（框架/维度）、report（模板/术语） |
@@ -381,8 +381,8 @@ sequenceDiagram
 **五种查询类型**：`--template`、`--metric`、`--glossary`、`--framework`、`--dimension`
 
 **数据源**：
-- metric / dimension / glossary → `runtime/registry.db`
-- template / framework → YAML 文件
+- metric / dimension / glossary → `metadata/index/*.jsonl` 或 `metadata/index/search.db`
+- template / framework → `skills/report/references` 与内置框架定义
 
 ### RA:metadata-report
 

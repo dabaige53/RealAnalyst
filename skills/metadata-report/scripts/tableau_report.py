@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Generate detailed Markdown sync reports for Tableau registry entries."""
+"""Internal Tableau metadata report renderer."""
 
 from __future__ import annotations
 
-import argparse
 import json
 import os
 import re
@@ -43,7 +42,7 @@ def default_report_dir() -> Path:
 
 def build_report_filename(source_id: str, *, generated_at: datetime) -> str:
     timestamp = generated_at.strftime("%Y%m%d_%H%M%S")
-    return f"{timestamp}_{source_id}_sync_report.md"
+    return f"{timestamp}_{source_id}_metadata_report.md"
 
 
 def _load_targets(*, key: str | None, all_entries: bool) -> list[dict[str, Any]]:
@@ -383,7 +382,7 @@ def _export_section(
             lines.append(f"- registry/spec 中逻辑可用字段共 `{logical_count}` 个")
             lines.append(f"- 实际导出的 CSV 物理列共 `{physical_count}` 个")
             lines.append("- 这通常意味着部分业务指标通过 `度量名称` / `度量值` 以长表方式表达，而不是宽表独立列")
-            lines.append("- 后续分析前应先核对这份同步报告或 `export_summary.json`，确认当前导出是宽表还是长表")
+            lines.append("- 后续分析前应先核对这份元数据报告或 `export_summary.json`，确认当前导出是宽表还是长表")
             lines.append("")
 
     return lines
@@ -734,10 +733,10 @@ def render_sync_report(
     lines.append("")
     lines.append(f"- 这条 Tableau 数据源已登记为 `{entry.get('source_id', '')}`")
     if dataset:
-        lines.append("- 当前报告基于 metadata YAML、mapping YAML、runtime spec 和 Tableau sync report 共同生成")
+        lines.append("- 当前报告基于 metadata YAML、mapping YAML、runtime spec 和 Tableau discovery/sync 素材共同生成")
     else:
         lines.append("- 当前报告仅基于 runtime registry/spec 生成；建议补齐 metadata YAML 后再作为业务口径材料")
-    lines.append("- Tableau 视图适合作为运行入口和参数/筛选器说明，不直接替代底层业务口径真源")
+    lines.append("- Tableau 视图适合作为运行入口和参数/筛选器说明，不直接替代底层业务口径来源")
     if review_fields or review_metrics:
         lines.append("- 存在待确认字段或指标；带 `待确认` 标记的内容不能作为最终确定口径")
     return "\n".join(lines).rstrip() + "\n"
@@ -776,55 +775,11 @@ def write_report(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate detailed Tableau sync Markdown reports")
-    parser.add_argument("--key", help="Generate report for a specific entry key")
-    parser.add_argument("--all", action="store_true", help="Generate reports for all active entries")
-    parser.add_argument("--report-dir", help="Output directory for Markdown reports")
-    parser.add_argument("--with-samples", action="store_true", help="Indicate this sync included sample values")
-    parser.add_argument("--sync-mode", choices=["live", "dry-run"], default="live")
-    parser.add_argument("--fields-step-status", choices=["success", "failed", "skipped"], default="success")
-    parser.add_argument("--filters-step-status", choices=["success", "failed", "skipped"], default="success")
-    parser.add_argument("--registry-step-status", choices=["success", "failed", "skipped"], default="success")
-    parser.add_argument("--export-summary", help="Optional export_summary.json path to enrich validation section")
-    parser.add_argument("--manifest", help="Optional manifest JSON path to enrich validation section")
-    args = parser.parse_args()
-
-    if not args.key and not args.all:
-        print("[Error] Specify --key KEY or --all")
-        raise SystemExit(2)
-
-    targets = _load_targets(key=args.key, all_entries=args.all)
-    if not targets:
-        print("[WARN] No entries matched")
-        return
-
-    export_summary = _parse_export_payload(args.export_summary)
-    manifest = _parse_export_payload(args.manifest)
-    report_dir = Path(args.report_dir).expanduser().resolve() if args.report_dir else default_report_dir()
-    generated_at = datetime.now()
-    step_results = {
-        "fields": args.fields_step_status,
-        "filters": args.filters_step_status,
-        "registry": args.registry_step_status,
-    }
-
-    for entry in targets:
-        key = str(entry.get("key") or "")
-        spec = load_spec_by_entry_key(key) or {}
-        context = build_source_context(entry)
-        report_path = write_report(
-            entry=entry,
-            spec=spec,
-            context=context,
-            report_dir=report_dir,
-            generated_at=generated_at,
-            with_samples=args.with_samples,
-            sync_mode=args.sync_mode,
-            step_results=step_results,
-            export_summary=export_summary,
-            manifest=manifest,
-        )
-        print(f"[OK] report -> {report_path}")
+    print(
+        "[Error] tableau_report.py is an internal renderer. "
+        "Use skills/metadata-report/scripts/generate_report.py --connector tableau ..."
+    )
+    raise SystemExit(2)
 
 
 if __name__ == "__main__":
