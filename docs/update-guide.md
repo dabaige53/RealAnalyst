@@ -28,15 +28,15 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 
 安装器默认会更新项目内 `runtime/` 支持文件，但不会复制 `registry.db`、缓存、本地生成数据，也不会创建 `metadata/`、`jobs/`、`logs/` 或业务工作区内容。
 
-先读取以下文档建立上下文，不要跳过：
+先读取以下 RealAnalyst 架构文档建立上下文，不要跳过。优先读取线上 raw URL；如果网络不可用，再读取插件仓库 `~/plugins/realanalyst/` 下的同名文件。不要去目标业务项目根目录查找这些仓库文档。
 
 | 文档 | 了解什么 |
 | --- | --- |
-| `docs/architecture.md` | 双主线架构（注册元数据线 + 实施分析线）、文件职责 |
-| `docs/skill-interaction-design.md` | 11 个 skill 的调用关系、数据契约、运行时序 |
-| `skills/README.md` | 完整 skill 清单、后端脚本速查、目录结构 |
-| `docs/repository-layout.md` | 目录边界和 Git 策略 |
-| `skills/metadata/SKILL.md` | metadata skill 的分层模型、Core Workflow 和 Decision Rules |
+| `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/architecture.md` | 双主线架构（注册元数据线 + 实施分析线）、文件职责 |
+| `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/skill-interaction-design.md` | 11 个 skill 的调用关系、数据契约、运行时序 |
+| `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/skills/README.md` | 完整 skill 清单、后端脚本速查、目录结构 |
+| `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/repository-layout.md` | 目录边界和 Git 策略 |
+| `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/skills/metadata/SKILL.md` | metadata skill 的分层模型、Core Workflow 和 Decision Rules |
 
 读完后向用户确认：「已更新插件本体并读取架构基线，准备开始逐层检查。」
 
@@ -223,24 +223,29 @@ TABLEAU_PAT_SECRET=
 
 ## 第 5 步：文档层
 
+检查文档时要区分两类位置：
+
+- **RealAnalyst 仓库文档**：读取线上 raw URL，或插件仓库 `~/plugins/realanalyst/` 下的同名文件。
+- **目标项目文档**：只检查安装器实际写入的 `runtime/README.md`、`runtime/tableau/README.md`，以及用户确认创建后的 `metadata/README.md`。业务项目不是完整 RealAnalyst repo，缺少根 `README.md` 或 `docs/*.md` 是正常情况，不要当作待修复问题。
+
 检查以下文档是否反映了当前架构（FTS5、catalog、source group、artifact-fusion、reconcile、多数据集 context）。
 
 ### 需要检查的文件
 
 | 文件 | 关键词应存在 |
 | --- | --- |
-| `README.md`（根） | FTS5、catalog、source group、reconcile、多数据集 |
-| `docs/architecture.md` | search.db、catalog、reconcile、source_groups |
-| `docs/metadata-lookup-workflow.md` | FTS5、catalog、reconcile、multi-dataset |
-| `docs/metadata-conversion-flow.md` | search.db、catalog、reconcile |
-| `docs/semantic-analysis-run.md` | FTS5、catalog、reconcile、source_groups |
-| `skills/README.md` | FTS5、source group、reconcile |
-| `skills/metadata/README.md` | FTS5、catalog、reconcile、multi-dataset |
-| `runtime/README.md` | source_groups、--groups |
-| `runtime/tableau/README.md` | source_groups、--groups |
-| `metadata/README.md` | search.db、catalog、reconcile |
+| `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/README.md` | FTS5、catalog、source group、reconcile、多数据集 |
+| `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/architecture.md` | search.db、catalog、reconcile、source_groups |
+| `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/metadata-lookup-workflow.md` | FTS5、catalog、reconcile、multi-dataset |
+| `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/metadata-conversion-flow.md` | search.db、catalog、reconcile |
+| `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/semantic-analysis-run.md` | FTS5、catalog、reconcile、source_groups |
+| `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/skills/README.md` | FTS5、source group、reconcile |
+| `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/skills/metadata/README.md` | FTS5、catalog、reconcile、multi-dataset |
+| `runtime/README.md`（目标项目） | source_groups、--groups |
+| `runtime/tableau/README.md`（目标项目） | source_groups、--groups |
+| `metadata/README.md`（仅当目标项目已创建 metadata） | search.db、catalog、reconcile |
 
-如果某个文档缺少关键词，说明它可能未更新到最新架构。列出缺失项，但**不要自动改写文档内容**——让用户确认后再更新。
+如果 RealAnalyst 仓库文档缺少关键词，说明它可能未更新到最新架构。列出缺失项，但**不要自动改写文档内容**——让用户确认后再更新。目标项目缺少未创建的业务文档时，只报告“尚未创建”，不要建议补齐完整仓库文档。
 
 ✅ 汇报：哪些文档已是最新、哪些需要更新、具体缺失什么。
 ➡️ 下一步：第 6 步总结。

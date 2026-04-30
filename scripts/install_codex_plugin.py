@@ -12,6 +12,7 @@ from pathlib import Path
 PLUGIN_NAME = "realanalyst"
 REPO_URL = "https://github.com/dabaige53/RealAnalyst.git"
 GUIDE_URL = "https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/llm-next-steps.md"
+UPDATE_GUIDE_URL = "https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/update-guide.md"
 DEFAULT_VERSION = "latest"
 INSTALL_CONFIG = ".realanalyst-install.json"
 
@@ -253,6 +254,7 @@ def main() -> int:
     print(f"Enabled marketplace: {marketplace}")
     print(f"Plugin env file: {env_path}")
     print(f"Online LLM guide: {GUIDE_URL}")
+    print(f"Online update guide: {UPDATE_GUIDE_URL}")
     if not args.global_install and not args.skip_project_skills:
         print(f"Installed skills: {project_dir / '.agents' / 'skills'}")
     if not args.global_install and not args.skip_project_runtime:

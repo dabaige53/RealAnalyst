@@ -93,7 +93,7 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 如果当前项目已经安装过 RealAnalyst，需要按 0.3.0 架构整理旧内容，把下面这段发给 LLM / Codex：
 
 ```text
-读取 docs/update-guide.md，按里面的步骤先更新 RealAnalyst 插件本体，再逐层检查和更新当前项目的元数据、索引、运行时、skill 能力和文档，使其完全适配最新架构。每完成一步告诉我结果，缺失项引导我补充。
+读取 https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/update-guide.md，按里面的步骤先更新 RealAnalyst 插件本体，再逐层检查和更新当前项目的元数据、索引、运行时、skill 能力和文档，使其完全适配最新架构。RealAnalyst 架构文档以线上或 ~/plugins/realanalyst/ 为准，不要要求当前业务项目拥有完整仓库 README/docs。每完成一步告诉我结果，缺失项引导我补充。
 ```
 
 预期成功输出类似：
@@ -103,6 +103,7 @@ Installed RealAnalyst for Codex.
 Enabled marketplace: /your/project/.agents/plugins/marketplace.json
 Plugin env file: /Users/you/plugins/realanalyst/.env
 Online LLM guide: https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/llm-next-steps.md
+Online update guide: https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/update-guide.md
 Installed skills: /your/project/.agents/skills
 Installed runtime support: /your/project/runtime
 No jobs/logs/business workspace folders were created.
