@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.8 - 2026-04-30
+
+- Added `metadata enrich-definitions` to backfill dataset business definitions from mapping overrides and shared dictionaries.
+- Tightened validation so connector schema notes, same-name fields, and DuckDB/Tableau placeholders cannot pass as business definitions.
+- Added reusable definition resolution helpers and a pending-definition review report writer for fields that still need user confirmation.
+
 ## 0.2.7 - 2026-04-30
 
 - Improved `RA:metadata-report` so DuckDB reports can be generated directly from `metadata/datasets/*.yaml` with `--dataset-id`, `--source`, or `--all-yaml`.

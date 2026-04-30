@@ -18,6 +18,7 @@ COMMANDS = (
     "index",
     "search",
     "context",
+    "enrich-definitions",
     "sync-registry",
     "status",
     "inventory",
@@ -76,6 +77,9 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("validate", help="Validate metadata YAML.")
     subparsers.add_parser("index", help="Build metadata JSONL indexes.")
     subparsers.add_parser("inventory", help="Build metadata system inventory.")
+
+    enrich = subparsers.add_parser("enrich-definitions", help="Enrich dataset business definitions from mappings and dictionaries.")
+    enrich.add_argument("--dataset-id", action="append", required=True)
 
     sync_registry = subparsers.add_parser("sync-registry", help="Sync validated dataset YAML into runtime/registry.db.")
     sync_scope = sync_registry.add_mutually_exclusive_group(required=True)
@@ -139,6 +143,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "inventory":
         return run_python_script(workspace, metadata_script("build_inventory.py"), workspace_args(workspace))
+
+    if args.command == "enrich-definitions":
+        forwarded = workspace_args(workspace)
+        for dataset_id in args.dataset_id:
+            forwarded.extend(["--dataset-id", dataset_id])
+        return run_python_script(workspace, metadata_script("enrich_definitions.py"), forwarded)
 
     if args.command == "sync-registry":
         forwarded = workspace_args(workspace)

@@ -24,6 +24,16 @@ from skills.metadata.lib.metadata_io import (
 REQUIRED_DATASET_KEYS = ("version", "id", "display_name", "source", "business", "maintenance", "fields")
 REQUIRED_DICTIONARY_KEYS = ("version", "id", "kind", "display_name", "source_evidence")
 REQUIRED_MAPPING_KEYS = ("version", "id", "kind", "source_id", "display_name", "source_evidence", "mappings")
+ALLOWED_DEFINITION_SOURCE_TYPES = {"user_confirmed", "mapping_override", "dictionary", "industry_draft", "pending"}
+PENDING_DEFINITION_TEXT = "业务定义待确认"
+SCHEMA_ONLY_PHRASES = (
+    "来自 DuckDB 对象",
+    "来自 Tableau 对象",
+    "来自 DuckDB 表",
+    "来自 DuckDB 视图",
+    "来自 Tableau 视图",
+    "的同名字段",
+)
 
 
 def require(mapping: dict[str, Any], key: str, errors: list[str], prefix: str) -> None:
@@ -31,15 +41,41 @@ def require(mapping: dict[str, Any], key: str, errors: list[str], prefix: str) -
         errors.append(f"{prefix}.{key} is required")
 
 
-def validate_definition(definition: dict[str, Any], errors: list[str], prefix: str) -> None:
+def _as_text(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def validate_definition(
+    definition: dict[str, Any],
+    errors: list[str],
+    prefix: str,
+    *,
+    subject_names: set[str] | None = None,
+    enforce_semantic_text: bool = False,
+) -> None:
     for key in ("text", "confidence", "source_evidence", "needs_review"):
         require(definition, key, errors, prefix)
+    text = _as_text(definition.get("text"))
+    source_type = _as_text(definition.get("source_type"))
+    if source_type and source_type not in ALLOWED_DEFINITION_SOURCE_TYPES:
+        errors.append(f"{prefix}.source_type must be one of {sorted(ALLOWED_DEFINITION_SOURCE_TYPES)}")
     confidence = definition.get("confidence")
     if isinstance(confidence, (int, float)) and confidence < 0.7 and definition.get("needs_review") is not True:
         errors.append(f"{prefix}: low confidence definitions must set needs_review=true")
     evidence = definition.get("source_evidence")
     if not isinstance(evidence, list) or not evidence:
         errors.append(f"{prefix}.source_evidence must contain at least one evidence item")
+    if definition.get("source_type") == "pending":
+        if text != PENDING_DEFINITION_TEXT:
+            errors.append(f"{prefix}: pending definitions must use text={PENDING_DEFINITION_TEXT!r}")
+        if definition.get("needs_review") is not True:
+            errors.append(f"{prefix}: pending definitions must set needs_review=true")
+    if not enforce_semantic_text or text == PENDING_DEFINITION_TEXT:
+        return
+    if any(phrase in text for phrase in SCHEMA_ONLY_PHRASES):
+        errors.append(f"{prefix}: connector schema notes are not valid business definitions")
+    if subject_names and text in {name for name in subject_names if name}:
+        errors.append(f"{prefix}: business definition must not equal only the field or metric name")
 
 
 def validate_dataset(data: dict[str, Any], *, path: Path) -> list[str]:
@@ -68,9 +104,21 @@ def validate_dataset(data: dict[str, Any], *, path: Path) -> list[str]:
             if name in field_names:
                 errors.append(f"{prefix}.name duplicates field {name}")
             field_names.add(name)
+        subject_names = {
+            _as_text(field.get("name")),
+            _as_text(field.get("display_name")),
+            _as_text(field.get("physical_name")),
+            _as_text(field.get("source_field")),
+        }
         definition = field.get("business_definition")
         if isinstance(definition, dict):
-            validate_definition(definition, errors, f"{prefix}.business_definition")
+            validate_definition(
+                definition,
+                errors,
+                f"{prefix}.business_definition",
+                subject_names=subject_names,
+                enforce_semantic_text=True,
+            )
         else:
             errors.append(f"{prefix}.business_definition is required")
 
@@ -87,9 +135,20 @@ def validate_dataset(data: dict[str, Any], *, path: Path) -> list[str]:
             if name in metric_names:
                 errors.append(f"{prefix}.name duplicates metric {name}")
             metric_names.add(name)
+        subject_names = {
+            _as_text(metric.get("name")),
+            _as_text(metric.get("display_name")),
+            _as_text(metric.get("source_field")),
+        }
         definition = metric.get("business_definition")
         if isinstance(definition, dict):
-            validate_definition(definition, errors, f"{prefix}.business_definition")
+            validate_definition(
+                definition,
+                errors,
+                f"{prefix}.business_definition",
+                subject_names=subject_names,
+                enforce_semantic_text=True,
+            )
         else:
             errors.append(f"{prefix}.business_definition is required")
     return errors
