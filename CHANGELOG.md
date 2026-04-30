@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 - 2026-04-30
+
+- Pointed upgrade checks to online RealAnalyst guides so target projects are not expected to contain repository docs.
+- Clarified that installer-managed `runtime/` support files are separate from generated `runtime/registry.db`.
+- Added the online update guide URL to installer output.
+
 ## 0.3.0 - 2026-04-30
 
 - Unified runtime storage around a single `runtime/registry.db` for source registry and lookup tables.
