@@ -19,7 +19,7 @@
 | 类型 | 内容 |
 | --- | --- |
 | 输入 | metadata/sources 原始证据<br/>metadata/dictionaries 公共语义<br/>metadata/mappings 字段映射<br/>metadata/datasets 真实数据源<br/>dataset id<br/>指标/字段/术语关键词 |
-| 输出 | validate 结果<br/>metadata/index/*.jsonl + search.db (FTS5)<br/>catalog 数据集摘要<br/>search 结果（BM25 排序）<br/>context pack（单或多数据集）<br/>reconcile 一致性报告<br/>可选 OSI export |
+| 输出 | validate 结果<br/>metadata/index/*.jsonl + search.db (FTS5)<br/>catalog 数据集摘要<br/>search 结果（BM25 排序）<br/>context pack（单或多数据集 / multi-dataset）<br/>reconcile 一致性报告<br/>可选 OSI export |
 | 下一步 | `RA:analysis-plan` |
 
 ---
@@ -66,7 +66,7 @@ python3 skills/metadata/scripts/metadata.py reconcile
 - 字段、指标、术语和 open questions 的维护结果。
 - 可搜索的 metadata index（FTS5 全文检索）。
 - 数据集目录摘要（catalog）。
-- 本轮分析需要的 context pack（支持多数据集）。
+- 本轮分析需要的 context pack（支持多数据集 / multi-dataset）。
 - 运行时 vs 元数据一致性报告（reconcile）。
 
 ---

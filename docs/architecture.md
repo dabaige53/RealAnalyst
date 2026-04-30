@@ -42,7 +42,7 @@ flowchart TD
     Dictionaries --> ContextJson["metadata context JSON<br/>single or multi-dataset pack"]
     Mappings --> ContextJson
     Dataset --> ContextJson
-    Registry["runtime/registry.db<br/>source registry + lookup tables"] --> ExportScript["data-export scripts"]
+    Registry["runtime/registry.db<br/>source registry + lookup tables + source_groups"] --> ExportScript["data-export scripts"]
     ContextJson --> PlanDoc["jobs/{SESSION_ID}/.meta/analysis_plan.md"]
     ExportScript --> JobData["jobs/{SESSION_ID}/<br/>CSV / summary / manifest"]
     JobData --> ProfileJson["profile manifest / profile json"]
@@ -50,6 +50,8 @@ flowchart TD
     ProfileJson --> ReportMd
     ReportMd --> Verification["verification.json"]
 ```
+
+`runtime/registry.db` 是唯一运行时 SQLite DB；其中 `source_groups` 管理 1 个 primary source 与最多 2 个 supplementary sources，供 `artifact-fusion` 做多源合并。
 
 ## Public Repository Boundary
 

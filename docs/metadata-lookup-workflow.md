@@ -22,11 +22,11 @@
 
 5. 上下文包：`metadata context` 输出 JSON
 
-   当轻量索引命中候选对象后，`metadata context` 会从 YAML 真源抽取小型 JSON 上下文包，供规划阶段读取。上下文包只包含本次分析需要的 dataset、dictionary_refs、mapping_refs、metrics、fields、glossary、mappings、review 提示和缺失对象信息。支持多数据集：传多个 `--dataset-id` 可生成合并 context（含共享字典引用和去重术语）。
+   当轻量索引命中候选对象后，`metadata context` 会从 YAML 真源抽取小型 JSON 上下文包，供规划阶段读取。上下文包只包含本次分析需要的 dataset、dictionary_refs、mapping_refs、metrics、fields、glossary、mappings、review 提示和缺失对象信息。支持多数据集（multi-dataset）：传多个 `--dataset-id` 可生成合并 context（含共享字典引用和去重术语）。
 
 6. 一致性比对：`metadata reconcile`
 
-   `metadata reconcile` 比对 `runtime_config.db` 与 metadata YAML 中的指标/维度/术语，输出匹配数、仅运行时存在项、仅元数据存在项、定义不一致项，用于发现语义漂移。
+   `metadata reconcile` 比对 `runtime/registry.db` 与 metadata YAML 中的指标/维度/术语，输出匹配数、仅运行时存在项、仅元数据存在项、定义不一致项，用于发现语义漂移。
 
 ## 端到端流程
 
@@ -54,7 +54,7 @@ python3 skills/metadata/scripts/metadata.py reconcile
 - `metadata.py catalog` 生成所有数据集的轻量摘要，支持 `--domain` 过滤。
 - `metadata.py search` 在 FTS5 索引中检索候选 dataset、field、metric、mapping 或术语（无 search.db 时降级到 JSONL）。
 - `metadata.py context` 根据命中的 `dataset_id` 和指标/字段参数，输出可供分析规划读取的 JSON 上下文包。支持多 `--dataset-id`。`metadata context` 只接受 `--dataset-id`；runtime/export 阶段才使用 registry 的 `source_id`。
-- `metadata.py reconcile` 比对 runtime_config.db 与 metadata YAML 的指标/维度/术语差异。
+- `metadata.py reconcile` 比对 `runtime/registry.db` 与 metadata YAML 的指标/维度/术语差异。
 
 ## 当前边界
 

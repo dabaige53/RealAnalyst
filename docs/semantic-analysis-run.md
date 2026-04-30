@@ -10,7 +10,7 @@
 - catalog 是目录层：由 `metadata catalog` 生成所有数据集的轻量摘要，帮助发现和选择数据源。
 - context pack 是对话层：由 `metadata context` 生成，只携带本轮分析需要的最小上下文。支持多数据集合并 context。
 - registry.db 是运行层：服务执行稳定性，通过 `metadata sync-registry` 从已校验 dataset YAML 受控同步。含 `source_groups` 表管理多源分组。
-- reconcile 是一致性层：由 `metadata reconcile` 比对 runtime_config.db 与 metadata YAML，发现语义漂移。
+- reconcile 是一致性层：由 `metadata reconcile` 比对 `runtime/registry.db` 与 metadata YAML，发现语义漂移。
 - connector adapter 是初始化素材层：Tableau/DuckDB 只负责发现外部系统字段、筛选器、catalog 和运行所需 source 信息。
 - OSI 是交换层：用于跨系统交换语义模型，不进入本地分析主路径。
 
