@@ -71,14 +71,14 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 
 安装后的 LLM 引导读线上文档：[docs/llm-next-steps.md](https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/llm-next-steps.md)。不要把引导文件写进用户项目。
 
-安装完成后重启 Codex，输入：
+安装完成后重启 Codex，直接从初始引导开始：
 
 ```text
 /skill RA:getting-started
 帮我确认数据源类型，并列出抽取元数据前需要准备的信息。
 ```
 
-如果你想让 LLM / Codex 代为安装，可以直接把下面这段完整指令发给它：
+如果你想让 LLM / Codex 代为安装和启动，把下面这段完整指令发给它：
 
 ```text
 请在当前项目内安装 RealAnalyst Codex 插件，只在当前项目启用，不要全局启用。直接执行：
@@ -88,6 +88,12 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 安装完成后检查当前项目的 .agents/plugins/marketplace.json 是否已包含 realanalyst，并告诉我是否成功。
 同时检查当前项目的 .agents/skills/ 是否已安装 RealAnalyst skills，并确认 runtime support 已安装到当前项目的 runtime/。不要创建 metadata、jobs、logs 或其他业务工作区文件夹。
 读取 https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/llm-next-steps.md，并按里面的步骤引导我下一步。
+```
+
+如果当前项目已经安装过 RealAnalyst，需要按 0.3.0 架构整理旧内容，把下面这段发给 LLM / Codex：
+
+```text
+读取 docs/update-guide.md，按里面的步骤先更新 RealAnalyst 插件本体，再逐层检查和更新当前项目的元数据、索引、运行时、skill 能力和文档，使其完全适配最新架构。每完成一步告诉我结果，缺失项引导我补充。
 ```
 
 预期成功输出类似：
@@ -316,32 +322,6 @@ flowchart TD
 RealAnalyst 更适合经常做经营分析、指标解释、数据复核和管理层报告的团队。它不会替代业务判断，也不会自动保证指标就是对的；它的价值是把“判断依据”摆到台面上，让人和 Agent 都围绕同一套口径工作。
 
 如果你的分析任务需要解释字段、引用口径、复核数据来源，RealAnalyst 会比裸写 SQL 或直接让 Agent 读表更稳。
-
----
-
-## LLM 提示词
-
-下面两段提示词可以直接复制粘贴发给 LLM / Codex，让它帮你完成对应任务。
-
-### 提示词 1：安装当前产品
-
-```text
-请在当前项目内安装 RealAnalyst Codex 插件，只在当前项目启用，不要全局启用。直接执行：
-
-curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 -
-
-安装完成后：
-1. 检查当前项目的 .agents/plugins/marketplace.json 是否已包含 realanalyst，告诉我是否成功。
-2. 检查当前项目的 .agents/skills/ 是否已安装 RealAnalyst skills。
-3. 确认 runtime support 已安装到当前项目的 runtime/，但不要创建 metadata、jobs、logs 或其他业务工作区文件夹。
-4. 读取 https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/llm-next-steps.md，按里面的步骤引导我下一步。
-```
-
-### 提示词 2：按最新架构更新内容物
-
-```text
-读取 docs/update-guide.md，按里面的步骤先更新 RealAnalyst 插件本体，再逐层检查和更新当前项目的元数据、索引、运行时、skill 能力和文档，使其完全适配最新架构。每完成一步告诉我结果，缺失项引导我补充。
-```
 
 ---
 
