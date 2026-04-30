@@ -11,6 +11,7 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 这条命令会自动完成：
 
 - clone / update `https://github.com/dabaige53/RealAnalyst`
+- 写入版本策略；默认 `latest`，表示跟随 `main` 最新版本
 - 安装到 `~/plugins/realanalyst`
 - 创建 `.venv` 并安装 Python dependencies
 - 写入当前项目的 `.agents/plugins/marketplace.json`
@@ -20,6 +21,28 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 - 校验插件仓库 demo metadata
 
 它不会创建 `metadata/`、`runtime/`、`jobs/`、`logs/`，不会写当前项目的 `.env` / `.gitignore`，也不会写入 demo 数据。只有用户确认要保存抽取结果或执行分析产物时，RealAnalyst 才会按需创建文件夹。
+
+## Version Strategy
+
+默认策略是 `latest`。安装器会把策略写入：
+
+```text
+~/plugins/realanalyst/.realanalyst-install.json
+```
+
+`latest` 表示每次运行安装器时都更新到 `main` 最新版本：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 - --version latest
+```
+
+如果你希望项目稳定在某个发布版，指定版本号即可。`0.2.6` 和 `v0.2.6` 都可以：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 - --version 0.2.6
+```
+
+以后重新运行安装器且不传 `--version` 时，会优先沿用上次保存的版本策略。
 
 LLM 引导文件读线上文档：`https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/llm-next-steps.md`。不要把引导文件写进用户项目。
 

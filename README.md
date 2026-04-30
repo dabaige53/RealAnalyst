@@ -16,6 +16,8 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 
 默认只在当前项目启用，不会影响其他项目。
 
+默认版本策略是 `latest`：安装器会把插件仓库保持在 `main` 最新状态。安装器会把策略写入 `~/plugins/realanalyst/.realanalyst-install.json`，以后重新运行安装命令时会沿用该策略。
+
 安装脚本只写入插件相关文件：
 
 - 注册当前项目的 `.agents/plugins/marketplace.json`
@@ -26,10 +28,22 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 
 ### 更新已安装的 RealAnalyst
 
-已经装过时，直接在目标项目里重新执行同一条命令即可。安装脚本会更新 `~/plugins/realanalyst`，保留已有 `.env`，并刷新当前项目的 `.agents/skills/`：
+已经装过且版本策略是 `latest` 时，直接在目标项目里重新执行同一条命令即可。安装脚本会更新 `~/plugins/realanalyst`，保留已有 `.env`，并刷新当前项目的 `.agents/skills/`：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 -
+```
+
+锁定固定版本：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 - --version 0.2.6
+```
+
+切回自动跟随最新：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 - --version latest
 ```
 
 更新其他项目：

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.6 - 2026-04-30
+
+- Added `RA:metadata-report` for Tableau/DuckDB metadata Markdown reports with script-first generation guidance and reusable report templates.
+- Added installer version strategy support so installs can follow `latest` or pin a fixed release tag.
+
 ## 0.2.5 - 2026-04-30
 
 - Refined `RA:metadata` into a lighter execution entrypoint while keeping key operating model, decision rules, quality gates, and common mistakes in the skill file.

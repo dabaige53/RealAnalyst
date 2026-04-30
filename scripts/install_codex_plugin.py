@@ -12,6 +12,8 @@ from pathlib import Path
 PLUGIN_NAME = "realanalyst"
 REPO_URL = "https://github.com/dabaige53/RealAnalyst.git"
 GUIDE_URL = "https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/llm-next-steps.md"
+DEFAULT_VERSION = "latest"
+INSTALL_CONFIG = ".realanalyst-install.json"
 
 
 def run(cmd: list[str], *, cwd: Path | None = None, dry_run: bool = False) -> None:
@@ -28,14 +30,64 @@ def python_bin(venv_dir: Path) -> Path:
     return venv_dir / "bin" / "python"
 
 
-def clone_or_update(repo_url: str, target_dir: Path, *, dry_run: bool) -> None:
+def normalize_version(value: str | None) -> str:
+    raw = (value or DEFAULT_VERSION).strip()
+    if not raw or raw == DEFAULT_VERSION:
+        return DEFAULT_VERSION
+    return raw if raw.startswith("v") else f"v{raw}"
+
+
+def install_config_path(plugin_dir: Path) -> Path:
+    return plugin_dir / INSTALL_CONFIG
+
+
+def read_install_config(plugin_dir: Path) -> dict:
+    path = install_config_path(plugin_dir)
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def resolve_version(plugin_dir: Path, requested: str | None) -> str:
+    if requested is not None:
+        return normalize_version(requested)
+    return normalize_version(read_install_config(plugin_dir).get("version"))
+
+
+def write_install_config(plugin_dir: Path, *, repo_url: str, version: str, dry_run: bool) -> None:
+    path = install_config_path(plugin_dir)
+    payload = {"repo": repo_url, "version": version}
+    print(f"$ write {path}")
+    if dry_run:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def checkout_version(target_dir: Path, *, version: str, dry_run: bool) -> None:
+    if version == DEFAULT_VERSION:
+        run(["git", "switch", "main"], cwd=target_dir, dry_run=dry_run)
+        run(["git", "pull", "--ff-only", "origin", "main"], cwd=target_dir, dry_run=dry_run)
+        return
+    run(["git", "checkout", "--detach", f"refs/tags/{version}"], cwd=target_dir, dry_run=dry_run)
+
+
+def clone_or_update(repo_url: str, target_dir: Path, *, version: str, dry_run: bool) -> None:
     if target_dir.exists():
         if not (target_dir / ".git").exists():
             raise SystemExit(f"Target exists but is not a git repo: {target_dir}")
-        run(["git", "pull", "--ff-only"], cwd=target_dir, dry_run=dry_run)
+        run(["git", "fetch", "origin", "--tags", "--prune"], cwd=target_dir, dry_run=dry_run)
+        checkout_version(target_dir, version=version, dry_run=dry_run)
         return
     target_dir.parent.mkdir(parents=True, exist_ok=True)
     run(["git", "clone", repo_url, str(target_dir)], dry_run=dry_run)
+    if version != DEFAULT_VERSION:
+        run(["git", "fetch", "origin", "--tags", "--prune"], cwd=target_dir, dry_run=dry_run)
+        checkout_version(target_dir, version=version, dry_run=dry_run)
 
 
 def install_dependencies(plugin_dir: Path, *, dry_run: bool) -> None:
@@ -147,6 +199,11 @@ def main() -> int:
     parser.add_argument("--repo", default=REPO_URL, help="Git repository URL")
     parser.add_argument("--plugin-dir", default=str(Path.home() / "plugins" / PLUGIN_NAME), help="Plugin install directory")
     parser.add_argument(
+        "--version",
+        default=None,
+        help="Install strategy: latest for main auto-update, or a fixed release tag such as 0.2.6 / v0.2.6. Defaults to prior install config, then latest.",
+    )
+    parser.add_argument(
         "--project",
         default=".",
         help="Project directory where RealAnalyst should be enabled. Defaults to current directory.",
@@ -167,6 +224,7 @@ def main() -> int:
     args = parser.parse_args()
 
     plugin_dir = Path(args.plugin_dir).expanduser().resolve()
+    version = resolve_version(plugin_dir, args.version)
     project_dir = Path(args.project).expanduser().resolve()
     if args.marketplace:
         marketplace = Path(args.marketplace).expanduser().resolve()
@@ -178,7 +236,8 @@ def main() -> int:
         marketplace = project_dir / ".agents" / "plugins" / "marketplace.json"
         marketplace_name = f"{project_dir.name}-plugins"
 
-    clone_or_update(args.repo, plugin_dir, dry_run=args.dry_run)
+    clone_or_update(args.repo, plugin_dir, version=version, dry_run=args.dry_run)
+    write_install_config(plugin_dir, repo_url=args.repo, version=version, dry_run=args.dry_run)
     if not args.skip_deps:
         install_dependencies(plugin_dir, dry_run=args.dry_run)
     env_path = ensure_plugin_env(plugin_dir, dry_run=args.dry_run)
@@ -190,6 +249,7 @@ def main() -> int:
     validate_install(plugin_dir, dry_run=args.dry_run)
 
     print("\nInstalled RealAnalyst for Codex.")
+    print(f"Version strategy: {version}")
     print(f"Enabled marketplace: {marketplace}")
     print(f"Plugin env file: {env_path}")
     print(f"Online LLM guide: {GUIDE_URL}")
