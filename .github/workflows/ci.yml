@@ -20,3 +20,5 @@ jobs:
         run: python -m json.tool .codex-plugin/plugin.json
       - name: Validate demo metadata
         run: python skills/metadata/scripts/metadata.py validate
+      - name: Run product fix tests
+        run: python -m unittest discover -s tests

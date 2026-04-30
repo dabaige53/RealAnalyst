@@ -1,24 +1,23 @@
 ---
 name: "RA:reference-lookup"
 description: |
-  Use when: (1) Need a specific template/term/metric/dimension from {baseDir}/runtime,
-  (2) Need the full framework definition including logic_path, (3) Need a runtime lookup instead of
-  reading large YAML files directly.
+  Use when: (1) Need a specific template/term/metric/dimension from RealAnalyst metadata or references,
+  (2) Need planning reference lookup, (3) Need a small lookup result instead of reading large files directly.
   Triggers: 查询模板, 查询术语, 查询指标定义, 查询分析框架, 查询维度定义, template lookup, glossary lookup, metric definition, framework lookup, dimension lookup.
 ---
 
-# Runtime Lookup Skill
+# Reference Lookup Skill
 
-按需查询 `{baseDir}/runtime/` 中的运行时定义。
+按需查询 metadata index、registry lookup tables 和报告模板参考文件。
 
-- `metric` / `dimension` / `glossary`：运行时读取 `runtime/registry.db`
-- `report_templates` / `analysis_frameworks` / `workflow` / 各种长文案：**不入库**，仍以 YAML/Markdown 为准
+- `metric` / `dimension` / `glossary`：优先读取 metadata index；运行层只服务取数。
+- `template` / `framework`：读取 skill references，不把 runtime 当业务配置仓库。
 
 
 ## 何时使用
 
 - 查报告模板、业务术语、指标定义、分析框架、维度定义
-- 需要 framework 的完整配置（含 `logic_path` / `goal_template` / `dimension_type_hints`）
+- 需要 framework 或模板选择参考
 - 需要 machine-readable JSON 结果给 Agent 或脚本继续消费
 
 ## 边界
@@ -26,10 +25,8 @@ description: |
 - 本 skill 只覆盖 `template` / `glossary` / `metric` / `framework` / `dimension` 五类配置查询
 - datasource 查询请使用 `{baseDir}/runtime/tableau/query_registry.py`
 - `query_registry.py` 仅作为 datasource 查询入口说明，**不属于本 skill 的输出契约**
-- 不要把配置 YAML 复制到 `skills/` 下；运行时配置仍以 `{baseDir}/runtime/` 为唯一权威来源
-- 仅 `metric` / `dimension` / `glossary` 走 `runtime/registry.db`
-- `template` / `framework` 仍读 YAML（不迁移）
-- 如需审计或迁移参考，再回看对应 YAML
+- 不要把 runtime 当业务语义真源；语义维护回到 `RA:metadata`
+- 如需模板细节，读取 `skills/report/references/template-system-v2.md`
 
 ## 核心流程
 

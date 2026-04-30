@@ -151,7 +151,7 @@ flowchart TD
 | --- | --- | --- | --- |
 | `RA:getting-started` | 初始引导：确认数据源类型，列出准备清单 | 用户描述 | 准备清单、下一步路径 |
 | `RA:metadata` | 元数据管理：注册、校验、索引、搜索、context、catalog、reconcile | layered YAML、dataset id、关键词 | validate / index (FTS5) / catalog / search / context pack / reconcile |
-| `RA:metadata-refine` | 元数据修正材料：整理 job 反馈、profile、真实数据探查和证据归档 | job feedback、profile、CSV | `metadata/sources/refine/{refine_id}/` 参考材料 |
+| `RA:metadata-refine` | 元数据修正材料：整理 job 反馈、profile、真实数据探查和证据归档 | job feedback、profile、CSV | `metadata/sources/refine/{refine_id}/` 参考材料，含 `refine_followup.md` |
 | `RA:analysis-plan` | 分析规划：假设驱动的 10 章计划 | `normalized_request.json` + metadata context | `.meta/analysis_plan.md` |
 | `RA:analysis-run` | **总控编排**：串联全部分析流程 | 用户问题 + 已注册 metadata | job 目录（数据、画像、analysis.json、报告、verification） |
 | `RA:data-export` | 受控取数：Tableau / DuckDB | registry source id + filters | `data/*.csv` + `export_summary.json` + acquisition log |
@@ -339,6 +339,8 @@ jobs/{SESSION_ID}/
 | `analysis.json` | analysis-run Phase 3 | report-verify | `schemas/analysis.schema.json` |
 | `报告_*.md` | report | report-verify, 用户 | — |
 | `verification.json` | report-verify | 用户 | `schemas/verification.schema.json` |
+| `metadata/audit/metadata_changes.jsonl` | metadata | metadata | — |
+| `metadata/audit/metadata_change_report.md` | metadata | 用户 / reviewer | — |
 
 ### Metadata 目录结构
 
@@ -348,6 +350,7 @@ metadata/
 ├── dictionaries/      # 公共语义层（指标、维度、术语）
 ├── mappings/          # source 字段 → 标准语义的映射
 ├── datasets/          # 一个真实可分析对象一份 YAML
+├── audit/             # metadata 维护日志和变更报告
 ├── index/             # 生成层：JSONL + search.db (FTS5) 检索索引
 └── osi/               # 生成层：context pack（给 analysis-plan 用）
 ```
@@ -389,6 +392,14 @@ python3 skills/reference-lookup/scripts/query_config.py --metric <关键词>
 python3 skills/reference-lookup/scripts/query_config.py --glossary <关键词>
 python3 skills/reference-lookup/scripts/query_config.py --framework <框架名>
 python3 skills/reference-lookup/scripts/query_config.py --dimension <关键词>
+```
+
+### metadata audit
+
+```bash
+python3 skills/metadata/scripts/metadata.py record-change --summary <summary> --path <metadata_yaml>
+python3 skills/metadata/scripts/metadata.py record-change --summary <summary> --path <metadata_yaml> --before <old_yaml_copy> --refine-id <refine_id> --evidence metadata/sources/refine/<refine_id>/evidence_manifest.json
+python3 skills/metadata/scripts/metadata.py change-report
 ```
 
 ### report-verify

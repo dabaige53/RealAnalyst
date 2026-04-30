@@ -13,6 +13,7 @@
 | 维护公共指标、维度、术语 | `dictionaries/` |
 | 维护 source 字段到标准语义的映射 | `mappings/` |
 | 注册或维护数据集 | `datasets/` |
+| 查看 metadata 维护日志和变更报告 | `audit/` |
 | 组织多个数据集到一个业务域 | `models/` |
 | 查看 Tableau / DuckDB 同步快照示例 | `sync/` |
 | 理解 metadata 如何变成 index / context / OSI | `conversion/` |
@@ -48,6 +49,7 @@ flowchart LR
 | `dictionaries/` | 公共 metrics / dimensions / glossary | 只提交脱敏 example |
 | `mappings/` | source 字段到标准语义的映射和口径覆盖 | 只提交脱敏 example |
 | `datasets/` | 真实可分析数据源，一个 source 一个 YAML | 只提交 demo/example |
+| `audit/` | metadata 维护日志和变更报告，记录谁改了什么、为什么改、依据是什么 | 默认不提交生成日志，只提交 README |
 | `models/` | 语义模型，把多个数据集组织成业务域 | 只提交 demo/example |
 | `sync/` | Tableau / DuckDB connector 同步快照，给 LLM 整理 metadata 用 | 只提交 `.example.*` |
 | `index/` | 从 YAML 编译出的轻量检索索引（JSONL + search.db FTS5） | 不提交 |
@@ -73,12 +75,16 @@ flowchart LR
 ```bash
 python3 skills/metadata/scripts/metadata.py validate
 python3 skills/metadata/scripts/metadata.py index
+python3 skills/metadata/scripts/metadata.py record-change --summary "补充字段定义和证据" --path metadata/datasets/demo.retail.orders.yaml --dataset-id demo.retail.orders
+python3 skills/metadata/scripts/metadata.py change-report
 python3 skills/metadata/scripts/metadata.py catalog
 python3 skills/metadata/scripts/metadata.py search --type all --query revenue
 python3 skills/metadata/scripts/metadata.py context --dataset-id demo.retail.orders --metric total_revenue
 python3 skills/metadata/scripts/metadata.py context --dataset-id id_1 --dataset-id id_2
 python3 skills/metadata/scripts/metadata.py reconcile
 ```
+
+如果是基于 `metadata/sources/refine/` 修改 YAML，修改前先保存旧 YAML 副本，并用 `--before` 生成对比报告。
 
 ---
 

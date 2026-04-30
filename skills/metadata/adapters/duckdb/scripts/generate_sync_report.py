@@ -54,6 +54,10 @@ def _safe_mapping(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def _safe_text(value: Any) -> str:
+    return str(value).strip() if value is not None else ""
+
+
 def _display(value: Any) -> str:
     if value is None or value == "":
         return "未配置"
@@ -265,6 +269,44 @@ def _evidence_cell(item: dict[str, Any]) -> str:
     return _cell("；".join(sources)) if sources else "未配置"
 
 
+def _field_source_name(field: dict[str, Any]) -> str:
+    for key in ("source_field", "physical_name", "name"):
+        value = _safe_text(field.get(key))
+        if value:
+            return value
+    return ""
+
+
+def _metric_source_names(metric: dict[str, Any]) -> list[str]:
+    names: list[str] = []
+    for value in (
+        metric.get("source_field"),
+        _safe_mapping(metric.get("source_mapping")).get("view_field"),
+    ):
+        text = _safe_text(value)
+        if text and text not in names:
+            names.append(text)
+    return names
+
+
+def _metric_source_name(metric: dict[str, Any]) -> str:
+    names = _metric_source_names(metric)
+    return names[0] if names else ""
+
+
+def _metric_lookup_by_source(metrics: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    lookup: dict[str, dict[str, Any]] = {}
+    for metric in metrics:
+        for source_name in _metric_source_names(metric):
+            lookup.setdefault(source_name, metric)
+    return lookup
+
+
+def _metric_for_field(field: dict[str, Any], metric_lookup: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
+    source_name = _field_source_name(field)
+    return metric_lookup.get(source_name) if source_name else None
+
+
 def _source_type(dataset: dict[str, Any]) -> str:
     summary = _safe_mapping(dataset.get("source_summary"))
     if summary.get("type"):
@@ -336,6 +378,15 @@ def _load_yaml_dataset(workspace: Path, dataset_id: str) -> dict[str, Any]:
     if source.get("connector") != "duckdb":
         raise MetadataError(f"{dataset_id!r} is not a DuckDB dataset")
     return data
+
+
+def _load_yaml_dataset_if_exists(workspace: Path, dataset_id: str) -> dict[str, Any] | None:
+    if not dataset_id:
+        return None
+    try:
+        return _load_yaml_dataset(workspace, dataset_id)
+    except MetadataError:
+        return None
 
 
 def _load_yaml_datasets(workspace: Path, *, dataset_id: str | None, all_yaml: bool) -> list[dict[str, Any]]:
@@ -524,7 +575,12 @@ def render_yaml_metadata_report(
     dimensions, measures, filters = _role_counts(fields)
     sample_values = _collect_duckdb_sample_values(dataset, fields)
     mapping_rows = _safe_list_dicts(_safe_mapping(mapping).get("mappings")) if mapping else []
-    review_fields = [field for field in fields if _definition(field).get("needs_review") is True]
+    metric_lookup = _metric_lookup_by_source(metrics)
+    review_fields = [
+        field
+        for field in fields
+        if _metric_for_field(field, metric_lookup) is None and _definition(field).get("needs_review") is True
+    ]
     review_metrics = [metric for metric in metrics if _definition(metric).get("needs_review") is True]
 
     lines: list[str] = []
@@ -612,7 +668,8 @@ def render_yaml_metadata_report(
         lines.append("| 展示名 | 源字段 | DuckDB 类型 | metadata 类型 | 角色 | 业务定义 | 定义来源 | 示例值 | 证据 | Review |")
         lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
         for field in fields:
-            source_field = field.get("source_field") or field.get("physical_name") or field.get("name")
+            source_field = _field_source_name(field)
+            definition_item = _metric_for_field(field, metric_lookup) or field
             lines.append(
                 "| "
                 + " | ".join(
@@ -622,11 +679,11 @@ def render_yaml_metadata_report(
                         _code(field.get("duckdb_type") or field.get("data_type") or field.get("type")),
                         _code(field.get("type")),
                         _code(field.get("role")),
-                        _cell(_definition_text(field)),
-                        _code(_definition_source(field)),
+                        _cell(_definition_text(definition_item)),
+                        _code(_definition_source(definition_item)),
                         _cell(_sample_cell_for_field(field, sample_values)),
-                        _evidence_cell(field),
-                        _cell(_review_text(field)),
+                        _evidence_cell(definition_item),
+                        _cell(_review_text(definition_item)),
                     ]
                 )
                 + " |"
@@ -646,7 +703,7 @@ def render_yaml_metadata_report(
                 + " | ".join(
                     [
                         _cell(metric.get("display_name") or metric.get("name")),
-                        _code(metric.get("source_field")),
+                        _code(_metric_source_name(metric)),
                         _code(metric.get("expression")),
                         _code(metric.get("aggregation")),
                         _code(metric.get("unit")),
@@ -852,6 +909,17 @@ def main() -> None:
 
     for entry in targets:
         key = str(entry.get("key") or "")
+        yaml_dataset = _load_yaml_dataset_if_exists(workspace, str(entry.get("source_id") or key))
+        if yaml_dataset is not None:
+            report_path = write_yaml_report(
+                workspace=workspace,
+                dataset=yaml_dataset,
+                report_dir=report_dir,
+                generated_at=generated_at,
+                step_results=step_results,
+            )
+            print(f"[OK] report -> {report_path}")
+            continue
         spec = load_spec_by_entry_key(key) or {}
         report_path = write_report(
             entry=entry,

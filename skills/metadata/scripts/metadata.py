@@ -20,11 +20,14 @@ COMMANDS = (
     "context",
     "catalog",
     "reconcile",
+    "profile-review",
     "enrich-definitions",
     "sync-registry",
     "status",
     "inventory",
     "export-osi",
+    "record-change",
+    "change-report",
     "list-commands",
 )
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -76,9 +79,23 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--force", action="store_true", help="Overwrite existing scaffold files.")
     init.add_argument("--with-demo", action="store_true", help="Also copy demo metadata files.")
 
-    subparsers.add_parser("validate", help="Validate metadata YAML.")
+    validate = subparsers.add_parser("validate", help="Validate metadata YAML.")
+    validate.add_argument("--completeness", action="store_true", help="Also check metric/mapping/profile completeness.")
+    validate.add_argument("--strict", action="store_true", help="Alias for --completeness plus strict gates.")
     subparsers.add_parser("index", help="Build metadata JSONL indexes.")
     subparsers.add_parser("inventory", help="Build metadata system inventory.")
+    subparsers.add_parser("change-report", help="Regenerate the metadata change audit report.")
+
+    record_change = subparsers.add_parser("record-change", help="Append a metadata maintenance audit record and refresh the report.")
+    record_change.add_argument("--summary", required=True)
+    record_change.add_argument("--change-type", default="maintenance")
+    record_change.add_argument("--path", action="append", default=[])
+    record_change.add_argument("--before", action="append", default=[], help="Before-copy path for changed YAML. Repeat in the same order as --path.")
+    record_change.add_argument("--dataset-id", action="append", default=[])
+    record_change.add_argument("--refine-id", default="")
+    record_change.add_argument("--evidence", action="append", default=[])
+    record_change.add_argument("--details", default="")
+    record_change.add_argument("--actor", default="llm")
 
     enrich = subparsers.add_parser("enrich-definitions", help="Enrich dataset business definitions from mappings and dictionaries.")
     enrich.add_argument("--dataset-id", action="append", required=True)
@@ -116,6 +133,12 @@ def build_parser() -> argparse.ArgumentParser:
     reconcile = subparsers.add_parser("reconcile", help="Reconcile runtime registry lookup tables vs metadata YAML.")
     reconcile.add_argument("--runtime-db", default=None, help="Path to runtime SQLite DB. Defaults to runtime/registry.db.")
 
+    profile_review = subparsers.add_parser("profile-review", help="Review metadata completeness against profile/refine evidence.")
+    profile_review.add_argument("--dataset-id", required=True)
+    profile_review.add_argument("--profile-json", default="")
+    profile_review.add_argument("--refine-id", default="")
+    profile_review.add_argument("--output-dir", default="metadata/audit/profile-review")
+
     export_osi = subparsers.add_parser("export-osi", help="Export metadata YAML into an OSI semantic model YAML.")
     export_osi.add_argument("--model-name", required=True)
     export_osi.add_argument("--output", default=None)
@@ -145,13 +168,46 @@ def main(argv: list[str] | None = None) -> int:
         return run_python_script(workspace, metadata_script("init_metadata.py"), forwarded)
 
     if args.command == "validate":
-        return run_python_script(workspace, metadata_script("validate_metadata.py"), workspace_args(workspace))
+        forwarded = workspace_args(workspace)
+        if args.completeness:
+            forwarded.append("--completeness")
+        if args.strict:
+            forwarded.append("--strict")
+        return run_python_script(workspace, metadata_script("validate_metadata.py"), forwarded)
 
     if args.command == "index":
         return run_python_script(workspace, metadata_script("build_index.py"), workspace_args(workspace))
 
     if args.command == "inventory":
         return run_python_script(workspace, metadata_script("build_inventory.py"), workspace_args(workspace))
+
+    if args.command == "change-report":
+        return run_python_script(workspace, metadata_script("metadata_audit.py"), [*workspace_args(workspace), "report"])
+
+    if args.command == "record-change":
+        forwarded = [
+            *workspace_args(workspace),
+            "record",
+            "--summary",
+            args.summary,
+            "--change-type",
+            args.change_type,
+            "--actor",
+            args.actor,
+        ]
+        if args.details:
+            forwarded.extend(["--details", args.details])
+        if args.refine_id:
+            forwarded.extend(["--refine-id", args.refine_id])
+        for path in args.path:
+            forwarded.extend(["--path", path])
+        for before in args.before:
+            forwarded.extend(["--before", before])
+        for dataset_id in args.dataset_id:
+            forwarded.extend(["--dataset-id", dataset_id])
+        for evidence in args.evidence:
+            forwarded.extend(["--evidence", evidence])
+        return run_python_script(workspace, metadata_script("metadata_audit.py"), forwarded)
 
     if args.command == "enrich-definitions":
         forwarded = workspace_args(workspace)
@@ -220,6 +276,16 @@ def main(argv: list[str] | None = None) -> int:
             metadata_script("reconcile_metadata.py"),
             forwarded,
         )
+
+    if args.command == "profile-review":
+        forwarded = [*workspace_args(workspace), "--dataset-id", args.dataset_id]
+        if args.profile_json:
+            forwarded.extend(["--profile-json", args.profile_json])
+        if args.refine_id:
+            forwarded.extend(["--refine-id", args.refine_id])
+        if args.output_dir:
+            forwarded.extend(["--output-dir", args.output_dir])
+        return run_python_script(workspace, metadata_script("profile_review.py"), forwarded)
 
     if args.command == "export-osi":
         forwarded = [*workspace_args(workspace), "--model-name", args.model_name]

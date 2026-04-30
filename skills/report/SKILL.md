@@ -30,24 +30,23 @@ description: |
 **锁定模板规则（必须）**：
 - `analysis_plan.md` 中应优先明确 `selected_analysis_mode`、`selected_delivery_mode`、`selected_report_template`
 - 真正执行时，`selected_report_template` 仍是本次报告模板的直接真源
-- 若 `selected_report_template` 不在 `runtime/report_templates.yaml` 的核心 `templates` 中，必须先到 `template_aliases` 解析 `canonical_template`，再按核心模板执行
+- 若 `selected_report_template` 是历史模板 ID，必须先到 `skills/report/references/template-system-v2.md` 的 alias 说明中解析核心模板，再按核心模板执行
 - 撰写报告时不得重新选择模板
 - 若 plan 未明确模板，应回到 planning 阶段补齐，而不是在写报告阶段自行回退
 
-## 配置单一来源（非常重要）
+## Metadata 与模板来源（非常重要）
 
-报告模板与业务术语/指标等配置均以 `{baseDir}/runtime/` 为唯一权威来源：
+业务语义真源来自 metadata context；报告模板来自 report references：
 
-- `runtime/report_templates.yaml`
-- `runtime/glossary.yaml`
-- `runtime/metrics.yaml`
+- `metadata context`：字段、指标、mapping、review 标记
+- `skills/report/references/template-system-v2.md`
+- `skills/report/references/template-matrix.md`
 
-不要把这些 YAML 复制到 `skills/` 内，避免配置漂移。如需检索模板、术语、指标，优先使用 `RA:reference-lookup` skill 按需查询（metric/glossary 走 SQLite；template/framework 走 YAML）。
+不要把 runtime 当业务配置仓库。如需检索术语或指标，优先使用 `RA:metadata search/context` 或 `RA:reference-lookup`。
 
 **模板上下文使用方式**：
 - `template-system-v2.md` 用于理解“先分析模式、再交付方式、最后具体模板”的分层逻辑
 - `template-matrix.md` 仅在需要补充理解模板适用场景时再读取
-- `runtime/report_templates.yaml` 用于理解“这个模板应该怎么写”
 - `references/examples/` 仅在需要模仿该模板写法时再读取
 - 最终执行时必须以前置锁定的模板为准，不得重新选择模板
 
@@ -124,8 +123,8 @@ description: |
 
 1. 先从 `analysis_plan.md` 读取 `selected_analysis_mode`、`selected_delivery_mode`、`selected_report_template`
 2. 再结合 `skills/report/references/template-system-v2.md` 确认这三者是否匹配
-3. 若 `selected_report_template` 是旧模板 ID，先在 `runtime/report_templates.yaml > template_aliases` 中解析 `canonical_template`
-4. 再从 `runtime/report_templates.yaml` 读取该核心模板的结构、阅读目标、关键证据要求
+3. 若 `selected_report_template` 是旧模板 ID，先在 `skills/report/references/template-system-v2.md` 的 alias 说明中解析核心模板
+4. 再从 report references 读取该核心模板的结构、阅读目标、关键证据要求
 5. 再读取 `analysis_plan.md` 中的 `结论级证据块设计`
 6. 按模板要求组织正文，不得重新选择模板
 7. 若模板要求正文展示关键证据块，必须在对应结论下方直接展示问题行或问题对象，不得把这类证据统一放到报告底部
@@ -153,14 +152,14 @@ ls -1 jobs/{SESSION_ID}/*.csv jobs/{SESSION_ID}/*.md 2>/dev/null
 - `{baseDir}/skills/report/references/appendix-template.md`：`## 口径说明（本次新增/临时）` 附录模板与最小表结构。
 - `{baseDir}/skills/report/references/examples/`：关键模板的短示例；仅在需要模仿该模板写法时再读取。
 
-模板详细结构仍以 `runtime/report_templates.yaml` 为唯一权威来源。
+模板详细结构以 `skills/report/references/template-system-v2.md` 和 `template-matrix.md` 为准。
 
 ## 推荐执行顺序
 
 1. 读取 `jobs/{SESSION_ID}/.meta/analysis_plan.md`、`jobs/{SESSION_ID}/.meta/acquisition_log.jsonl`、`jobs/{SESSION_ID}/.meta/artifact_index.json`、`jobs/{SESSION_ID}/.meta/analysis_journal.md`、`jobs/{SESSION_ID}/.meta/user_request_timeline.md`，先确认这轮是在既有 job 上追加什么。
 2. 再按主数据源后端读取 `jobs/{SESSION_ID}/export_summary.json` 或 `jobs/{SESSION_ID}/duckdb_export_summary.json`，以及 `jobs/{SESSION_ID}/profile/manifest.json`、`jobs/{SESSION_ID}/profile/profile.json`。
 3. 从 `analysis_plan.md` 读取 `selected_analysis_mode`、`selected_delivery_mode`、`selected_report_template`，并先对照 `{baseDir}/skills/report/references/template-system-v2.md`。
-4. 再回到 `runtime/report_templates.yaml` 取具体模板的章节结构与写作要求。
+4. 再读取 report references 中具体模板的章节结构与写作要求。
 5. 若 `analysis_plan.md` 中的模板选择理由不足以指导写作，再按需读取 `{baseDir}/skills/report/references/template-matrix.md`。
 6. 先判断当前 job 是否已存在主报告：有则追加，无则创建；不得整篇重写旧报告。
 7. 按本页硬规范撰写正文，确保所有结论都有证据链，并把本轮新增需求/数据/分析/结论补进时间线。

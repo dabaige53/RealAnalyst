@@ -97,7 +97,7 @@ TABLEAU_PAT_SECRET=your-personal-access-token-secret
 
 ```text
 /skill RA:metadata-refine
-请读取当前 job 的 metadata feedback、profile 和必要的真实数据样本，生成可归档到 metadata/sources/refine/ 的修正参考材料。不要直接修改正式 YAML。
+请读取当前 job 的 metadata feedback、profile 和必要的真实数据样本，生成可归档到 metadata/sources/refine/ 的修正参考材料，并在 refine_followup.md 里写清本次做了什么、后续建议和待确认问题。不要直接修改正式 YAML。
 ```
 
 ### 生成分析计划

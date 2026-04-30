@@ -67,7 +67,7 @@ data_source:
 
 | 指标 | 优秀 | 良好 | 正常 | 警告 | 来源 |
 |------|------|------|------|------|------|
-| {指标1} | {值} | {值} | {值} | {值} | metrics.yaml |
+| {指标1} | {值} | {值} | {值} | {值} | metadata context / 用户确认 |
 
 - **波动阈值**: {X}%
 - **对比基准**: {同比/环比/预算}
@@ -86,13 +86,13 @@ data_source:
 ## 8. 分析框架
 - **选用框架**: {框架名称}
 - **选择理由**: {理由，必须关联假设}
-- **logic_path 来源**: runtime/analysis_frameworks.yaml
+- **logic_path 来源**: analysis-plan skill guidance / metadata context / 用户确认
 
 ## 9. 分析目标
 
 ### 固定目标
 - [ ] goal-1: 明确分析范围与数据口径
-- [ ] goal-2: 输出核心指标概览（参考 metrics.yaml 的 priority_groups.core）
+- [ ] goal-2: 输出核心指标概览（参考 metadata context 中的核心指标）
 
 ### 假设验证目标（MUST）
 - [ ] goal-hypo-1: 验证假设 1 - {假设内容简述}

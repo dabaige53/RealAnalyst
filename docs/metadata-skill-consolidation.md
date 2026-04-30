@@ -36,6 +36,8 @@ OSI 是交换层，不进入本地分析主路径。
 python3 skills/metadata/scripts/metadata.py init-source --backend tableau --source-id <source_id> --dry-run
 python3 skills/metadata/scripts/metadata.py validate
 python3 skills/metadata/scripts/metadata.py index
+python3 skills/metadata/scripts/metadata.py record-change --summary "<本次 metadata 修改摘要>" --path metadata/datasets/<dataset>.yaml --dataset-id <dataset_id>
+python3 skills/metadata/scripts/metadata.py change-report
 python3 skills/metadata/scripts/metadata.py sync-registry --dataset-id <dataset_id> --dry-run
 python3 skills/metadata/scripts/metadata.py sync-registry --dataset-id <dataset_id>
 python3 skills/metadata/scripts/metadata.py status --dataset-id <dataset_id>
@@ -53,7 +55,7 @@ python3 skills/metadata-refine/scripts/build_reference_pack.py --session-id <job
 python3 skills/metadata-refine/scripts/archive_reference_pack.py --refine-id <refine_id> --session-id <job_id>
 ```
 
-归档后再由 `RA:metadata` 读取 `metadata/sources/refine/<refine_id>/` 修正式 YAML。
+归档后再由 `RA:metadata` 读取 `metadata/sources/refine/<refine_id>/` 修正式 YAML；其中 `refine_followup.md` 说明本次 refine 做了什么、建议如何继续和哪些问题仍需确认。
 
 ## 脚本归属
 
@@ -68,6 +70,8 @@ python3 skills/metadata-refine/scripts/archive_reference_pack.py --refine-id <re
 - `sync_registry.py`：把已校验 dataset YAML 受控同步到 `runtime/registry.db`。
 - `status_registry.py`：检查 YAML、index、runtime registry、export-ready 状态。
 - `build_inventory.py`：生成当前元数据系统清单。
+- `metadata_audit.py`：记录 metadata YAML 维护日志并生成变更报告。
+- `profile_review.py`：基于 profile/refine 证据检查字段、指标、mapping 和 sample profile 完整性，只输出建议报告。
 - `export_osi.py`：在交换场景把 YAML 导出为 OSI semantic model。
 
 旧 `metadata-init`、`metadata-validate`、`metadata-index`、`metadata-search`、`metadata-context`、`metadata-inventory`、`osi-export` 目录不再保留可执行脚本或残留文件夹。

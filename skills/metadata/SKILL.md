@@ -87,19 +87,40 @@ metadata/sources/refine/{refine_id}/metadata_update_reference.md
 
 然后只修改相关 dictionaries / mappings / datasets YAML。新增或修正的 `business_definition.source_evidence[].source` 必须引用 `metadata/sources/refine/{refine_id}/...`，不引用 runtime 临时路径。
 
-4. 校验、生成索引、同步运行层：
+4. 每次维护 YAML 后必须记录变更日志并生成报告：
+
+```bash
+python3 {baseDir}/skills/metadata/scripts/metadata.py record-change --summary "<本次修改了什么>" --change-type maintenance --path metadata/datasets/<dataset>.yaml --dataset-id <dataset_id>
+python3 {baseDir}/skills/metadata/scripts/metadata.py change-report
+```
+
+默认输出：
+
+```text
+metadata/audit/metadata_changes.jsonl
+metadata/audit/metadata_change_report.md
+```
+
+如果本次修改来自 `RA:metadata-refine`，修改前必须先保存旧 YAML 副本；记录时追加 `--refine-id <refine_id>`、`--before <旧YAML副本>` 和 `--evidence metadata/sources/refine/<refine_id>/evidence_manifest.json`。此时会生成对比报告：
+
+```text
+metadata/audit/refine-diffs/<refine_id>-<timestamp>.md
+```
+
+5. 校验、生成索引、同步运行层：
 
 ```bash
 python3 {baseDir}/skills/metadata/scripts/metadata.py validate
+python3 {baseDir}/skills/metadata/scripts/metadata.py validate --completeness
 python3 {baseDir}/skills/metadata/scripts/metadata.py index
 python3 {baseDir}/skills/metadata/scripts/metadata.py sync-registry --dataset-id <dataset_id> --dry-run
 python3 {baseDir}/skills/metadata/scripts/metadata.py sync-registry --dataset-id <dataset_id>
 python3 {baseDir}/skills/metadata/scripts/metadata.py status --dataset-id <dataset_id>
 ```
 
-校验失败时停止，先修 YAML。`sync-registry` 是唯一允许从已校验 YAML 写入 `runtime/registry.db` 的路径。
+普通 `validate` 保持结构兼容；`validate --completeness` 会额外检查 metric-like 字段、mapping metric 和 sample profile 证据是否完整。校验失败时停止，先修 YAML。`sync-registry` 是唯一允许从已校验 YAML 写入 `runtime/registry.db` 的路径。
 
-5. 需求理解阶段先低 token 检索，不直接扫完整 YAML：
+6. 需求理解阶段先低 token 检索，不直接扫完整 YAML：
 
 ```bash
 python3 {baseDir}/skills/metadata/scripts/metadata.py search --type metric --query 收入
@@ -107,7 +128,7 @@ python3 {baseDir}/skills/metadata/scripts/metadata.py search --type field --quer
 python3 {baseDir}/skills/metadata/scripts/metadata.py search --type all --query 转化率
 ```
 
-6. 浏览数据集目录（选源阶段使用，token 开销低）：
+7. 浏览数据集目录（选源阶段使用，token 开销低）：
 
 ```bash
 python3 {baseDir}/skills/metadata/scripts/metadata.py catalog
@@ -117,7 +138,7 @@ python3 {baseDir}/skills/metadata/scripts/metadata.py catalog --group-by domain
 
 catalog 输出每个 dataset 的轻量摘要（id / display_name / domain / grain / top 3 metrics / suitable_for / field_count / metric_count / review_required），适合在需求理解阶段快速了解可用数据集全貌。
 
-7. 构造分析上下文：
+8. 构造分析上下文：
 
 ```bash
 # 单数据集
@@ -131,7 +152,16 @@ context pack 是 `RA:analysis-plan` 的正式语义输入。若输出中出现 `
 
 多数据集 context 输出包含 `shared_dictionary_refs`（共享字典引用）和 `shared_glossary`（去重后的共享术语）。
 
-8. 比对运行时配置与元数据 YAML 的指标/维度/术语差异：
+8. 基于 profile/refine 证据生成 metadata 完整性审查报告：
+
+```bash
+python3 {baseDir}/skills/metadata/scripts/metadata.py profile-review --dataset-id <dataset_id> --refine-id <refine_id>
+python3 {baseDir}/skills/metadata/scripts/metadata.py profile-review --dataset-id <dataset_id> --profile-json jobs/<SESSION_ID>/profile/profile.json
+```
+
+`profile-review` 只输出 Markdown + JSON 建议，不自动改 YAML。它会把缺口分成“应补指标 / 待人工确认 / 不建议注册为指标”。
+
+9. 比对运行时配置与元数据 YAML 的指标/维度/术语差异：
 
 ```bash
 python3 {baseDir}/skills/metadata/scripts/metadata.py reconcile
@@ -148,10 +178,13 @@ reconcile 输出每个类别（metrics / dimensions / glossary）的匹配数、
 | index 缺失 | 运行 `metadata validate`，通过后运行 `metadata index` |
 | registry 缺失 | 运行 `metadata sync-registry --dataset-id ... --dry-run`，确认后正式同步 |
 | YAML 缺字段/指标定义 | 先补 YAML，设置证据、置信度和 review 标记 |
+| YAML 已修改 | 运行 `metadata record-change` 写入审计日志，再运行 `metadata validate` / `metadata index` |
 | Tableau/DuckDB 字段需要刷新 | 读取 `references/connector-adapters.md`，通过 adapter scripts 获取素材 |
 | 需要跨系统标准交换 | 使用 `metadata export-osi`；不要新建独立 `osi-export` skill |
 | 用户给了配置抽取文档 | 先保存到 `metadata/sources/`，再拆成 dictionaries/mappings/datasets |
-| 用户给了 refine 参考材料 | 读取 `metadata/sources/refine/{refine_id}/evidence_manifest.json` 和 `metadata_update_reference.md`，再维护正式 YAML |
+| 用户给了 refine 参考材料 | 读取 `metadata/sources/refine/{refine_id}/evidence_manifest.json`、`refine_followup.md` 和 `metadata_update_reference.md`，再维护正式 YAML |
+| 需要确认真实样本是否已转成指标/枚举/evidence | 运行 `metadata profile-review --dataset-id ... --refine-id ...`，按报告补 YAML |
+| 基于 refine 修改 YAML | 修改前保存旧 YAML 副本；修改后运行 `metadata record-change --refine-id ... --before ...`，生成 diff 报告 |
 | 怀疑运行时与元数据指标/维度不一致 | 运行 `metadata reconcile`，根据输出修补 YAML 或 runtime 配置 |
 
 ## Quality Gates
@@ -159,8 +192,11 @@ reconcile 输出每个类别（metrics / dimensions / glossary）的匹配数、
 继续分析前必须满足：
 
 - `metadata validate` 返回 `success=true`。
+- metadata 来自真实样本/refine 时，`metadata profile-review` 已生成报告；正式分析前建议运行 `metadata validate --completeness`。
 - `metadata index` 成功生成 `metadata/index/*.jsonl`，包括 mappings 索引。
 - `metadata status --dataset-id ...` 显示 `metadata_yaml=true`、`metadata_index=true`、`runtime_registry=true`；需要取数时还要 `export_ready=true`。
+- 修改 YAML 后必须存在本轮 `metadata/audit/metadata_changes.jsonl` 记录，并刷新 `metadata/audit/metadata_change_report.md`。
+- 基于 refine 修改 YAML 后必须生成 `metadata/audit/refine-diffs/*.md`，说明前后差异。
 - 需求理解只读取 search/context 结果，不扫完整 YAML。
 - `needs_review=true` 不得作为确定口径通过验证。
 - 不手工覆盖 `registry.db`；只能用 `metadata sync-registry` 从已校验 YAML 受控 upsert。
@@ -176,6 +212,8 @@ reconcile 输出每个类别（metrics / dimensions / glossary）的匹配数、
 | 只引用用户 Downloads 里的原始文件 | 复制到 `metadata/sources/` 后再作为证据引用 |
 | 把 Tableau/DuckDB 字段名当业务定义 | 字段名只是素材，业务定义写回 YAML |
 | 引用 `runtime/metadata-refine/` 作为证据 | 先用 `RA:metadata-refine` 归档到 `metadata/sources/refine/`，YAML 只引用归档路径 |
+| 改完 YAML 只跑 validate/index | 还必须跑 `metadata record-change`，留下本次修改原因、文件和证据 |
+| 基于 refine 改 YAML 但没有对比报告 | 先保存旧 YAML 副本，再用 `metadata record-change --refine-id ... --before ...` 自动生成 diff 报告 |
 | validate/index 成功就说“可取数” | 先跑 `metadata status`；runtime registry 和 export-ready 要单独验收 |
 | 创建新的 connector-specific skill | 停止；把能力接进 metadata adapter |
 
@@ -194,6 +232,9 @@ python3 {baseDir}/skills/metadata/scripts/metadata.py list-commands
 python3 {baseDir}/skills/metadata/scripts/metadata.py init
 python3 {baseDir}/skills/metadata/scripts/metadata.py validate
 python3 {baseDir}/skills/metadata/scripts/metadata.py index
+python3 {baseDir}/skills/metadata/scripts/metadata.py record-change --summary <summary> --path <metadata_yaml>
+python3 {baseDir}/skills/metadata/scripts/metadata.py record-change --summary <summary> --path <metadata_yaml> --before <old_yaml_copy> --refine-id <refine_id> --evidence metadata/sources/refine/<refine_id>/evidence_manifest.json
+python3 {baseDir}/skills/metadata/scripts/metadata.py change-report
 python3 {baseDir}/skills/metadata/scripts/metadata.py sync-registry --dataset-id <dataset_id> --dry-run
 python3 {baseDir}/skills/metadata/scripts/metadata.py sync-registry --dataset-id <dataset_id>
 python3 {baseDir}/skills/metadata/scripts/metadata.py status --dataset-id <dataset_id>
@@ -212,6 +253,7 @@ python3 {baseDir}/skills/metadata/scripts/metadata.py export-osi --model-name <m
 每类 metadata 任务完成后，向用户汇报：
 
 - **validate 完成**：校验结果（成功/失败项数）。下一步：`metadata index` 生成索引。
+- **record-change 完成**：写入了哪条维护记录，报告路径是 `metadata/audit/metadata_change_report.md`。下一步：`metadata validate` / `metadata index`。
 - **index 完成**：生成了多少条 JSONL 记录，search.db 是否创建。下一步：`metadata search` 或 `metadata catalog` 浏览数据集。
 - **catalog 完成**：列出了多少个数据集。下一步：选定候选数据集后运行 `metadata context`。
 - **search 完成**：命中了多少条记录，使用了哪个后端（FTS5 / JSONL）。下一步：用命中的 dataset_id 生成 `metadata context`。

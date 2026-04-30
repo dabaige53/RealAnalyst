@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.6 - 2026-04-30
+
+- Added `metadata profile-review` to turn profile/refine evidence into metric, mapping, and sample-profile completeness reports.
+- Added `metadata validate --completeness` / `--strict` gates for metric-like fields, metric mappings, and sample-profile evidence.
+- Updated skill guidance away from legacy runtime YAML sources and clarified metadata/context/registry responsibilities.
+- Improved installer output with requested/resolved version and project skill install/skip/replacement status.
+- Lowered `RA:metadata-refine` friction for metadata-only workflows and made DuckDB export summaries unique per export.
+- Fixed DuckDB metadata reports so confirmed metric definitions override matching metric-source field definitions and review counts do not double-count them.
+
 ## 0.3.5 - 2026-04-30
 
 - Added `RA:metadata-refine` to turn job feedback, profile output, and real-data probes into archived metadata reference packs.

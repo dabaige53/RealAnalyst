@@ -143,25 +143,31 @@ def ensure_plugin_env(plugin_dir: Path, *, dry_run: bool) -> Path:
     return env_path
 
 
-def install_project_skills(plugin_dir: Path, project_dir: Path, *, force: bool, dry_run: bool) -> None:
+def install_project_skills(plugin_dir: Path, project_dir: Path, *, force: bool, dry_run: bool) -> list[dict[str, str]]:
     skills_source = plugin_dir / "skills"
     skills_target = project_dir / ".agents" / "skills"
+    results: list[dict[str, str]] = []
     print(f"$ install project-local skills into {skills_target}")
     for source in sorted(path for path in skills_source.iterdir() if path.is_dir() and (path / "SKILL.md").exists()):
         target = skills_target / source.name
         marker = target / ".realanalyst-installed"
         if target.exists() and not marker.exists() and not force:
             print(f"  skip {target} (already exists; use --force to overwrite)")
+            results.append({"skill": source.name, "status": "skipped", "reason": "existing directory has no .realanalyst-installed marker"})
             continue
         if target.exists() and (force or marker.exists()):
             print(f"$ replace {target}")
+            results.append({"skill": source.name, "status": "replaced", "reason": "--force" if force else "RealAnalyst marker present"})
             if not dry_run:
                 shutil.rmtree(target)
+        elif not target.exists():
+            results.append({"skill": source.name, "status": "installed", "reason": "new project-local skill"})
         if dry_run:
             print(f"$ copytree {source} -> {target}")
             continue
         shutil.copytree(source, target)
         marker.write_text("installed by RealAnalyst\n", encoding="utf-8")
+    return results
 
 
 def install_project_runtime(plugin_dir: Path, project_dir: Path, *, dry_run: bool) -> None:
@@ -249,6 +255,7 @@ def main() -> int:
     args = parser.parse_args()
 
     plugin_dir = Path(args.plugin_dir).expanduser().resolve()
+    requested_version = args.version if args.version is not None else "(saved strategy or latest)"
     version = resolve_version(plugin_dir, args.version)
     project_dir = Path(args.project).expanduser().resolve()
     if args.marketplace:
@@ -267,14 +274,16 @@ def main() -> int:
         install_dependencies(plugin_dir, dry_run=args.dry_run)
     env_path = ensure_plugin_env(plugin_dir, dry_run=args.dry_run)
     upsert_marketplace(marketplace, plugin_dir, name=marketplace_name, dry_run=args.dry_run)
+    skill_results: list[dict[str, str]] = []
     if not args.global_install and not args.skip_project_skills:
-        install_project_skills(plugin_dir, project_dir, force=args.force, dry_run=args.dry_run)
+        skill_results = install_project_skills(plugin_dir, project_dir, force=args.force, dry_run=args.dry_run)
     if not args.global_install and not args.skip_project_runtime:
         install_project_runtime(plugin_dir, project_dir, dry_run=args.dry_run)
     validate_install(plugin_dir, dry_run=args.dry_run)
 
     print("\nInstalled RealAnalyst for Codex.")
-    print(f"Version strategy: {version}")
+    print(f"Requested version: {requested_version}")
+    print(f"Resolved version strategy: {version}")
     print(f"Installed plugin version: {read_plugin_version(plugin_dir)}")
     print(f"Installed plugin commit: {read_git_revision(plugin_dir)}")
     print(f"Enabled marketplace: {marketplace}")
@@ -283,6 +292,9 @@ def main() -> int:
     print(f"Online update guide: {UPDATE_GUIDE_URL}")
     if not args.global_install and not args.skip_project_skills:
         print(f"Installed skills: {project_dir / '.agents' / 'skills'}")
+        print("Project skills status:")
+        for item in skill_results:
+            print(f"  - {item['skill']}: {item['status']} ({item['reason']})")
     if not args.global_install and not args.skip_project_runtime:
         print(f"Installed runtime support: {project_dir / 'runtime'}")
         print("No jobs/logs/business workspace folders were created.")

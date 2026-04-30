@@ -37,10 +37,17 @@ python3 {baseDir}/skills/metadata-refine/scripts/collect_feedback.py --session-i
 python3 {baseDir}/skills/metadata-refine/scripts/probe_data.py --session-id <SESSION_ID> --data-csv jobs/<SESSION_ID>/data/<file>.csv --dataset-id <dataset_id>
 ```
 
+metadata-only 场景没有 analysis job 时，也可以直接传 dataset 和 CSV：
+
+```bash
+python3 {baseDir}/skills/metadata-refine/scripts/probe_data.py --dataset-id <dataset_id> --data-csv <file>.csv
+```
+
 3. 生成参考材料包：
 
 ```bash
 python3 {baseDir}/skills/metadata-refine/scripts/build_reference_pack.py --session-id <SESSION_ID> --dataset-id <dataset_id>
+python3 {baseDir}/skills/metadata-refine/scripts/build_reference_pack.py --dataset-id <dataset_id> --data-csv <file>.csv --profile-json <profile.json>
 ```
 
 默认输出到：
@@ -48,6 +55,7 @@ python3 {baseDir}/skills/metadata-refine/scripts/build_reference_pack.py --sessi
 ```text
 runtime/metadata-refine/{refine_id}/
   refine_brief.md
+  refine_followup.md
   feedback_summary.md
   data_probe_summary.md
   metadata_update_reference.md
@@ -86,6 +94,6 @@ metadata/sources/refine/{refine_id}/
 完成后向用户汇报：
 
 - 使用了哪个 job、profile、CSV 和 feedback。
-- 生成了哪些参考文件。
+- 生成了哪些参考文件，尤其是 `refine_followup.md` 中“做了什么”和“后续建议”。
 - 是否已归档到 `metadata/sources/refine/{refine_id}/`。
 - 下一步：使用 `RA:metadata` 基于参考材料修正 YAML，再运行 validate/index/sync-registry。

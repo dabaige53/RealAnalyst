@@ -1,13 +1,26 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 
-DEFAULT_WORKSPACE = Path(__file__).resolve().parents[3]
+def find_workspace(start: Path) -> Path:
+    env_root = os.environ.get("ANALYST_WORKSPACE_DIR")
+    if env_root:
+        return Path(env_root).expanduser().resolve()
+    for candidate in (start, *start.parents):
+        if (candidate / "metadata").is_dir() and ((candidate / "skills").is_dir() or (candidate / ".agents" / "skills").is_dir()):
+            return candidate
+        if (candidate / ".agents" / "skills").is_dir():
+            return candidate
+    return Path(__file__).resolve().parents[3]
+
+
+DEFAULT_WORKSPACE = find_workspace(Path(__file__).resolve())
 
 
 def now_iso() -> str:
@@ -66,8 +79,8 @@ def resolve_workspace_path(workspace: Path, path: str | None) -> Path | None:
         return None
     p = Path(path).expanduser()
     if p.is_absolute():
-        return p
-    return workspace / p
+        return p.resolve()
+    return (workspace / p).resolve()
 
 
 def read_json(path: Path) -> dict[str, Any]:

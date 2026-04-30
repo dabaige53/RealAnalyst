@@ -37,13 +37,15 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 - --version latest
 ```
 
-如果你希望项目稳定在某个发布版，指定版本号即可。`0.3.5` 和 `v0.3.5` 都可以：
+如果你希望项目稳定在某个发布版，指定版本号即可。`0.3.6` 和 `v0.3.6` 都可以：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 - --version 0.3.5
+curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 - --version 0.3.6
 ```
 
 以后重新运行安装器且不传 `--version` 时，会优先沿用上次保存的版本策略。
+
+安装器结束时会打印 `Requested version`、`Resolved version strategy`、`Installed plugin version`、`Installed plugin commit`，以及每个 project-local skill 是 installed、replaced 还是 skipped。若已有 project skill 没有 `.realanalyst-installed` 标记，默认会跳过；确认要覆盖时加 `--force`。
 
 LLM 引导文件读线上文档：`https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/llm-next-steps.md`。不要把引导文件写进用户项目。
 

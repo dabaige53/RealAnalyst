@@ -9,6 +9,7 @@ RealAnalyst 将 skills、元数据真源、connector 同步快照、生成物和
 | `metadata/dictionaries/` | LLM + reviewer | 只跟踪 demo/example | 公共指标、维度、术语。 |
 | `metadata/mappings/` | LLM + reviewer | 只跟踪 demo/example | source 字段到标准语义的映射。 |
 | `metadata/datasets/` | LLM + reviewer | 只跟踪 demo/example | 真实可分析数据源 metadata。 |
+| `metadata/audit/` | LLM + reviewer | 默认忽略生成日志，只跟踪 README | 元数据维护日志和变更报告。 |
 | `metadata/models/` | LLM + reviewer | 只跟踪 demo/example | 语义模型。 |
 | `metadata/sync/` | connector 脚本 | 只跟踪 `.example.*` | 同步快照，给 LLM 整理 metadata 用。 |
 | `metadata/index/` | 脚本生成 | 忽略 | 轻量检索索引（JSONL + search.db FTS5）。 |

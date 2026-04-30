@@ -189,7 +189,7 @@ sequenceDiagram
 | --- | --- |
 | **触发条件** | 分析 job 或用户反馈暴露字段定义、指标口径、证据不足、真实数据与 YAML 不一致 |
 | **输入** | `metadata_feedback.jsonl`、profile、正式 CSV、用户反馈 |
-| **输出** | `metadata/sources/refine/{refine_id}/` 参考材料 |
+| **输出** | `metadata/sources/refine/{refine_id}/` 参考材料，包含 `refine_followup.md` |
 | **下游** | `RA:metadata` 基于参考材料修正式 YAML |
 | **核心脚本** | `skills/metadata-refine/scripts/{collect_feedback,probe_data,build_reference_pack,archive_reference_pack}.py` |
 

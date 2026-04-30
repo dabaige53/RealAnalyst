@@ -31,13 +31,19 @@ SITE_PACKAGES = next(
 )
 if SITE_PACKAGES and str(SITE_PACKAGES) not in sys.path:
     sys.path.insert(0, str(SITE_PACKAGES))
-if str(WORKSPACE_DIR) not in sys.path:
-    sys.path.append(str(WORKSPACE_DIR))
+WORKSPACE_TEXT = str(WORKSPACE_DIR)
+REMOVED_WORKSPACE_PATHS = [item for item in ("", WORKSPACE_TEXT) if item in sys.path]
+for item in REMOVED_WORKSPACE_PATHS:
+    sys.path.remove(item)
 
 try:
     import duckdb  # noqa: E402
 except ModuleNotFoundError:  # pragma: no cover - dependency check
     duckdb = None  # type: ignore[assignment]
+for item in reversed(REMOVED_WORKSPACE_PATHS):
+    sys.path.insert(0, item)
+if WORKSPACE_TEXT not in sys.path:
+    sys.path.append(WORKSPACE_TEXT)
 from runtime.tableau.sqlite_store import get_entry_by_source_id, load_spec_by_entry_key  # noqa: E402
 
 ALLOWED_AGGS = {"sum", "avg", "min", "max", "count"}
@@ -296,10 +302,23 @@ def main() -> None:
         "sql": sql,
         "exported_at": datetime.now().astimezone().isoformat(),
     }
-    summary_path = output_dir / "duckdb_export_summary.json"
+    summary_path = output_dir / f"duckdb_export_summary_{Path(args.output_name).stem}_{datetime.now().strftime('%Y%m%d%H%M%S')}.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+    latest_summary_path = output_dir / "duckdb_export_summary.json"
+    latest_summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    print(json.dumps({"output_file": str(output_file), "summary_file": str(summary_path), "row_count": row_count}, ensure_ascii=False, indent=2))
+    print(
+        json.dumps(
+            {
+                "output_file": str(output_file),
+                "summary_file": str(summary_path),
+                "latest_summary_file": str(latest_summary_path),
+                "row_count": row_count,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

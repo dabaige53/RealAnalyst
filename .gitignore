@@ -14,11 +14,15 @@ __pycache__/
 *.log
 jobs/
 logs/
-tests/
 tableau_sync/
 duckdb_sync/
 metadata/index/
 metadata/osi/
+metadata/audit/*.jsonl
+metadata/audit/*.md
+metadata/audit/refine-diffs/
+metadata/audit/profile-review/
+!metadata/audit/README.md
 metadata/sync/**/*.json
 metadata/sync/**/reports/
 !metadata/sync/**/*.example.json

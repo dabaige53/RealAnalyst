@@ -130,7 +130,8 @@ Tableau wrapper 成功后通常产生：
 DuckDB wrapper 成功后通常产生：
 
 - `jobs/{SESSION_ID}/data/<output-name>.csv`
-- `jobs/{SESSION_ID}/duckdb_export_summary.json`
+- `jobs/{SESSION_ID}/duckdb_export_summary_<output-name>_<timestamp>.json`
+- `jobs/{SESSION_ID}/duckdb_export_summary.json`（latest pointer，便于兼容旧流程）
 - `jobs/{SESSION_ID}/.meta/acquisition_log.jsonl`
 - `jobs/{SESSION_ID}/.meta/artifact_index.json`
 

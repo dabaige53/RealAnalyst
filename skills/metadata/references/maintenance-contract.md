@@ -8,6 +8,7 @@
 | dictionaries | 公共指标、公共维度、公共术语、同义词和词表 | 是，由 LLM 维护 |
 | mappings | source 字段到标准语义的映射和口径覆盖 | 是，由 LLM 维护 |
 | datasets | 真实可分析数据源的字段、指标、粒度、限制和引用 | 是，由 LLM 维护 |
+| audit | 元数据维护日志和变更报告 | 否，由 `metadata record-change` 生成 |
 | index | 从 YAML 生成的轻量检索记录 | 否，自动生成 |
 | context pack | 给分析规划读取的最小上下文 | 否，按需生成 |
 | registry.db | 运行时 source 与执行配置 | 否，由 `metadata sync-registry` / connector runtime 流程维护 |
@@ -23,6 +24,8 @@
 - `needs_review=true` 或 `review_required=true` 的定义必须被标记为推断口径。
 - 公共指标、公共维度、公共术语不放入 `metadata/datasets/`。
 - 用户提供的原始文件先进入 `metadata/sources/`，其他 YAML 再引用项目内路径作为证据。
+- 每次修改 dictionaries/mappings/datasets YAML 后，必须运行 `metadata record-change`，记录修改原因、涉及文件、dataset 和证据路径。
+- `metadata/audit/metadata_changes.jsonl` 是机器可读日志，`metadata/audit/metadata_change_report.md` 是人工审阅报告。
 
 ## 原独立 skills 的合并关系
 

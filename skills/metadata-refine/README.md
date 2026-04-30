@@ -13,6 +13,13 @@ python3 skills/metadata-refine/scripts/build_reference_pack.py --session-id <SES
 python3 skills/metadata-refine/scripts/archive_reference_pack.py --refine-id <refine_id> --session-id <SESSION_ID>
 ```
 
+没有 analysis job 时，可以直接用真实 CSV 生成 metadata-only reference pack：
+
+```bash
+python3 skills/metadata-refine/scripts/probe_data.py --dataset-id <dataset_id> --data-csv <file>.csv
+python3 skills/metadata-refine/scripts/build_reference_pack.py --dataset-id <dataset_id> --data-csv <file>.csv --profile-json <profile.json>
+```
+
 ## 产物
 
 临时目录：
@@ -32,6 +39,7 @@ metadata/sources/refine/{refine_id}/
 | 文件 | 作用 |
 | --- | --- |
 | `refine_brief.md` | 本次修正材料摘要 |
+| `refine_followup.md` | 本次做了什么、建议如何继续、还有哪些待确认 |
 | `feedback_summary.md` | 用户反馈和分析发现汇总 |
 | `data_probe_summary.md` | 真实数据轻量探查摘要 |
 | `metadata_update_reference.md` | 给 `RA:metadata` 的修正参考 |

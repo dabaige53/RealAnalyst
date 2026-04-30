@@ -19,6 +19,7 @@ from skills.metadata.lib.metadata_io import (
     load_mapping_file,
     normalize_dataset,
 )
+from skills.metadata.lib.metadata_completeness import completeness_findings, load_dataset_mappings
 
 
 REQUIRED_DATASET_KEYS = ("version", "id", "display_name", "source", "business", "maintenance", "fields")
@@ -250,9 +251,36 @@ def validate_mapping(data: dict[str, Any], *, path: Path) -> list[str]:
     return errors
 
 
+def validate_completeness(workspace: Path, dataset_files: list[Path]) -> list[str]:
+    errors: list[str] = []
+    for path in dataset_files:
+        try:
+            dataset = load_dataset_file(path)
+            mappings = load_dataset_mappings(workspace, str(dataset.get("id") or "").strip())
+        except MetadataError as exc:
+            errors.append(str(exc))
+            continue
+        findings = completeness_findings(dataset, mappings=mappings)
+        for item in findings["should_add_metrics"]:
+            errors.append(
+                f"{path.name}.fields[{item.get('field')}]: metric-like field is not registered in dataset.metrics; "
+                "add a metric or set not_metric_reason"
+            )
+        for item in findings["mapping_gaps"]:
+            errors.append(
+                f"{item.get('mapping_id')}.mappings[{item.get('index')}]: metric mapping "
+                f"{item.get('view_field')!r} has no matching dataset metric"
+            )
+        for item in findings["needs_review"]:
+            errors.append(f"{path.name}.fields[{item.get('field')}]: {item.get('reason')}")
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate LLM-native metadata YAML files.")
     parser.add_argument("--workspace", default=None, help="Workspace root. Defaults to discovered RealAnalyst root.")
+    parser.add_argument("--completeness", action="store_true", help="Check metric/mapping/sample-profile completeness.")
+    parser.add_argument("--strict", action="store_true", help="Alias for --completeness with strict gates.")
     args = parser.parse_args()
 
     workspace = Path(args.workspace).expanduser().resolve() if args.workspace else WORKSPACE_DIR
@@ -275,10 +303,13 @@ def main() -> int:
             errors.extend(validate_mapping(load_mapping_file(path), path=path))
         except MetadataError as exc:
             errors.append(str(exc))
+    if args.completeness or args.strict:
+        errors.extend(validate_completeness(workspace, dataset_files))
 
     payload = {
         "success": not errors,
         "workspace": str(workspace),
+        "completeness": bool(args.completeness or args.strict),
         "checked_files": [str(path) for path in [*dataset_files, *dictionary_files, *mapping_files]],
         "dataset_count": len(dataset_files),
         "dictionary_count": len(dictionary_files),
