@@ -213,6 +213,7 @@ python3 {baseDir}/skills/data-export/scripts/tableau/export_source.py \
 - 筛选器数：`{filter_count}`
 - 粒度字段数：`{grain_count}`
 - 时间字段数：`{time_field_count}`
+- 示例值采样字段数：`{sampled_field_count}`
 
 ## 4. 语义层明细
 
@@ -234,23 +235,9 @@ python3 {baseDir}/skills/data-export/scripts/tableau/export_source.py \
 
 ## 5. 字段明细
 
-### 5.1 维度
-
-| 字段 | 类型 |
-| --- | --- |
-| `{field}` | `{data_type}` |
-
-### 5.2 指标
-
-| 字段 | 类型 |
-| --- | --- |
-| `{field}` | `{data_type}` |
-
-### 5.3 筛选器
-
-| 字段 | 显示名 | 应用方式 |
-| --- | --- | --- |
-| `{key}` | `{display_name}` | `{sql_where}` |
+| 展示名 | 源字段 | DuckDB 类型 | metadata 类型 | 角色 | 业务定义 | 定义来源 | 示例值 | 证据 | Review |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `{display_name}` | `{source_field}` | `{duckdb_type}` | `{metadata_type}` | `{role}` | `{definition}` | `{definition_source}` | `{sample_values}` | `{evidence}` | `{review}` |
 
 ## 6. 指标明细
 
@@ -262,9 +249,11 @@ python3 {baseDir}/skills/data-export/scripts/tableau/export_source.py \
 
 DuckDB 数据源没有 Tableau 参数；后续取数筛选应通过 `sql_where` 或 data-export 的 DuckDB 筛选参数表达。
 
-| 字段 | 显示名 | 应用方式 | 说明 |
-| --- | --- | --- | --- |
-| `{field}` | `{display_name}` | `sql_where` | 按 `{field}` 过滤，值域需在取数时验证 |
+> 示例值为报告生成时从 DuckDB 当前对象中只读抽取的非空样本，不代表完整枚举清单；正式筛选仍以实时数据和业务口径为准。
+
+| 字段 | 显示名 | 应用方式 | 可选值/示例 | 说明 |
+| --- | --- | --- | --- | --- |
+| `{field}` | `{display_name}` | `sql_where` | `{sample_values}` | 按 `{field}` 过滤；示例值来自 DuckDB 当前非空样本，正式取数仍以实时数据为准 |
 
 ## 8. 映射与 Review 问题
 
@@ -296,5 +285,6 @@ DuckDB 数据源没有 Tableau 参数；后续取数筛选应通过 `sql_where` 
 1. 脚本输出是正式底稿；模板用于人工补全，不要反过来覆盖脚本事实。
 2. Tableau 必须保留筛选器 `--vf` 和参数 `--vp` 的区别。
 3. DuckDB 必须保留 `db_path`、`schema`、`object_name`、`object_kind`，方便后续追溯真实对象。
-4. 所有 `{placeholder}` 都必须替换；没有事实时写“未配置 / 待确认”，不要留占位符。
-5. 低置信度、缺 validation、未解析维度、逻辑字段与物理列差异，必须写入报告正文。
+4. DuckDB 示例值必须来自只读采样；采样失败时写清原因，例如“未采样：DuckDB Python 模块不可用 / 数据库不可访问 / 字段不存在”。
+5. 所有 `{placeholder}` 都必须替换；没有事实时写“未配置 / 待确认”，不要留占位符。
+6. 低置信度、缺 validation、未解析维度、逻辑字段与物理列差异，必须写入报告正文。

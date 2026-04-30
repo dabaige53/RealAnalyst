@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import argparse
+import csv
+import shutil
 import sys
+import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -65,6 +68,155 @@ def _cell(value: Any) -> str:
 
 def _code(value: Any) -> str:
     return f"`{_cell(value)}`"
+
+
+def _quote_ident(value: Any) -> str:
+    return '"' + str(value).replace('"', '""') + '"'
+
+
+def _resolve_duckdb_path(path_value: Any) -> Path | None:
+    if not path_value:
+        return None
+    path = Path(str(path_value)).expanduser()
+    if not path.is_absolute():
+        path = WORKSPACE_DIR / path
+    return path
+
+
+def _duckdb_relation(duckdb_meta: dict[str, Any]) -> str | None:
+    object_name = duckdb_meta.get("object_name")
+    if not object_name:
+        return None
+    schema = duckdb_meta.get("schema")
+    if schema:
+        return f"{_quote_ident(schema)}.{_quote_ident(object_name)}"
+    return _quote_ident(object_name)
+
+
+def _format_sample_values(values: list[Any]) -> str:
+    cleaned: list[str] = []
+    for value in values:
+        if value is None:
+            continue
+        text = str(value).strip()
+        if not text or text in cleaned:
+            continue
+        cleaned.append(text)
+    return "、".join(cleaned) if cleaned else "当前无非空样本"
+
+
+def _sample_values_for_field(samples: dict[str, list[Any]], source_field: Any) -> list[Any]:
+    key = str(source_field)
+    return samples.get(key) or samples.get("__error__") or []
+
+
+def _sample_cell_for_field(field: dict[str, Any], samples: dict[str, list[Any]]) -> str:
+    if field.get("role") not in {"dimension", "time_dimension"}:
+        return "不适用：非筛选维度"
+    source_field = field.get("source_field") or field.get("physical_name") or field.get("name")
+    return _format_sample_values(_sample_values_for_field(samples, source_field))
+
+
+def _sampled_field_count(samples: dict[str, list[Any]]) -> int:
+    count = 0
+    for key, values in samples.items():
+        if key == "__error__" or not values:
+            continue
+        sample_text = _format_sample_values(values)
+        if sample_text == "当前无非空样本" or sample_text.startswith("未采样："):
+            continue
+        count += 1
+    return count
+
+
+def _import_duckdb_module() -> Any | None:
+    existing = sys.modules.get("duckdb")
+    if existing is not None and hasattr(existing, "connect"):
+        return existing
+
+    original_path = list(sys.path)
+    if existing is not None:
+        sys.modules.pop("duckdb", None)
+    try:
+        workspace_resolved = WORKSPACE_DIR.resolve()
+        filtered_path: list[str] = []
+        for item in sys.path:
+            if not item:
+                continue
+            try:
+                if Path(item).resolve() == workspace_resolved:
+                    continue
+            except OSError:
+                pass
+            filtered_path.append(item)
+        sys.path = filtered_path
+
+        import importlib
+
+        module = importlib.import_module("duckdb")
+        return module if hasattr(module, "connect") else None
+    except ImportError:
+        return None
+    finally:
+        sys.path = original_path
+
+
+def _collect_duckdb_sample_values(dataset: dict[str, Any], fields: list[dict[str, Any]], *, limit: int = 8) -> dict[str, list[Any]]:
+    duckdb_meta = _duckdb_meta(dataset)
+    db_path = _resolve_duckdb_path(duckdb_meta.get("path"))
+    relation = _duckdb_relation(duckdb_meta)
+    if not db_path or not db_path.exists() or not relation:
+        return {"__error__": ["未采样：数据库不可访问"]}
+
+    duckdb_module = _import_duckdb_module()
+    duckdb_cli = shutil.which("duckdb")
+    if duckdb_module is None and not duckdb_cli:
+        return {"__error__": ["未采样：DuckDB Python 模块不可用"]}
+
+    samples: dict[str, list[Any]] = {}
+    con: Any | None = None
+    try:
+        if duckdb_module is not None:
+            con = duckdb_module.connect(str(db_path), read_only=True)
+    except Exception:
+        con = None
+        if not duckdb_cli:
+            return {"__error__": ["未采样：数据库不可访问"]}
+    try:
+        for field in fields:
+            if field.get("role") not in {"dimension", "time_dimension"}:
+                continue
+            source_field = field.get("source_field") or field.get("physical_name") or field.get("name")
+            if not source_field:
+                continue
+            sql = (
+                f"SELECT DISTINCT CAST({_quote_ident(source_field)} AS VARCHAR) AS sample_value "
+                f"FROM {relation} "
+                f"WHERE {_quote_ident(source_field)} IS NOT NULL "
+                f"LIMIT {int(limit)}"
+            )
+            try:
+                if con is not None:
+                    values = [row[0] for row in con.execute(sql).fetchall()]
+                elif duckdb_cli:
+                    result = subprocess.run(
+                        [duckdb_cli, "-readonly", str(db_path), "-csv", "-c", sql],
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                    )
+                    reader = csv.DictReader(result.stdout.splitlines())
+                    values = [row.get("sample_value") for row in reader]
+                else:
+                    values = ["未采样：DuckDB Python 模块不可用"]
+            except Exception:
+                values = ["未采样：字段不存在或查询失败"]
+            samples[str(source_field)] = values
+    finally:
+        if con is not None:
+            con.close()
+    return samples
 
 
 def _definition(item: dict[str, Any]) -> dict[str, Any]:
@@ -370,6 +522,7 @@ def render_yaml_metadata_report(
     fields = _safe_list_dicts(dataset.get("fields"))
     metrics = _safe_list_dicts(dataset.get("metrics"))
     dimensions, measures, filters = _role_counts(fields)
+    sample_values = _collect_duckdb_sample_values(dataset, fields)
     mapping_rows = _safe_list_dicts(_safe_mapping(mapping).get("mappings")) if mapping else []
     review_fields = [field for field in fields if _definition(field).get("needs_review") is True]
     review_metrics = [metric for metric in metrics if _definition(metric).get("needs_review") is True]
@@ -426,6 +579,7 @@ def render_yaml_metadata_report(
     lines.append(f"- 可作为 `sql_where` 候选筛选字段数：`{filters}`")
     lines.append(f"- 粒度字段数：`{len(_safe_list_str(business.get('grain')))}`")
     lines.append(f"- 时间字段数：`{len(_safe_list_str(business.get('time_fields')))}`")
+    lines.append(f"- 示例值采样字段数：`{_sampled_field_count(sample_values)}`")
     lines.append(f"- mapping 条目数：`{len(mapping_rows)}`")
     lines.append("")
 
@@ -455,8 +609,8 @@ def render_yaml_metadata_report(
     lines.append("## 5. 字段明细")
     lines.append("")
     if fields:
-        lines.append("| 展示名 | 源字段 | DuckDB 类型 | metadata 类型 | 角色 | 业务定义 | 定义来源 | 证据 | Review |")
-        lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+        lines.append("| 展示名 | 源字段 | DuckDB 类型 | metadata 类型 | 角色 | 业务定义 | 定义来源 | 示例值 | 证据 | Review |")
+        lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
         for field in fields:
             source_field = field.get("source_field") or field.get("physical_name") or field.get("name")
             lines.append(
@@ -470,6 +624,7 @@ def render_yaml_metadata_report(
                         _code(field.get("role")),
                         _cell(_definition_text(field)),
                         _code(_definition_source(field)),
+                        _cell(_sample_cell_for_field(field, sample_values)),
                         _evidence_cell(field),
                         _cell(_review_text(field)),
                     ]
@@ -511,13 +666,16 @@ def render_yaml_metadata_report(
     lines.append("")
     lines.append("DuckDB 数据源没有 Tableau 参数；后续取数筛选应通过 `sql_where` 或 data-export 的 DuckDB 筛选参数表达。")
     lines.append("")
+    lines.append("> 示例值为报告生成时从 DuckDB 当前对象中只读抽取的非空样本，不代表完整枚举清单；正式筛选仍以实时数据和业务口径为准。")
+    lines.append("")
     filterable_fields = [field for field in fields if field.get("role") in {"dimension", "time_dimension"}]
     if filterable_fields:
-        lines.append("| 字段 | 显示名 | 应用方式 | 说明 |")
-        lines.append("| --- | --- | --- | --- |")
+        lines.append("| 字段 | 显示名 | 应用方式 | 可选值/示例 | 说明 |")
+        lines.append("| --- | --- | --- | --- | --- |")
         for field in filterable_fields:
             source_field = field.get("source_field") or field.get("physical_name") or field.get("name")
-            lines.append(f"| {_code(source_field)} | {_cell(field.get('display_name') or field.get('name'))} | `sql_where` | 按 {_code(source_field)} 过滤，值域需在取数时验证。 |")
+            sample_cell = _cell(_format_sample_values(_sample_values_for_field(sample_values, source_field)))
+            lines.append(f"| {_code(source_field)} | {_cell(field.get('display_name') or field.get('name'))} | `sql_where` | {sample_cell} | 按 {_code(source_field)} 过滤；示例值来自 DuckDB 当前非空样本，正式取数仍以实时数据为准。 |")
     else:
         lines.append("- 无已注册筛选候选字段。")
     lines.append("")

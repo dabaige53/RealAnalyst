@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.4 - 2026-04-30
+
+- Added DuckDB metadata report read-only sample value collection for filterable fields.
+- Updated `RA:metadata-report` guidance and templates to show sample values without treating them as business definitions.
+- Published the skill changes that were already validated in an installed project copy.
+
 ## 0.3.3 - 2026-04-30
 
 - Removed legacy `schema_note` generation from metadata enrichment.
