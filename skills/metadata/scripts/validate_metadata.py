@@ -27,6 +27,8 @@ REQUIRED_MAPPING_KEYS = ("version", "id", "kind", "source_id", "display_name", "
 ALLOWED_DEFINITION_SOURCE_TYPES = {"user_confirmed", "mapping_override", "dictionary", "industry_draft", "pending"}
 PENDING_DEFINITION_TEXT = "业务定义待确认"
 SCHEMA_ONLY_PHRASES = (
+    "字段存在于 DuckDB 对象",
+    "字段存在于 Tableau 对象",
     "来自 DuckDB 对象",
     "来自 Tableau 对象",
     "来自 DuckDB 表",

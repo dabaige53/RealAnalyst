@@ -226,7 +226,7 @@ def main() -> int:
     parser.add_argument(
         "--version",
         default=None,
-        help="Install strategy: latest for main auto-update, or a fixed release tag such as 0.3.2 / v0.3.2. Defaults to prior install config, then latest.",
+        help="Install strategy: latest for main auto-update, or a fixed release tag such as 0.3.3 / v0.3.3. Defaults to prior install config, then latest.",
     )
     parser.add_argument(
         "--project",

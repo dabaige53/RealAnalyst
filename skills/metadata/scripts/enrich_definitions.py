@@ -41,16 +41,19 @@ def _load_mapping(workspace: Path, dataset: dict[str, Any]) -> dict[str, Any]:
     return load_mapping_file(path) if path.exists() else {}
 
 
-def _schema_note(item: dict[str, Any], object_name: str) -> str:
-    display_name = as_text(item.get("display_name") or item.get("source_field") or item.get("physical_name"))
-    duckdb_type = as_text(item.get("duckdb_type"))
-    if duckdb_type:
-        return f"{display_name} 字段存在于 DuckDB 对象 {object_name}，DuckDB 类型为 {duckdb_type}。"
-    return f"{display_name} 字段存在于 DuckDB 对象 {object_name}。"
+LEGACY_SCHEMA_PHRASES = (
+    "字段存在于 DuckDB 对象",
+    "字段存在于 Tableau 对象",
+    "来自 DuckDB 对象",
+    "来自 Tableau 对象",
+    "来自 DuckDB 表",
+    "来自 DuckDB 视图",
+    "来自 Tableau 视图",
+)
 
 
-def _clean_schema_description(item: dict[str, Any], object_name: str) -> None:
-    item["schema_note"] = as_text(item.get("schema_note")) or _schema_note(item, object_name)
+def _clean_legacy_schema_notes(item: dict[str, Any]) -> None:
+    item.pop("schema_note", None)
     description = as_text(item.get("description"))
     subject_names = {
         as_text(item.get("name")),
@@ -58,8 +61,9 @@ def _clean_schema_description(item: dict[str, Any], object_name: str) -> None:
         as_text(item.get("source_field")),
         as_text(item.get("physical_name")),
     }
-    if is_schema_only_definition(description, subject_names):
-        item["description"] = item["schema_note"]
+    if is_schema_only_definition(description, subject_names) or any(phrase in description for phrase in LEGACY_SCHEMA_PHRASES):
+        display_name = as_text(item.get("display_name") or item.get("source_field") or item.get("physical_name") or item.get("name"))
+        item["description"] = f"{display_name} 的业务定义待确认。"
 
 
 def _subject_names(item: dict[str, Any]) -> set[str]:
@@ -110,10 +114,6 @@ def enrich_dataset(workspace: Path, dataset_id: str) -> dict[str, Any]:
     mapping_index = mapping_by_source_field(mapping)
     dictionaries = [load_mapping_file(item) for item in iter_dictionary_files(workspace)]
     dictionary_indexes = build_dictionary_indexes(dictionaries)
-    object_name = as_text((dataset.get("source") or {}).get("duckdb", {}).get("object_name")) or as_text(
-        (dataset.get("catalog_summary") or {}).get("object_name")
-    )
-
     updated_fields = 0
     updated_metrics = 0
     pending_fields = 0
@@ -127,7 +127,7 @@ def enrich_dataset(workspace: Path, dataset_id: str) -> dict[str, Any]:
         dictionary_item = find_dictionary_item(item=field, mapping=mapping_item, role="field", indexes=dictionary_indexes)
         definition, source_type = enriched_definition(item=field, mapping=mapping_item, dictionary_item=dictionary_item, role="field")
         changed = _apply_definition(field, definition, source_type)
-        _clean_schema_description(field, object_name)
+        _clean_legacy_schema_notes(field)
         if changed:
             updated_fields += 1
         if as_text(_existing_definition(field).get("source_type")) == "pending":
@@ -148,7 +148,7 @@ def enrich_dataset(workspace: Path, dataset_id: str) -> dict[str, Any]:
                 metric["aggregation"] = as_text(dictionary_item.get("aggregation"))
             if as_text(dictionary_item.get("expression")) and as_text(metric.get("expression")).startswith("source_field:"):
                 metric["standard_expression"] = as_text(dictionary_item.get("expression"))
-        _clean_schema_description(metric, object_name)
+        _clean_legacy_schema_notes(metric)
         if changed:
             updated_metrics += 1
         if as_text(_existing_definition(metric).get("source_type")) == "pending":

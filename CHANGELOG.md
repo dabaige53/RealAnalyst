@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.3 - 2026-04-30
+
+- Removed legacy `schema_note` generation from metadata enrichment.
+- Stopped exposing schema-only notes in metadata index, search, and context payloads.
+- Tightened validation so connector structure notes cannot become business definitions.
+- Refreshed the demo DuckDB metadata report without the old `Schema 说明` column.
+
 ## 0.3.2 - 2026-04-30
 
 - Removed legacy `schema_note` / `Schema 说明` from DuckDB metadata reports and review-gap reports.

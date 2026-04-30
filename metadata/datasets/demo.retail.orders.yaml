@@ -51,7 +51,6 @@ fields:
         - type: column_name
           value: order_id
       needs_review: false
-    schema_note: Order ID 字段存在于 DuckDB 对象 orders。
     synonyms: [order number]
     sensitive_level: public
   - name: order_date
@@ -68,7 +67,6 @@ fields:
         - type: column_name
           value: order_date
       needs_review: false
-    schema_note: Order Date 字段存在于 DuckDB 对象 orders。
     synonyms: [purchase date, transaction date]
     sensitive_level: public
   - name: region
@@ -85,7 +83,6 @@ fields:
         - type: column_name
           value: region
       needs_review: false
-    schema_note: Region 字段存在于 DuckDB 对象 orders。
     synonyms: [sales region, territory]
     sensitive_level: public
   - name: revenue
@@ -102,7 +99,6 @@ fields:
         - type: column_name
           value: revenue
       needs_review: true
-    schema_note: Revenue 字段存在于 DuckDB 对象 orders。
     synonyms: [sales, order amount]
     sensitive_level: public
 metrics:
@@ -123,6 +119,5 @@ metrics:
         - type: source_field
           value: revenue
       needs_review: true
-    schema_note: total_revenue 指标由 DuckDB 对象 orders 的 revenue 字段汇总生成。
     synonyms: [sales, total sales]
 relationships: []

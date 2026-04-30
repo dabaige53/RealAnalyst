@@ -68,7 +68,6 @@ def field_records(dataset: dict[str, Any]) -> list[dict[str, Any]]:
                 "description": _as_text(field.get("description")),
                 "definition": _definition_text(field),
                 "definition_source": _definition_source(field),
-                "schema_note": _as_text(field.get("schema_note")),
                 "synonyms": _as_list(field.get("synonyms")),
                 "sensitive_level": _as_text(field.get("sensitive_level")),
             }
@@ -95,7 +94,6 @@ def metric_records(dataset: dict[str, Any]) -> list[dict[str, Any]]:
                 "description": _as_text(metric.get("description")),
                 "definition": _definition_text(metric),
                 "definition_source": _definition_source(metric),
-                "schema_note": _as_text(metric.get("schema_note")),
                 "synonyms": _as_list(metric.get("synonyms")),
             }
         )
@@ -247,7 +245,7 @@ def _fts5_row(record: dict[str, Any]) -> tuple[str, str, str, str, str, str, str
     synonyms = " ".join(_as_text(s) for s in _as_list(record.get("synonyms")))
     extra_parts: list[str] = []
     for key in ("role", "type", "domain", "expression", "aggregation", "unit", "notes",
-                "schema_note", "source_connector", "source_object", "mapping_type",
+                "source_connector", "source_object", "mapping_type",
                 "standard_id", "entity_type", "entity_name"):
         v = _as_text(record.get(key))
         if v:
