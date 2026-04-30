@@ -24,10 +24,11 @@ Tableau adapter 不负责：
 python3 {baseDir}/skills/metadata/adapters/tableau/scripts/discover.py --workbook <workbook_name>
 python3 {baseDir}/skills/metadata/adapters/tableau/scripts/sync_fields.py --key <entry_key>
 python3 {baseDir}/skills/metadata/adapters/tableau/scripts/sync_filters.py --source-key <entry_key> --with-samples
-python3 {baseDir}/skills/metadata/adapters/tableau/scripts/generate_sync_report.py --source-key <entry_key>
 ```
 
 将这些脚本输出视为素材。LLM 必须先把原始输出归档到 `metadata/sources/`，再把字段映射维护到 `metadata/mappings/*.yaml`，把真实数据源字段、筛选器、业务说明、证据和 review 标记维护到 `metadata/datasets/*.yaml`。
+
+报告不由 Tableau adapter 生成；同步完成后调用 `RA:metadata-report` 的 `skills/metadata-report/scripts/generate_report.py` 输出 Markdown。
 
 ## DuckDB Adapter
 
@@ -50,13 +51,11 @@ DuckDB adapter 不负责：
 ```bash
 python3 {baseDir}/skills/metadata/adapters/duckdb/scripts/discover_catalog.py --registerable-only
 python3 {baseDir}/skills/metadata/adapters/duckdb/scripts/inspect_source.py --source <source_id>
-python3 {baseDir}/skills/metadata/adapters/duckdb/scripts/generate_sync_report.py --dataset-id <dataset_id>
-python3 {baseDir}/skills/metadata/adapters/duckdb/scripts/generate_sync_report.py --all-yaml
 ```
 
 将这些脚本输出视为素材。LLM 必须先把原始输出归档到 `metadata/sources/`，再把字段映射维护到 `metadata/mappings/*.yaml`，把真实数据源字段、粒度、时间字段、指标候选、限制和 review 标记维护到 `metadata/datasets/*.yaml`。
 
-`generate_sync_report.py` 默认面向 metadata YAML 生成 DuckDB 注册报告；`--key` / `--all` 仅用于 runtime registry 同步报告，不作为业务口径真源。
+报告不由 DuckDB adapter 生成；同步完成后调用 `RA:metadata-report` 的 `skills/metadata-report/scripts/generate_report.py` 输出 Markdown。
 
 ## 调用原则
 

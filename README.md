@@ -56,7 +56,7 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 锁定固定版本：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 - --version 0.3.8
+curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 - --version 0.3.9
 ```
 
 切回自动跟随最新：
@@ -120,7 +120,7 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 Installed RealAnalyst for Codex.
 Requested version: (saved strategy or latest)
 Resolved version strategy: latest
-Installed plugin version: 0.3.8
+Installed plugin version: 0.3.9
 Installed plugin commit: <git-commit>
 Enabled marketplace: /your/project/.agents/plugins/marketplace.json
 Plugin env file: /Users/you/plugins/realanalyst/.env
@@ -354,7 +354,7 @@ RealAnalyst 更适合经常做经营分析、指标解释、数据复核和管�
 
 ## 版本说明
 
-**当前版本：0.3.8**（2026-04-30）
+**当前版本：0.3.9**（2026-04-30）
 
 完整变更历史见 [CHANGELOG.md](CHANGELOG.md)。
 

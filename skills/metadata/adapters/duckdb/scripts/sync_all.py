@@ -21,15 +21,11 @@ def _run(script_name: str, args: list[str]) -> tuple[bool, str]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Unified DuckDB sync: register + sync_registry + validate + report")
+    parser = argparse.ArgumentParser(description="Unified DuckDB sync: register + sync_registry + validate")
     parser.add_argument("--catalog", default="", help="DuckDB catalog JSON path")
     parser.add_argument("--object-name", action="append", default=[], help="Sync only one or more object names")
     parser.add_argument("--all", action="store_true", help="Sync all eligible objects")
     parser.add_argument("--dry-run", action="store_true", help="Preview without saving")
-    parser.add_argument(
-        "--report-dir",
-        help="Markdown report output directory (default: metadata/sync/duckdb/reports)",
-    )
     args = parser.parse_args()
 
     if not args.all and not args.object_name:
@@ -69,48 +65,11 @@ def main() -> None:
         raise SystemExit(1)
 
     if not args.dry_run:
-        report_args: list[str] = []
-        if args.all:
-            report_args.append("--all")
-        else:
-            for name in args.object_name:
-                key = f"duckdb.example.{name.lower()}"
-                ok_report, out_report = _run(
-                    "generate_sync_report.py",
-                    [
-                        "--key",
-                        key,
-                        "--sync-mode",
-                        "live",
-                        "--register-step-status",
-                        register_status,
-                        "--registry-step-status",
-                        registry_status,
-                        "--validate-step-status",
-                        validate_status,
-                        *(["--report-dir", args.report_dir] if args.report_dir else []),
-                    ],
-                )
-                print(out_report, end="" if out_report.endswith("\n") or not out_report else "\n")
-                if not ok_report:
-                    raise SystemExit(1)
-            return
-        report_args += [
-            "--sync-mode",
-            "live",
-            "--register-step-status",
-            register_status,
-            "--registry-step-status",
-            registry_status,
-            "--validate-step-status",
-            validate_status,
-        ]
-        if args.report_dir:
-            report_args += ["--report-dir", args.report_dir]
-        ok_report, out_report = _run("generate_sync_report.py", report_args)
-        print(out_report, end="" if out_report.endswith("\n") or not out_report else "\n")
-        if not ok_report:
-            raise SystemExit(1)
+        print(
+            "Metadata sync complete. Next step: use RA:metadata-report "
+            "(`skills/metadata-report/scripts/generate_report.py`) to generate Markdown reports."
+        )
+        print(f"Step status: register={register_status}, registry={registry_status}, validate={validate_status}")
 
 
 if __name__ == "__main__":

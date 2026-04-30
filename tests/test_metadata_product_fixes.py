@@ -16,8 +16,12 @@ REPO = Path(__file__).resolve().parents[1]
 METADATA = REPO / "skills" / "metadata" / "scripts" / "metadata.py"
 REFINE_BUILD = REPO / "skills" / "metadata-refine" / "scripts" / "build_reference_pack.py"
 DUCKDB_EXPORTER = REPO / "skills" / "data-export" / "scripts" / "duckdb" / "export_duckdb_source.py"
-DUCKDB_REPORTER = REPO / "skills" / "metadata" / "adapters" / "duckdb" / "scripts" / "generate_sync_report.py"
+METADATA_REPORTER = REPO / "skills" / "metadata-report" / "scripts" / "generate_report.py"
+DUCKDB_REPORTER = REPO / "skills" / "metadata-report" / "scripts" / "duckdb_report.py"
+TABLEAU_REPORTER = REPO / "skills" / "metadata-report" / "scripts" / "tableau_report.py"
+TABLEAU_BOOTSTRAP = REPO / "skills" / "metadata" / "adapters" / "tableau" / "scripts" / "_bootstrap.py"
 SYNC_REGISTRY = REPO / "skills" / "metadata" / "scripts" / "sync_registry.py"
+SQLITE_STORE = REPO / "runtime" / "tableau" / "sqlite_store.py"
 
 
 def load_script(path: Path, module_name: str):
@@ -264,6 +268,210 @@ class MetadataProductFixTests(unittest.TestCase):
             r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$",
         )
         self.assertEqual(spec["dimensions"][0]["validation"]["example"], "2026-04-15 00:00:00")
+
+    def test_tableau_metadata_report_uses_yaml_review_and_tableau_controls(self) -> None:
+        module = load_script(TABLEAU_REPORTER, "tableau_report_for_test")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            module.WORKSPACE_DIR = workspace
+            (workspace / "metadata" / "datasets").mkdir(parents=True)
+            (workspace / "metadata" / "mappings").mkdir(parents=True)
+            dataset = {
+                "version": 1,
+                "id": "tableau.test.view",
+                "display_name": "Tableau Test View",
+                "description": "测试 Tableau 视图。",
+                "source": {"connector": "tableau"},
+                "business": {
+                    "grain": ["旅行年月"],
+                    "time_fields": ["开始日期"],
+                    "suitable_for": ["测试分析"],
+                    "not_suitable_for": ["替代底层事实表"],
+                },
+                "maintenance": {
+                    "source_evidence": [{"type": "sync_report", "source": "metadata/sync/tableau/reports/test.md"}],
+                    "pending_questions": ["确认 Tableau 计算字段口径。"],
+                },
+                "mapping_ref": "tableau.test.view.mapping",
+                "fields": [
+                    {
+                        "name": "travel_month",
+                        "source_field": "旅行年月",
+                        "display_name": "旅行年月",
+                        "role": "time_dimension",
+                        "type": "date",
+                        "business_definition": {
+                            "text": "旅客旅行月份。",
+                            "source_type": "user_confirmed",
+                            "confidence": 0.8,
+                            "source_evidence": [{"type": "sync_report", "source": "metadata/sync/tableau/reports/test.md"}],
+                            "needs_review": False,
+                        },
+                    }
+                ],
+                "metrics": [
+                    {
+                        "name": "passenger_count",
+                        "source_field": "旅客人数",
+                        "display_name": "旅客人数",
+                        "expression": "Σ `旅客人数`",
+                        "aggregation": "sum",
+                        "unit": "人",
+                        "business_definition": {
+                            "text": "当前 Tableau 视图中的旅客人数，口径待确认。",
+                            "source_type": "industry_draft",
+                            "confidence": 0.6,
+                            "source_evidence": [{"type": "sync_report", "source": "metadata/sync/tableau/reports/test.md"}],
+                            "needs_review": True,
+                        },
+                    }
+                ],
+            }
+            mapping = {
+                "version": 1,
+                "id": "tableau.test.view.mapping",
+                "source_id": "tableau.test.view",
+                "mappings": [
+                    {
+                        "type": "metric",
+                        "view_field": "旅客人数",
+                        "standard_id": "passenger_count",
+                        "field_id_or_override": "passenger_count",
+                        "definition_override": "人数指标，需确认去重口径。",
+                    }
+                ],
+            }
+            (workspace / "metadata" / "datasets" / "tableau.test.view.yaml").write_text(
+                yaml.safe_dump(dataset, allow_unicode=True), encoding="utf-8"
+            )
+            (workspace / "metadata" / "mappings" / "tableau.test.view.mapping.yaml").write_text(
+                yaml.safe_dump(mapping, allow_unicode=True), encoding="utf-8"
+            )
+
+            report = module.render_sync_report(
+                entry={
+                    "source_id": "tableau.test.view",
+                    "key": "test.view",
+                    "type": "view",
+                    "status": "active",
+                    "category": "test",
+                    "display_name": "Tableau Test View",
+                    "tableau": {
+                        "view_luid": "view-1",
+                        "view_name": "测试视图",
+                        "content_url": "Workbook/sheets/View",
+                    },
+                },
+                spec={
+                    "dimensions": [{"name": "旅行年月", "data_type": "date"}],
+                    "measures": [{"name": "旅客人数", "data_type": "integer"}],
+                    "filters": [{"tableau_field": "旅行年月", "sample_values": ["2026-04"]}],
+                    "parameters": [{"tableau_field": "开始日期"}],
+                },
+                context={"unresolved_dimensions": []},
+                generated_at=datetime(2026, 4, 30),
+                report_dir=workspace / "metadata" / "sync" / "tableau" / "reports",
+                with_samples=True,
+                sync_mode="live",
+                step_results={"fields": "success", "filters": "success", "registry": "success"},
+                export_summary=None,
+                manifest=None,
+            )
+
+        self.assertIn("metadata YAML：已读取", report)
+        self.assertIn("旅客旅行月份。", report)
+        self.assertIn("业务定义待确认", report)
+        self.assertIn("`pending`", report)
+        self.assertNotIn("当前 Tableau 视图中的旅客人数，口径待确认。", report)
+        self.assertIn("待确认（置信度 0.6）", report)
+        self.assertIn("## 5. 字段明细", report)
+        self.assertIn("## 6. 指标明细", report)
+        self.assertIn("## 8. Tableau 使用方式", report)
+        self.assertIn("`--vf`", report)
+        self.assertIn("`--vp`", report)
+        self.assertIn("`Σ 旅客人数`", report)
+        self.assertNotIn("Σ `旅客人数`", report)
+        self.assertIn("## 10. 校验结果", report)
+        self.assertIn("Tableau 正式 CSV 导出：未执行", report)
+        self.assertNotIn("人数指标，需确认去重口径。", report)
+
+    def test_metadata_report_unified_cli_generates_duckdb_yaml_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            write_dataset(workspace, metric_field_count=1, metric_count=1)
+            proc = self.run_cmd(
+                [
+                    sys.executable,
+                    str(METADATA_REPORTER),
+                    "--workspace",
+                    str(workspace),
+                    "--connector",
+                    "duckdb",
+                    "--dataset-id",
+                    "test.dataset",
+                ]
+            )
+
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            self.assertIn("[OK] report ->", proc.stdout)
+            reports = list((workspace / "metadata" / "sync" / "duckdb" / "reports").glob("*test.dataset_metadata_report.md"))
+            self.assertEqual(len(reports), 1)
+            content = reports[0].read_text(encoding="utf-8")
+            self.assertIn("## 5. 字段明细", content)
+            self.assertIn("## 8. 映射与 Review 问题", content)
+
+    def test_adapter_sync_scripts_no_longer_generate_reports(self) -> None:
+        for path in [
+            REPO / "skills" / "metadata" / "adapters" / "duckdb" / "scripts" / "sync_all.py",
+            REPO / "skills" / "metadata" / "adapters" / "tableau" / "scripts" / "sync_all.py",
+        ]:
+            content = path.read_text(encoding="utf-8")
+            self.assertNotIn("generate_sync_report.py", content)
+            self.assertIn("metadata-report", content)
+
+    def test_sqlite_store_save_entry_replaces_existing_source_id(self) -> None:
+        module = load_script(SQLITE_STORE, "sqlite_store_upsert_test")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            module._DB_PATH = Path(tmp) / "runtime" / "registry.db"
+            module.save_entry(
+                {
+                    "key": "old.key",
+                    "source_id": "tableau.test.view",
+                    "type": "view",
+                    "status": "active",
+                    "category": "old",
+                    "display_name": "Old",
+                }
+            )
+            module.save_entry(
+                {
+                    "key": "new.key",
+                    "source_id": "tableau.test.view",
+                    "type": "view",
+                    "status": "active",
+                    "category": "new",
+                    "display_name": "New",
+                }
+            )
+            document = module.load_registry_document()
+
+        entries = document["entries"]
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["key"], "new.key")
+        self.assertEqual(document["category_index"]["new"]["entries"], ["new.key"])
+        self.assertNotIn("old.key", document["category_index"].get("old", {}).get("entries", []))
+
+    def test_tableau_bootstrap_finds_data_export_tableau_scripts(self) -> None:
+        module = load_script(TABLEAU_BOOTSTRAP, "tableau_bootstrap_for_test")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            expected = workspace / "skills" / "data-export" / "scripts" / "tableau"
+            expected.mkdir(parents=True)
+
+            self.assertEqual(module._find_tableau_scripts_dir(workspace), expected)
 
 
 if __name__ == "__main__":

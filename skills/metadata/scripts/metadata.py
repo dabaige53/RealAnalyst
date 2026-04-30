@@ -48,13 +48,11 @@ def adapter_plan(workspace: Path, *, backend: str, source_id: str, dry_run: bool
             "skills/metadata/adapters/tableau/scripts/discover.py",
             "skills/metadata/adapters/tableau/scripts/sync_fields.py",
             "skills/metadata/adapters/tableau/scripts/sync_filters.py",
-            "skills/metadata/adapters/tableau/scripts/generate_sync_report.py",
         ]
     else:
         scripts = [
             "skills/metadata/adapters/duckdb/scripts/discover_catalog.py",
             "skills/metadata/adapters/duckdb/scripts/inspect_source.py",
-            "skills/metadata/adapters/duckdb/scripts/generate_sync_report.py",
         ]
     return {
         "success": True,
@@ -64,7 +62,7 @@ def adapter_plan(workspace: Path, *, backend: str, source_id: str, dry_run: bool
         "dry_run": dry_run,
         "workspace": str(workspace),
         "adapter_scripts": scripts,
-        "next_step": "Archive adapter output in metadata/sources/, then maintain metadata/dictionaries/*.yaml, metadata/mappings/*.yaml, and metadata/datasets/*.yaml.",
+        "next_step": "Archive adapter output in metadata/sources/, maintain metadata/dictionaries/*.yaml, metadata/mappings/*.yaml, and metadata/datasets/*.yaml, then use RA:metadata-report to generate Markdown reports.",
     }
 
 

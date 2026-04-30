@@ -293,9 +293,15 @@ def save_entry(entry: dict[str, Any]) -> None:
     if not isinstance(key, str) or not key:
         raise ValueError("entry.key is required")
 
+    source_id = entry.get("source_id")
+    old_key: str | None = None
     replaced = False
     for index, current in enumerate(entries):
-        if current.get("key") == key:
+        same_key = current.get("key") == key
+        same_source = isinstance(source_id, str) and source_id and current.get("source_id") == source_id
+        if same_key or same_source:
+            if isinstance(current.get("key"), str):
+                old_key = current["key"]
             entries[index] = entry
             replaced = True
             break
@@ -308,6 +314,10 @@ def save_entry(entry: dict[str, Any]) -> None:
     category_index = document.get("category_index")
     if not isinstance(category_index, dict):
         category_index = {}
+    if old_key and old_key != key:
+        for bucket in category_index.values():
+            if isinstance(bucket, dict) and isinstance(bucket.get("entries"), list):
+                bucket["entries"] = [x for x in bucket["entries"] if x != old_key]
     if isinstance(category, str) and category:
         bucket = category_index.setdefault(category, {"display_name": category, "entries": []})
         if not isinstance(bucket, dict):

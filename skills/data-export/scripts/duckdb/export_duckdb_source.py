@@ -38,7 +38,7 @@ for item in REMOVED_WORKSPACE_PATHS:
 
 try:
     import duckdb  # noqa: E402
-except ModuleNotFoundError:  # pragma: no cover - dependency check
+except ImportError:  # pragma: no cover - dependency check
     duckdb = None  # type: ignore[assignment]
 for item in reversed(REMOVED_WORKSPACE_PATHS):
     sys.path.insert(0, item)

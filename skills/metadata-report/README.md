@@ -42,13 +42,13 @@
 
 ```bash
 # Tableau 数据源元数据报告
-python3 skills/metadata/adapters/tableau/scripts/generate_sync_report.py --key <source_key>
+python3 skills/metadata-report/scripts/generate_report.py --connector tableau --dataset-id <dataset_id>
 
 # DuckDB 单数据集注册报告（基于 YAML）
-python3 skills/metadata/adapters/duckdb/scripts/generate_sync_report.py --dataset-id <dataset_id>
+python3 skills/metadata-report/scripts/generate_report.py --connector duckdb --dataset-id <dataset_id>
 
 # DuckDB 全部数据集注册报告（基于 YAML）
-python3 skills/metadata/adapters/duckdb/scripts/generate_sync_report.py --all-yaml
+python3 skills/metadata-report/scripts/generate_report.py --connector duckdb --all-yaml
 ```
 
 ---
@@ -58,7 +58,7 @@ python3 skills/metadata/adapters/duckdb/scripts/generate_sync_report.py --all-ya
 | 卡点 | 处理 |
 | --- | --- |
 | validate 失败 | 报告降级为"元数据待修复报告"，失败项进入待确认问题 |
-| 不知道用哪个脚本入口 | 优先用 `--dataset-id`（基于 YAML）；只有需要运行时取数状态时才用 `--key`（基于 registry） |
+| 不知道用哪个脚本入口 | 统一用 `skills/metadata-report/scripts/generate_report.py`；优先传 `--dataset-id` |
 | 想写分析结论 | 不要用本 skill；分析结论报告使用 `RA:report` |
 | 字段名看不懂 | 回到 `metadata/dictionaries/` 和 `metadata/mappings/` 找证据；找不到就标记待确认 |
 

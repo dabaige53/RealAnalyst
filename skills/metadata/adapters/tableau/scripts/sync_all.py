@@ -47,10 +47,6 @@ def main() -> None:
     parser.add_argument("--all", action="store_true", help="Sync all active entries")
     parser.add_argument("--dry-run", action="store_true", help="Preview without saving")
     parser.add_argument(
-        "--report-dir",
-        help="Markdown report output directory (default: metadata/sync/tableau/reports)",
-    )
-    parser.add_argument(
         "--with-samples", action="store_true", help="Fetch sample_values for filters"
     )
     parser.add_argument(
@@ -129,37 +125,16 @@ def main() -> None:
         print("\n[3/3] Skipped sync_registry (--skip-registry)")
 
     if not args.dry_run:
-        print("\n[4/4] Generating Markdown sync report(s)...")
-        report_args: list[str] = []
-        if args.key:
-            report_args.extend(["--key", args.key])
-        if args.all:
-            report_args.append("--all")
-        if args.report_dir:
-            report_args.extend(["--report-dir", args.report_dir])
-        if args.with_samples:
-            report_args.append("--with-samples")
-        report_args.extend(
-            [
-                "--sync-mode",
-                "live",
-                "--fields-step-status",
-                fields_status,
-                "--filters-step-status",
-                filters_status,
-                "--registry-step-status",
-                registry_status,
-            ]
+        print("\n[4/4] Metadata sync complete.")
+        print(
+            "  Next step: use RA:metadata-report "
+            "(`skills/metadata-report/scripts/generate_report.py`) to generate Markdown reports."
         )
-        success, output = run_script("generate_sync_report.py", report_args)
-        for line in output.splitlines():
-            if "[OK] report ->" in line or "[WARN]" in line or "[Error]" in line:
-                print(f"  {line}")
-        if not success:
-            print("  [FAILED] generate_sync_report.py")
-            overall_success = False
+        print(
+            f"  Step status: fields={fields_status}, filters={filters_status}, registry={registry_status}"
+        )
     else:
-        print("\n[4/4] Skipped Markdown sync report generation (--dry-run)")
+        print("\n[4/4] Skipped Markdown report instruction (--dry-run)")
 
     print("\n" + "=" * 60)
     print("Sync complete!" if overall_success else "Sync completed with errors")

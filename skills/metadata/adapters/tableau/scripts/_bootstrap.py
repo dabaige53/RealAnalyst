@@ -27,6 +27,8 @@ def _find_tableau_scripts_dir(workspace_dir: Path) -> Path:
     candidates = [
         workspace_dir / "skills" / "tableau" / "scripts",
         workspace_dir / ".agents" / "skills" / "tableau" / "scripts",
+        workspace_dir / "skills" / "data-export" / "scripts" / "tableau",
+        workspace_dir / ".agents" / "skills" / "data-export" / "scripts" / "tableau",
     ]
     for candidate in candidates:
         if candidate.is_dir():
@@ -39,8 +41,13 @@ TABLEAU_SCRIPTS_DIR = _find_tableau_scripts_dir(WORKSPACE_DIR)
 
 
 def bootstrap_workspace_path() -> Path:
-    if str(WORKSPACE_DIR) not in sys.path:
-        sys.path.insert(0, str(WORKSPACE_DIR))
+    roots = [WORKSPACE_DIR]
+    if (WORKSPACE_DIR / ".agents" / "skills").is_dir():
+        roots.append(WORKSPACE_DIR / ".agents")
+    for root in reversed(roots):
+        root_text = str(root)
+        if root_text not in sys.path:
+            sys.path.insert(0, root_text)
     return WORKSPACE_DIR
 
 

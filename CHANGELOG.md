@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.9 - 2026-04-30
+
+- Split metadata synchronization from metadata report generation: connector adapters no longer own Markdown report output.
+- Added a unified `RA:metadata-report` script entrypoint for DuckDB and Tableau metadata reports.
+- Aligned Tableau report structure with DuckDB while keeping a Tableau-only usage section for `--vf`, `--vp`, view IDs, and export caveats.
+- Standardized pending definitions as `业务定义待确认` / `pending` and cleaned formula rendering in report tables.
+
 ## 0.3.8 - 2026-04-30
 
 - Added a repo-scoped Codex marketplace at `.agents/plugins/marketplace.json` so teams can add RealAnalyst directly from this repository.
