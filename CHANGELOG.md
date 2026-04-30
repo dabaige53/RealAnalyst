@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.7 - 2026-04-30
+
+- Compacted repeated date/time sample values in metadata reports into one representative value plus regex guidance.
+- Added reusable metadata value-pattern helpers for date, datetime, month, and date-range formats.
+- Wrote regex validation metadata into DuckDB registry specs and Tableau synced specs for filterable time fields.
+
 ## 0.3.6 - 2026-04-30
 
 - Added `metadata profile-review` to turn profile/refine evidence into metric, mapping, and sample-profile completeness reports.
