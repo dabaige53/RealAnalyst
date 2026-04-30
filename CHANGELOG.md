@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.8 - 2026-04-30
+
+- Added a repo-scoped Codex marketplace at `.agents/plugins/marketplace.json` so teams can add RealAnalyst directly from this repository.
+- Documented the marketplace-first install and update flow with `codex plugin marketplace add` and `codex plugin marketplace upgrade`.
+
 ## 0.3.7 - 2026-04-30
 
 - Compacted repeated date/time sample values in metadata reports into one representative value plus regex guidance.

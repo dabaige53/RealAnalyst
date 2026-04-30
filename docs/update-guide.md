@@ -8,6 +8,14 @@
 
 ## 第 0 步：更新插件本体并读取架构基线
 
+如果项目通过 RealAnalyst repo marketplace 安装，先刷新 marketplace 和插件缓存：
+
+```bash
+codex plugin marketplace upgrade realanalyst-marketplace
+```
+
+重启 Codex 后确认 RealAnalyst 插件已启用。如果该项目还依赖项目内 `.agents/skills/` 和 `runtime/` 支持文件，再继续运行下面的安装器。
+
 先在目标项目中重新运行安装器，确保 `~/plugins/realanalyst`、当前项目 `.agents/skills/` 和 `runtime/` 执行支持文件都是最新版本：
 
 ```bash
@@ -28,7 +36,7 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 
 安装器默认会更新项目内 `runtime/` 支持文件，但不会复制 `registry.db`、缓存、本地生成数据，也不会创建 `metadata/`、`jobs/`、`logs/` 或业务工作区内容。
 
-安装完成后必须读取 installer 输出里的 `Requested version`、`Resolved version strategy`、`Installed plugin version`、`Installed plugin commit` 和 `Project skills status`。如果用户明确要求某个版本（例如 `0.3.6`），但实际版本或 commit 不匹配，先停止并说明版本未对齐，不要继续做后续适配检查。
+安装完成后必须读取 installer 输出里的 `Requested version`、`Resolved version strategy`、`Installed plugin version`、`Installed plugin commit` 和 `Project skills status`。如果用户明确要求某个版本（例如 `0.3.8`），但实际版本或 commit 不匹配，先停止并说明版本未对齐，不要继续做后续适配检查。
 
 发布新版本前，额外运行：
 

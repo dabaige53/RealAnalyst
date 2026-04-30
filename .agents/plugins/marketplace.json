@@ -1,0 +1,21 @@
+{
+  "name": "realanalyst-marketplace",
+  "interface": {
+    "displayName": "RealAnalyst"
+  },
+  "plugins": [
+    {
+      "name": "realanalyst",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/dabaige53/RealAnalyst.git",
+        "ref": "main"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

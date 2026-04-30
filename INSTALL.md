@@ -2,7 +2,31 @@
 
 RealAnalyst 是 Codex plugin。默认安装为“当前项目启用”，不会在所有项目里自动启动。
 
+## Team Marketplace Install
+
+团队成员不需要手动 clone RealAnalyst。把本仓库作为 Codex marketplace 添加一次即可：
+
+```bash
+codex plugin marketplace add dabaige53/RealAnalyst --ref main
+```
+
+以后更新 marketplace 和插件缓存：
+
+```bash
+codex plugin marketplace upgrade realanalyst-marketplace
+```
+
+重启 Codex 后，在插件目录中启用 RealAnalyst。本仓库的 marketplace 文件位于：
+
+```text
+.agents/plugins/marketplace.json
+```
+
+这条路径适合团队统一分发；不需要发布到官方插件目录。
+
 ## Enable In Current Project
+
+如果你还需要把 RealAnalyst 的 skills 和 runtime support 复制到当前业务项目，使用安装脚本：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 -
@@ -37,10 +61,10 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 - --version latest
 ```
 
-如果你希望项目稳定在某个发布版，指定版本号即可。`0.3.6` 和 `v0.3.6` 都可以：
+如果你希望项目稳定在某个发布版，指定版本号即可。`0.3.8` 和 `v0.3.8` 都可以：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 - --version 0.3.6
+curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 - --version 0.3.8
 ```
 
 以后重新运行安装器且不传 `--version` 时，会优先沿用上次保存的版本策略。
