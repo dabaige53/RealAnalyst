@@ -19,6 +19,7 @@ from skills.metadata.lib.metadata_io import (  # noqa: E402
     normalize_dataset,
     resolve_dataset_path,
 )
+from skills.metadata.lib.value_patterns import declared_field_pattern  # noqa: E402
 from skills.metadata.scripts.validate_metadata import validate_dataset  # noqa: E402
 
 
@@ -74,6 +75,25 @@ def _field_data_type(field: dict[str, Any]) -> str:
     if field_type in {"date", "datetime", "time", "timestamp"}:
         return field_type
     return "string"
+
+
+def _field_validation(field: dict[str, Any]) -> dict[str, Any]:
+    existing = field.get("validation")
+    if isinstance(existing, dict) and existing:
+        return existing
+    pattern = declared_field_pattern(
+        role=_safe_str(field.get("role")),
+        data_type=_safe_str(field.get("type") or field.get("duckdb_type") or field.get("data_type")),
+        field_name=_field_source_name(field),
+    )
+    if not pattern:
+        return {}
+    return {
+        "mode": "strict",
+        "pattern": pattern["regex"],
+        "example": pattern["example"],
+        "label": pattern["label"],
+    }
 
 
 def _is_measure_field(field: dict[str, Any]) -> bool:
@@ -179,7 +199,12 @@ def build_entry_and_spec(dataset: dict[str, Any]) -> tuple[dict[str, Any], dict[
         "grain": _safe_list(business.get("grain")),
         "time_fields": _safe_list(business.get("time_fields")),
         "dimensions": [
-            {"name": _field_source_name(field), "display_name": _field_display_name(field), "data_type": _field_data_type(field)}
+            {
+                "name": _field_source_name(field),
+                "display_name": _field_display_name(field),
+                "data_type": _field_data_type(field),
+                **({"validation": validation} if (validation := _field_validation(field)) else {}),
+            }
             for field in fields
             if _is_filter_field(field) and _field_source_name(field)
         ],
@@ -201,7 +226,12 @@ def build_entry_and_spec(dataset: dict[str, Any]) -> tuple[dict[str, Any], dict[
             if _metric_name(metric)
         ],
         "filters": [
-            {"key": _field_source_name(field), "display_name": _field_display_name(field), "apply_via": "sql_where"}
+            {
+                "key": _field_source_name(field),
+                "display_name": _field_display_name(field),
+                "apply_via": "sql_where",
+                **({"validation": validation} if (validation := _field_validation(field)) else {}),
+            }
             for field in fields
             if _is_filter_field(field) and _field_source_name(field)
         ],

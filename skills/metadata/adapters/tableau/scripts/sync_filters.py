@@ -15,6 +15,7 @@ from _bootstrap import bootstrap_tableau_scripts_path, bootstrap_workspace_path
 
 WORKSPACE_DIR = bootstrap_workspace_path()
 from runtime.tableau.sqlite_store import ensure_store_ready, list_entries, load_spec_by_entry_key, save_spec
+from skills.metadata.lib.value_patterns import compact_sample_values, validation_from_samples
 
 TABLEAU_SCRIPTS = bootstrap_tableau_scripts_path()
 from auth import TableauAuth, get_auth  # noqa: E402  # type: ignore[import-not-found]
@@ -174,7 +175,7 @@ def fetch_sample_values(
                 if v:
                     samples[name].add(v)
 
-    return {name: sorted(values)[:50] for name, values in samples.items() if values}
+    return {name: compact_sample_values(sorted(values), limit=50) for name, values in samples.items() if values}
 
 
 def merge_items(
@@ -191,6 +192,15 @@ def merge_items(
             for k in preserve:
                 if k in old and old.get(k) not in (None, "", [], {}):
                     merged[k] = old[k]
+            if merged.get("sample_values"):
+                existing_samples = old.get("sample_values") if isinstance(old.get("sample_values"), list) else []
+                fetched_samples = item.get("sample_values") if isinstance(item.get("sample_values"), list) else []
+                merged_samples = sorted({str(x) for x in [*existing_samples, *fetched_samples] if str(x).strip()})
+                merged["sample_values"] = compact_sample_values(merged_samples, limit=50)
+                if not merged.get("validation"):
+                    validation = validation_from_samples(merged_samples)
+                    if validation:
+                        merged["validation"] = validation
             out.append(merged)
         else:
             out.append(item)
@@ -226,6 +236,9 @@ def sync_entry(
         for f in fetched_filters:
             if f["tableau_field"] in samples:
                 f["sample_values"] = samples[f["tableau_field"]]
+                validation = validation_from_samples(samples[f["tableau_field"]])
+                if validation:
+                    f["validation"] = validation
 
     base = load_spec_by_entry_key(str(key)) or {}
     existing_filters = _as_list_of_dicts(base.get("filters"))

@@ -17,6 +17,19 @@ METADATA = REPO / "skills" / "metadata" / "scripts" / "metadata.py"
 REFINE_BUILD = REPO / "skills" / "metadata-refine" / "scripts" / "build_reference_pack.py"
 DUCKDB_EXPORTER = REPO / "skills" / "data-export" / "scripts" / "duckdb" / "export_duckdb_source.py"
 DUCKDB_REPORTER = REPO / "skills" / "metadata" / "adapters" / "duckdb" / "scripts" / "generate_sync_report.py"
+SYNC_REGISTRY = REPO / "skills" / "metadata" / "scripts" / "sync_registry.py"
+
+
+def load_script(path: Path, module_name: str):
+    script_dir = str(path.parent)
+    if script_dir not in sys.path:
+        sys.path.insert(0, script_dir)
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def definition(text: str = "已确认业务定义") -> dict:
@@ -166,14 +179,7 @@ class MetadataProductFixTests(unittest.TestCase):
         self.assertIn("Controlled export", proc.stdout)
 
     def test_duckdb_metadata_report_uses_metric_definition_for_metric_source_field(self) -> None:
-        script_dir = str(DUCKDB_REPORTER.parent)
-        if script_dir not in sys.path:
-            sys.path.insert(0, script_dir)
-        spec = importlib.util.spec_from_file_location("generate_sync_report_for_test", DUCKDB_REPORTER)
-        self.assertIsNotNone(spec)
-        self.assertIsNotNone(spec.loader)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        module = load_script(DUCKDB_REPORTER, "generate_sync_report_for_test")
 
         dataset = {
             "id": "test.duckdb.issue1",
@@ -217,6 +223,47 @@ class MetadataProductFixTests(unittest.TestCase):
         self.assertIn("已确认（置信度 0.9）", report)
         self.assertNotIn("Field pending definition", report)
         self.assertIn("- 无待确认字段或指标。", report)
+
+    def test_duckdb_metadata_report_collapses_datetime_samples_to_regex(self) -> None:
+        module = load_script(DUCKDB_REPORTER, "generate_sync_report_pattern_test")
+
+        formatted = module._format_sample_values_with_pattern(
+            ["2026-04-15 00:00:00", "2026-04-16 00:00:00", "2026-04-17 00:00:00"]
+        )
+
+        self.assertEqual(formatted.count("2026-04-"), 1)
+        self.assertIn(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$", formatted)
+
+    def test_sync_registry_writes_time_field_regex_validation(self) -> None:
+        module = load_script(SYNC_REGISTRY, "sync_registry_pattern_test")
+
+        dataset = {
+            "version": 1,
+            "id": "test.datetime",
+            "display_name": "Datetime Dataset",
+            "source": {"connector": "duckdb", "object": "main.orders"},
+            "business": {"time_fields": ["order_time"]},
+            "maintenance": {},
+            "fields": [
+                {
+                    "name": "order_time",
+                    "display_name": "Order Time",
+                    "role": "time_dimension",
+                    "type": "datetime",
+                    "description": "Order timestamp.",
+                    "business_definition": definition("Order timestamp definition"),
+                }
+            ],
+            "metrics": [],
+        }
+
+        _entry, spec = module.build_entry_and_spec(dataset)
+
+        self.assertEqual(
+            spec["filters"][0]["validation"]["pattern"],
+            r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$",
+        )
+        self.assertEqual(spec["dimensions"][0]["validation"]["example"], "2026-04-15 00:00:00")
 
 
 if __name__ == "__main__":

@@ -12,6 +12,7 @@ from _bootstrap import bootstrap_tableau_scripts_path, bootstrap_workspace_path
 
 WORKSPACE_DIR = bootstrap_workspace_path()
 from runtime.tableau.sqlite_store import ensure_store_ready, list_entries, load_spec_by_entry_key, save_spec
+from skills.metadata.lib.value_patterns import compact_sample_values, validation_from_samples
 
 TABLEAU_SCRIPTS = bootstrap_tableau_scripts_path()
 import requests
@@ -237,7 +238,7 @@ def fetch_sample_values(
                 if idx < len(row) and row[idx].strip():
                     samples[name].add(row[idx].strip())
 
-        return {name: sorted(values)[:20] for name, values in samples.items() if values}
+        return {name: compact_sample_values(sorted(values), limit=20) for name, values in samples.items() if values}
 
     except Exception as e:
         print(f"  [WARN] Failed to fetch sample values: {e}", file=sys.stderr)
@@ -304,10 +305,17 @@ def merge_field_lists(
             existing_field = existing_by_name[name]
             if existing_field.get("description"):
                 merged["description"] = existing_field["description"]
+            if existing_field.get("validation"):
+                merged["validation"] = existing_field["validation"]
             if existing_field.get("sample_values"):
                 existing_samples = set(existing_field.get("sample_values", []))
                 fetched_samples = set(fetched_field.get("sample_values", []))
-                merged["sample_values"] = list(existing_samples | fetched_samples)[:20]
+                merged_samples = sorted(existing_samples | fetched_samples)
+                merged["sample_values"] = compact_sample_values(merged_samples, limit=20)
+                if not merged.get("validation"):
+                    validation = validation_from_samples(merged_samples)
+                    if validation:
+                        merged["validation"] = validation
             result.append(merged)
         else:
             result.append(fetched_field)
@@ -372,6 +380,9 @@ def sync_entry(
         for dim in fetched_dims:
             if dim["name"] in samples:
                 dim["sample_values"] = samples[dim["name"]]
+                validation = validation_from_samples(samples[dim["name"]])
+                if validation:
+                    dim["validation"] = validation
         print(f"  Got samples for {len(samples)}/{len(dim_names)} dimensions")
 
     spec = load_spec_by_entry_key(str(key)) or {}

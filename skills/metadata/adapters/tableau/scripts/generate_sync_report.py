@@ -27,6 +27,7 @@ load_dotenv(os.path.join(WORKSPACE_DIR, ".env"))
 
 from runtime.tableau.source_context import build_source_context  # noqa: E402
 from runtime.tableau.sqlite_store import list_entries, load_spec_by_entry_key  # noqa: E402
+from skills.metadata.lib.value_patterns import infer_value_pattern  # noqa: E402
 
 
 def default_report_dir() -> Path:
@@ -167,7 +168,19 @@ def _dimension_explanation(name: str, row: dict[str, Any]) -> str:
 def _render_filter_values(values: list[str]) -> list[str]:
     if not values:
         return ["- 当前未采到样例值"]
+    pattern = infer_value_pattern(values)
+    if pattern:
+        return [f"- `{pattern['example']}`（正则：`{pattern['regex']}`）"]
     return [f"- `{value}`" for value in values]
+
+
+def _format_sample_cell(values: list[str]) -> str:
+    if not values:
+        return "无"
+    pattern = infer_value_pattern(values)
+    if pattern:
+        return f"{pattern['example']}（正则：`{pattern['regex']}`）"
+    return "、".join(values[:5])
 
 
 def _usage_example_for_filter(filter_item: dict[str, Any]) -> str:
@@ -420,10 +433,10 @@ def render_sync_report(
     dimension_rows = _dimension_rows(spec, context)
     for name, row in dimension_rows.items():
         explanation = _dimension_explanation(name, row)
-        sample_values = "、".join(_safe_list_str(row.get("sample_values"))[:5])
+        sample_values = _format_sample_cell(_safe_list_str(row.get("sample_values")))
         lines.append(
             f"| `{name}` | 维度 | `{row.get('data_type', '')}` | `{row.get('status', '')}` | "
-            f"{explanation or '待补充维度定义'} | 字段名推断 | {sample_values or '无'} |"
+            f"{explanation or '待补充维度定义'} | 字段名推断 | {sample_values} |"
         )
     metric_rows = _metric_rows(spec, context)
     for name, row in metric_rows.items():

@@ -235,9 +235,9 @@ python3 {baseDir}/skills/data-export/scripts/tableau/export_source.py \
 
 ## 5. 字段明细
 
-| 展示名 | 源字段 | DuckDB 类型 | metadata 类型 | 角色 | 业务定义 | 定义来源 | 示例值 | 证据 | Review |
+| 展示名 | 源字段 | DuckDB 类型 | metadata 类型 | 角色 | 业务定义 | 定义来源 | 示例/规则 | 证据 | Review |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `{display_name}` | `{source_field}` | `{duckdb_type}` | `{metadata_type}` | `{role}` | `{definition}` | `{definition_source}` | `{sample_values}` | `{evidence}` | `{review}` |
+| `{display_name}` | `{source_field}` | `{duckdb_type}` | `{metadata_type}` | `{role}` | `{definition}` | `{definition_source}` | `{sample_or_regex}` | `{evidence}` | `{review}` |
 
 ## 6. 指标明细
 
@@ -251,9 +251,9 @@ DuckDB 数据源没有 Tableau 参数；后续取数筛选应通过 `sql_where` 
 
 > 示例值为报告生成时从 DuckDB 当前对象中只读抽取的非空样本，不代表完整枚举清单；正式筛选仍以实时数据和业务口径为准。
 
-| 字段 | 显示名 | 应用方式 | 可选值/示例 | 说明 |
+| 字段 | 显示名 | 应用方式 | 可选值/示例/规则 | 说明 |
 | --- | --- | --- | --- | --- |
-| `{field}` | `{display_name}` | `sql_where` | `{sample_values}` | 按 `{field}` 过滤；示例值来自 DuckDB 当前非空样本，正式取数仍以实时数据为准 |
+| `{field}` | `{display_name}` | `sql_where` | `{sample_or_regex}` | 按 `{field}` 过滤；示例值来自 DuckDB 当前非空样本，正式取数仍以实时数据为准 |
 
 ## 8. 映射与 Review 问题
 

@@ -26,6 +26,7 @@ from skills.metadata.lib.metadata_io import (  # noqa: E402
     normalize_dataset,
     resolve_dataset_path,
 )
+from skills.metadata.lib.value_patterns import clean_sample_values, infer_value_pattern  # noqa: E402
 from skills.metadata.scripts.validate_metadata import validate_dataset  # noqa: E402
 
 
@@ -98,15 +99,15 @@ def _duckdb_relation(duckdb_meta: dict[str, Any]) -> str | None:
 
 
 def _format_sample_values(values: list[Any]) -> str:
-    cleaned: list[str] = []
-    for value in values:
-        if value is None:
-            continue
-        text = str(value).strip()
-        if not text or text in cleaned:
-            continue
-        cleaned.append(text)
+    cleaned = clean_sample_values(values)
     return "、".join(cleaned) if cleaned else "当前无非空样本"
+
+
+def _format_sample_values_with_pattern(values: list[Any]) -> str:
+    pattern = infer_value_pattern(values)
+    if pattern:
+        return f"{pattern['example']}（正则：`{pattern['regex']}`）"
+    return _format_sample_values(values)
 
 
 def _sample_values_for_field(samples: dict[str, list[Any]], source_field: Any) -> list[Any]:
@@ -118,7 +119,7 @@ def _sample_cell_for_field(field: dict[str, Any], samples: dict[str, list[Any]])
     if field.get("role") not in {"dimension", "time_dimension"}:
         return "不适用：非筛选维度"
     source_field = field.get("source_field") or field.get("physical_name") or field.get("name")
-    return _format_sample_values(_sample_values_for_field(samples, source_field))
+    return _format_sample_values_with_pattern(_sample_values_for_field(samples, source_field))
 
 
 def _sampled_field_count(samples: dict[str, list[Any]]) -> int:
@@ -665,7 +666,7 @@ def render_yaml_metadata_report(
     lines.append("## 5. 字段明细")
     lines.append("")
     if fields:
-        lines.append("| 展示名 | 源字段 | DuckDB 类型 | metadata 类型 | 角色 | 业务定义 | 定义来源 | 示例值 | 证据 | Review |")
+        lines.append("| 展示名 | 源字段 | DuckDB 类型 | metadata 类型 | 角色 | 业务定义 | 定义来源 | 示例/规则 | 证据 | Review |")
         lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
         for field in fields:
             source_field = _field_source_name(field)
@@ -727,11 +728,11 @@ def render_yaml_metadata_report(
     lines.append("")
     filterable_fields = [field for field in fields if field.get("role") in {"dimension", "time_dimension"}]
     if filterable_fields:
-        lines.append("| 字段 | 显示名 | 应用方式 | 可选值/示例 | 说明 |")
+        lines.append("| 字段 | 显示名 | 应用方式 | 可选值/示例/规则 | 说明 |")
         lines.append("| --- | --- | --- | --- | --- |")
         for field in filterable_fields:
             source_field = field.get("source_field") or field.get("physical_name") or field.get("name")
-            sample_cell = _cell(_format_sample_values(_sample_values_for_field(sample_values, source_field)))
+            sample_cell = _cell(_format_sample_values_with_pattern(_sample_values_for_field(sample_values, source_field)))
             lines.append(f"| {_code(source_field)} | {_cell(field.get('display_name') or field.get('name'))} | `sql_where` | {sample_cell} | 按 {_code(source_field)} 过滤；示例值来自 DuckDB 当前非空样本，正式取数仍以实时数据为准。 |")
     else:
         lines.append("- 无已注册筛选候选字段。")
