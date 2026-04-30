@@ -1,6 +1,6 @@
 # RealAnalyst Skills 交互与产物详细设计
 
-本文档描述 RealAnalyst 中 11 个 skill 之间的调用关系、数据传递契约、产物规范和运行时序。
+本文档描述 RealAnalyst 中 12 个 skill 之间的调用关系、数据传递契约、产物规范和运行时序。
 
 ---
 
@@ -168,7 +168,7 @@ sequenceDiagram
 | 项目 | 说明 |
 | --- | --- |
 | **触发条件** | 注册数据集、维护字段/指标/术语、生成 context、Tableau/DuckDB onboarding |
-| **输入** | dataset YAML、source evidence、关键词 |
+| **输入** | dataset YAML、source evidence、关键词、`metadata/sources/refine/{refine_id}/` 参考材料 |
 | **输出** | validate 结果、index JSONL、search 结果、context pack |
 | **下游** | `RA:analysis-plan`（via context pack）、`RA:data-export`（via registry） |
 | **核心脚本** | `skills/metadata/scripts/metadata.py {validate,index,search,context}` |
@@ -182,6 +182,18 @@ sequenceDiagram
 | index | `metadata/index/*.jsonl` | 低 token 检索（analysis-plan 用） |
 | context pack | `metadata/osi/<dataset_id>/context.md` | 给 analysis-plan 的最小上下文 |
 | registry sync | `runtime/registry.db` | data-export 的数据源注册表与运行时 lookup tables |
+
+### RA:metadata-refine
+
+| 项目 | 说明 |
+| --- | --- |
+| **触发条件** | 分析 job 或用户反馈暴露字段定义、指标口径、证据不足、真实数据与 YAML 不一致 |
+| **输入** | `metadata_feedback.jsonl`、profile、正式 CSV、用户反馈 |
+| **输出** | `metadata/sources/refine/{refine_id}/` 参考材料 |
+| **下游** | `RA:metadata` 基于参考材料修正式 YAML |
+| **核心脚本** | `skills/metadata-refine/scripts/{collect_feedback,probe_data,build_reference_pack,archive_reference_pack}.py` |
+
+`RA:metadata-refine` 不直接改 YAML，不同步 registry；分析流程只把问题记录到 job，再由 refine 生成参考材料。
 
 ### RA:analysis-plan
 

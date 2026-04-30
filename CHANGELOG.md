@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.5 - 2026-04-30
+
+- Added `RA:metadata-refine` to turn job feedback, profile output, and real-data probes into archived metadata reference packs.
+- Added `metadata_feedback.jsonl` to analysis jobs so analysis can record metadata issues without modifying YAML.
+- Documented the handoff from `RA:metadata-refine` reference packs to `RA:metadata` YAML maintenance.
+
 ## 0.3.4 - 2026-04-30
 
 - Added DuckDB metadata report read-only sample value collection for filterable fields.

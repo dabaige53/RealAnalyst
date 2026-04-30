@@ -57,12 +57,15 @@ flowchart TB
         Ref["RA:reference-lookup<br/>配置查询"]
         Fusion["RA:artifact-fusion<br/>数据融合"]
         MR["RA:metadata-report<br/>元数据报告"]
+        Refine["RA:metadata-refine<br/>修正材料"]
     end
 
     Context --> AR
     Ref -.-> Plan
     Ref -.-> Report
     Fusion -.-> Profile
+    Analysis -.-> Refine
+    Refine -.-> YAML
 ```
 
 ### 分层设计
@@ -79,12 +82,13 @@ flowchart TB
 │                  ├── Phase 4: 报告撰写                │
 │                  └── Phase 5: 交付门禁                │
 ├─────────────────────────────────────────────────────┤
-│  能力层          11 个独立 skill                      │
+│  能力层          12 个独立 skill                      │
 │                  getting-started · metadata ·         │
 │                  analysis-plan · data-export ·        │
 │                  data-profile · report ·              │
 │                  report-verify · artifact-fusion ·    │
-│                  reference-lookup · metadata-report   │
+│                  reference-lookup · metadata-report ·  │
+│                  metadata-refine                      │
 ├─────────────────────────────────────────────────────┤
 │  数据层          metadata/   元数据 YAML + 索引       │
 │                  runtime/    运行时配置 + registry     │
@@ -134,6 +138,7 @@ flowchart TD
     Q -->|合并多个数据| AF["RA:artifact-fusion"]
     Q -->|查配置/模板/框架| RL["RA:reference-lookup"]
     Q -->|元数据报告| MR["RA:metadata-report"]
+    Q -->|整理元数据修正材料| REF["RA:metadata-refine"]
 ```
 
 ---
@@ -146,6 +151,7 @@ flowchart TD
 | --- | --- | --- | --- |
 | `RA:getting-started` | 初始引导：确认数据源类型，列出准备清单 | 用户描述 | 准备清单、下一步路径 |
 | `RA:metadata` | 元数据管理：注册、校验、索引、搜索、context、catalog、reconcile | layered YAML、dataset id、关键词 | validate / index (FTS5) / catalog / search / context pack / reconcile |
+| `RA:metadata-refine` | 元数据修正材料：整理 job 反馈、profile、真实数据探查和证据归档 | job feedback、profile、CSV | `metadata/sources/refine/{refine_id}/` 参考材料 |
 | `RA:analysis-plan` | 分析规划：假设驱动的 10 章计划 | `normalized_request.json` + metadata context | `.meta/analysis_plan.md` |
 | `RA:analysis-run` | **总控编排**：串联全部分析流程 | 用户问题 + 已注册 metadata | job 目录（数据、画像、analysis.json、报告、verification） |
 | `RA:data-export` | 受控取数：Tableau / DuckDB | registry source id + filters | `data/*.csv` + `export_summary.json` + acquisition log |
@@ -174,6 +180,7 @@ sequenceDiagram
     participant AP as RA:analysis-plan
     participant EX as RA:data-export
     participant DP as RA:data-profile
+    participant REF as RA:metadata-refine
     participant RPT as RA:report
     participant RV as RA:report-verify
 
@@ -204,6 +211,11 @@ sequenceDiagram
     Note over RV: 读 CSV + analysis.json + 报告<br/>→ verification.json
     RV-->>AR: 门禁通过
 
+    opt 发现 metadata 问题
+        AR->>REF: job feedback + profile + CSV
+        Note over REF: 生成参考材料<br/>→ metadata/sources/refine
+    end
+
     AR-->>User: 交付报告 + verification
 ```
 
@@ -222,12 +234,15 @@ flowchart LR
         RL["RA:reference-lookup"]
         AF["RA:artifact-fusion"]
         MR["RA:metadata-report"]
+        REF["RA:metadata-refine"]
     end
 
     RL -.->|查框架/模板/指标| AP
     RL -.->|查术语/模板| RPT
     AF -.->|多源合并后送画像| DP
     MR -.->|元数据审阅| M["RA:metadata"]
+    Analysis -.->|只记录问题线索| REF
+    REF -.->|归档参考材料| M
 ```
 
 ### Skill 间数据依赖矩阵
@@ -299,7 +314,8 @@ jobs/{SESSION_ID}/
 │   ├── acquisition_log.jsonl          #   每次导出动作的审计日志
 │   ├── artifact_index.json            #   正式产物索引
 │   ├── analysis_journal.md            #   每轮分析日志
-│   └── user_request_timeline.md       #   用户需求时间线
+│   ├── user_request_timeline.md       #   用户需求时间线
+│   └── metadata_feedback.jsonl        #   metadata 问题线索，只供 refine 使用
 ├── analysis.json                      # 结构化分析结果（verify 输入）
 ├── 报告_{主题}_{时间}.md               # 报告（追加写作）
 ├── export_summary.json                # Tableau 导出摘要
@@ -319,6 +335,7 @@ jobs/{SESSION_ID}/
 | `duckdb_export_summary.json` | data-export (DuckDB) | data-profile, analysis-run | — |
 | `manifest.json` | data-profile | report | `schemas/manifest.schema.json` |
 | `profile.json` | data-profile | analysis-run Phase 3, report | — |
+| `metadata_feedback.jsonl` | analysis-run | metadata-refine | — |
 | `analysis.json` | analysis-run Phase 3 | report-verify | `schemas/analysis.schema.json` |
 | `报告_*.md` | report | report-verify, 用户 | — |
 | `verification.json` | report-verify | 用户 | `schemas/verification.schema.json` |

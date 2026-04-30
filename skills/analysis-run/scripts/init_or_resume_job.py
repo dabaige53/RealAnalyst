@@ -103,6 +103,10 @@ def _ensure_job_skeleton(job_dir: Path, session_id: str) -> None:
     if not acq_log.exists():
         acq_log.write_text("", encoding="utf-8")
 
+    metadata_feedback = meta_dir / "metadata_feedback.jsonl"
+    if not metadata_feedback.exists():
+        metadata_feedback.write_text("", encoding="utf-8")
+
     artifact_index = meta_dir / "artifact_index.json"
     if not artifact_index.exists():
         artifact_index.write_text(

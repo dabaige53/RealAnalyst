@@ -93,6 +93,13 @@ TABLEAU_PAT_SECRET=your-personal-access-token-secret
 我要从本地 DuckDB/CSV/Excel 抽取字段和指标口径。请先问我要文件路径、表名或 sheet 名、关键字段和分析目标。
 ```
 
+### 整理分析后的 metadata 修正材料
+
+```text
+/skill RA:metadata-refine
+请读取当前 job 的 metadata feedback、profile 和必要的真实数据样本，生成可归档到 metadata/sources/refine/ 的修正参考材料。不要直接修改正式 YAML。
+```
+
 ### 生成分析计划
 
 ```text

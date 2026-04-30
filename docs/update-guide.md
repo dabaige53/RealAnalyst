@@ -35,7 +35,7 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 | 文档 | 了解什么 |
 | --- | --- |
 | `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/architecture.md` | 双主线架构（注册元数据线 + 实施分析线）、文件职责 |
-| `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/skill-interaction-design.md` | 11 个 skill 的调用关系、数据契约、运行时序 |
+| `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/skill-interaction-design.md` | 12 个 skill 的调用关系、数据契约、运行时序 |
 | `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/skills/README.md` | 完整 skill 清单、后端脚本速查、目录结构 |
 | `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/repository-layout.md` | 目录边界和 Git 策略 |
 | `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/skills/metadata/SKILL.md` | metadata skill 的分层模型、Core Workflow 和 Decision Rules |

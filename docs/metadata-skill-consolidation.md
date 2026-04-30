@@ -4,11 +4,14 @@
 
 RealAnalyst 的元数据维护入口收敛为 `RA:metadata`。用户需要注册数据集、初始化字段、维护指标、搜索术语、构造分析上下文时，都先进入 `RA:metadata`。
 
+`RA:metadata-refine` 是例外的辅助入口：它不维护正式 YAML，只把分析 job 反馈、用户问题、profile 和真实数据探查结果整理成参考材料，并归档到 `metadata/sources/refine/`。正式修正仍回到 `RA:metadata`。
+
 ## 分层架构
 
 | 层级 | 职责 |
 | --- | --- |
 | metadata skill | 用户可见主入口 |
+| metadata-refine skill | job 反馈和真实数据探查的参考材料生成器 |
 | Tableau/DuckDB connector adapter | 发现外部系统元数据，提供初始化素材 |
 | sources | 原始材料和审计证据 |
 | dictionaries | 公共指标、维度、术语 |
@@ -41,6 +44,17 @@ python3 skills/metadata/scripts/metadata.py context --dataset-id <dataset_id> --
 python3 skills/metadata/scripts/metadata.py export-osi --model-name <model_name>
 ```
 
+当分析或用户反馈暴露 metadata 问题时，先走 refine 辅助线：
+
+```bash
+python3 skills/metadata-refine/scripts/collect_feedback.py --session-id <job_id> --issue-type field_definition_unclear --summary "<问题摘要>"
+python3 skills/metadata-refine/scripts/probe_data.py --session-id <job_id> --data-csv jobs/<job_id>/data/<file>.csv --dataset-id <dataset_id>
+python3 skills/metadata-refine/scripts/build_reference_pack.py --session-id <job_id> --dataset-id <dataset_id>
+python3 skills/metadata-refine/scripts/archive_reference_pack.py --refine-id <refine_id> --session-id <job_id>
+```
+
+归档后再由 `RA:metadata` 读取 `metadata/sources/refine/<refine_id>/` 修正式 YAML。
+
 ## 脚本归属
 
 `RA:metadata` 相关脚本统一放在 `skills/metadata/scripts/`：
@@ -64,5 +78,7 @@ Tableau/DuckDB connector adapter 也从 `skills/` 顶层移入 `skills/metadata/
 
 - 用户不需要判断该用 `tableau-sync` 还是 `duckdb-sync`。
 - connector adapter 不单独决定业务口径。
+- analysis-run 只记录 metadata 问题，不在分析线治理 YAML。
+- metadata-refine 只生成和归档参考材料，不直接修改 YAML。
 - index 与 context pack 都不是维护真源。
 - `needs_review=true` 的口径必须在分析、报告和验证里标记为推断口径。
