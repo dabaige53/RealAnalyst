@@ -28,7 +28,7 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 
 安装器默认会更新项目内 `runtime/` 支持文件，但不会复制 `registry.db`、缓存、本地生成数据，也不会创建 `metadata/`、`jobs/`、`logs/` 或业务工作区内容。
 
-安装完成后必须读取 installer 输出里的 `Installed plugin version` 和 `Installed plugin commit`。如果用户明确要求某个版本（例如 `0.3.1`），但实际版本或 commit 不匹配，先停止并说明版本未对齐，不要继续做后续适配检查。
+安装完成后必须读取 installer 输出里的 `Installed plugin version` 和 `Installed plugin commit`。如果用户明确要求某个版本（例如 `0.3.2`），但实际版本或 commit 不匹配，先停止并说明版本未对齐，不要继续做后续适配检查。
 
 先读取以下 RealAnalyst 架构文档建立上下文，不要跳过。优先读取线上 raw URL；如果网络不可用，再读取插件仓库 `~/plugins/realanalyst/` 下的同名文件。不要去目标业务项目根目录查找这些仓库文档。
 

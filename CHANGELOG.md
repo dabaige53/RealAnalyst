@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2 - 2026-04-30
+
+- Removed legacy `schema_note` / `Schema 说明` from DuckDB metadata reports and review-gap reports.
+- Added installer output for the actual installed plugin version and commit.
+- Tightened update-guide checks so version mismatches and report-layer legacy fields are visible.
+
 ## 0.3.1 - 2026-04-30
 
 - Pointed upgrade checks to online RealAnalyst guides so target projects are not expected to contain repository docs.
