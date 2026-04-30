@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.7 - 2026-04-30
+
+- Improved `RA:metadata-report` so DuckDB reports can be generated directly from `metadata/datasets/*.yaml` with `--dataset-id`, `--source`, or `--all-yaml`.
+- Expanded DuckDB metadata reports with field evidence, metric details, `sql_where` candidates, mapping summaries, and review gaps.
+- Clarified that DuckDB YAML reports do not write `registry.db`; runtime registry reports remain available through `--key` / `--all`.
+
 ## 0.2.6 - 2026-04-30
 
 - Added `RA:metadata-report` for Tableau/DuckDB metadata Markdown reports with script-first generation guidance and reusable report templates.

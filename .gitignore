@@ -27,6 +27,7 @@ metadata/sync/**/reports/
 .env
 .env.*
 !.env.example
+.realanalyst-install.json
 .venv/
 *.pem
 *.key

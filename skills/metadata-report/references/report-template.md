@@ -252,9 +252,43 @@ python3 {baseDir}/skills/data-export/scripts/tableau/export_source.py \
 | --- | --- | --- |
 | `{key}` | `{display_name}` | `{sql_where}` |
 
-## 6. 校验结果
+## 6. 指标明细
+
+| 指标 | 源字段 | 表达式 | 聚合方式 | 单位 | 业务定义 | 证据 | Review |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `{metric}` | `{source_field}` | `{expression}` | `{aggregation}` | `{unit}` | `{definition}` | `{evidence}` | `{review}` |
+
+## 7. 筛选器明细
+
+DuckDB 数据源没有 Tableau 参数；后续取数筛选应通过 `sql_where` 或 data-export 的 DuckDB 筛选参数表达。
+
+| 字段 | 显示名 | 应用方式 | 说明 |
+| --- | --- | --- | --- |
+| `{field}` | `{display_name}` | `sql_where` | 按 `{field}` 过滤，值域需在取数时验证 |
+
+## 8. 映射与 Review 问题
+
+### 8.1 已注册映射
+
+| 源字段 | 类型 | 标准 ID | 字段 ID/覆盖 | 说明 |
+| --- | --- | --- | --- | --- |
+| `{view_field}` | `{metric|dimension}` | `{standard_id}` | `{field_id_or_override}` | `{definition_or_notes}` |
+
+### 8.2 待确认问题
+
+- 待确认字段：`{review_field_count}` 个
+- 待确认指标：`{review_metric_count}` 个
+- `{pending_question}`
+
+## 9. 校验结果
 
 - {validate_result_sentence}
+
+## 10. 本条数据源的结论
+
+- 这条 DuckDB 数据源已登记为 `{source_id}`
+- 当前 metadata YAML 已完成注册报告生成
+- `registry.db` 不作为业务口径真源；如需要进入运行取数层，先使用 `RA:metadata` 的 `sync-registry`
 `````
 
 ## 使用规则

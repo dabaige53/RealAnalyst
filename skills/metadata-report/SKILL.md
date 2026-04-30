@@ -9,7 +9,7 @@ description: |
 
 用于把 RealAnalyst 的 metadata、connector sync 结果、数据源注册信息和待 review 问题写成可复核的 Markdown 报告。它只负责“阐述元数据”，不负责注册数据集、取数分析或改写业务结论。
 
-本 skill 的报告范式参考 Analyst workspace 的 `tableau-sync` / `duckdb-sync` 标准报告脚本：核心都是 `generate_sync_report.py` 中的 `render_sync_report()`，先由脚本生成结构化 Markdown，再由 Agent 按业务语义补充说明和待确认问题。
+本 skill 的报告范式参考 Analyst workspace 的 `tableau-sync` / `duckdb-sync` 标准报告脚本：核心都是 `generate_sync_report.py` 中的 `render_*_report()`，先由脚本生成结构化 Markdown，再由 Agent 按业务语义补充说明和待确认问题。DuckDB 注册报告优先从 `metadata/datasets/*.yaml` 生成；只有需要解释 runtime 取数状态时才读取 registry。
 
 ## When to Use
 
@@ -49,7 +49,8 @@ description: |
 | 报告类型 | 脚本 | 核心函数 | 默认输出目录 |
 | --- | --- | --- | --- |
 | Tableau 数据源元数据报告 | `skills/metadata/adapters/tableau/scripts/generate_sync_report.py` | `render_sync_report()` | `metadata/sync/tableau/reports/` |
-| DuckDB 数据源元数据报告 | `skills/metadata/adapters/duckdb/scripts/generate_sync_report.py` | `render_sync_report()` | `metadata/sync/duckdb/reports/` |
+| DuckDB YAML 注册报告 | `skills/metadata/adapters/duckdb/scripts/generate_sync_report.py --dataset-id <dataset_id>` | `render_yaml_metadata_report()` | `metadata/sync/duckdb/reports/` |
+| DuckDB registry 同步报告 | `skills/metadata/adapters/duckdb/scripts/generate_sync_report.py --key <source_key>` | `render_sync_report()` | `metadata/sync/duckdb/reports/` |
 
 Analyst 原始参考路径：
 
@@ -75,8 +76,16 @@ python3 {baseDir}/skills/metadata/scripts/metadata.py status --dataset-id <datas
 ```bash
 python3 {baseDir}/skills/metadata/scripts/metadata.py context --dataset-id <dataset_id>
 python3 {baseDir}/skills/metadata/adapters/tableau/scripts/generate_sync_report.py --key <source_key>
-python3 {baseDir}/skills/metadata/adapters/duckdb/scripts/generate_sync_report.py --key <source_key>
+python3 {baseDir}/skills/metadata/adapters/duckdb/scripts/generate_sync_report.py --dataset-id <dataset_id>
+python3 {baseDir}/skills/metadata/adapters/duckdb/scripts/generate_sync_report.py --all-yaml
 ```
+
+DuckDB 报告入口选择：
+
+- `--dataset-id <dataset_id>`：首选。基于已维护的 metadata YAML 生成单个注册报告。
+- `--all-yaml`：基于 metadata YAML 为全部 DuckDB dataset 生成注册报告。
+- `--source <dataset_id>`：`--dataset-id` 的兼容别名。
+- `--key <source_key>` / `--all`：只用于 runtime registry 同步报告，不作为业务口径真源。
 
 如果已有 sync report，优先读取最新报告；不要为了写说明重复同步外部系统。
 
@@ -112,7 +121,11 @@ DuckDB 报告至少包含：
 3. `## 3. 本次写入摘要`
 4. `## 4. 语义层明细`
 5. `## 5. 字段明细`
-6. `## 6. 校验结果`
+6. `## 6. 指标明细`
+7. `## 7. 筛选器明细`
+8. `## 8. 映射与 Review 问题`
+9. `## 9. 校验结果`
+10. `## 10. 本条数据源的结论`
 
 字段表推荐列，详见 `references/report-template.md`。核心列如下：
 
@@ -139,6 +152,7 @@ DuckDB 报告至少包含：
 6. 不写泛泛总结；报告必须列出字段、指标、筛选器、参数、适用/不适用场景。
 7. 报告是给业务和分析人员复核的，少写系统实现细节，多写口径、边界和使用方式。
 8. Tableau 报告必须分清 `--vf` 筛选器和 `--vp` 参数；DuckDB 报告必须分清 `sql_where` 筛选器和字段/指标。
+9. DuckDB YAML 模式下，`registry=not_written` 是正常状态；报告必须说明“未反写 registry，不把 registry.db 当业务口径真源”。
 
 ## 质量门禁
 

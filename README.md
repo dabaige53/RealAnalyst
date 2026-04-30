@@ -37,7 +37,7 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 锁定固定版本：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 - --version 0.2.6
+curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 - --version 0.2.7
 ```
 
 切回自动跟随最新：

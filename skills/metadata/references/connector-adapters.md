@@ -50,10 +50,13 @@ DuckDB adapter 不负责：
 ```bash
 python3 {baseDir}/skills/metadata/adapters/duckdb/scripts/discover_catalog.py --registerable-only
 python3 {baseDir}/skills/metadata/adapters/duckdb/scripts/inspect_source.py --source <source_id>
-python3 {baseDir}/skills/metadata/adapters/duckdb/scripts/generate_sync_report.py --source <source_id>
+python3 {baseDir}/skills/metadata/adapters/duckdb/scripts/generate_sync_report.py --dataset-id <dataset_id>
+python3 {baseDir}/skills/metadata/adapters/duckdb/scripts/generate_sync_report.py --all-yaml
 ```
 
 将这些脚本输出视为素材。LLM 必须先把原始输出归档到 `metadata/sources/`，再把字段映射维护到 `metadata/mappings/*.yaml`，把真实数据源字段、粒度、时间字段、指标候选、限制和 review 标记维护到 `metadata/datasets/*.yaml`。
+
+`generate_sync_report.py` 默认面向 metadata YAML 生成 DuckDB 注册报告；`--key` / `--all` 仅用于 runtime registry 同步报告，不作为业务口径真源。
 
 ## 调用原则
 
