@@ -42,8 +42,19 @@ def _field_display_name(field: dict[str, Any]) -> str:
     return _safe_str(field.get("display_name")) or _field_source_name(field)
 
 
-def _metric_source_name(metric: dict[str, Any]) -> str:
-    return _safe_str(metric.get("source_field")) or _safe_str(metric.get("display_name")) or _safe_str(metric.get("name"))
+def _metric_name(metric: dict[str, Any]) -> str:
+    return _safe_str(metric.get("name")) or _safe_str(metric.get("display_name"))
+
+
+def _dedupe(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        out.append(value)
+    return out
 
 
 def _has_review_flag(items: list[Any]) -> bool:
@@ -116,8 +127,8 @@ def build_entry_and_spec(dataset: dict[str, Any]) -> tuple[dict[str, Any], dict[
     dimension_names = [name for name in dimension_names if name]
     measure_fields = [_field_source_name(field) for field in fields if _is_measure_field(field)]
     measure_fields = [name for name in measure_fields if name]
-    metric_names = [_metric_source_name(metric) for metric in metrics]
-    measure_names = [name for name in [*measure_fields, *metric_names] if name]
+    metric_names = [_metric_name(metric) for metric in metrics]
+    available_metric_names = _dedupe([name for name in [*measure_fields, *metric_names] if name])
     review_required = _has_review_flag(fields) or _has_review_flag(metrics)
 
     entry: dict[str, Any] = {
@@ -134,7 +145,7 @@ def build_entry_and_spec(dataset: dict[str, Any]) -> tuple[dict[str, Any], dict[
         "semantics": {
             "grain": _safe_list(business.get("grain")),
             "primary_dimensions": dimension_names,
-            "available_metrics": measure_names,
+            "available_metrics": available_metric_names,
             "time_fields": _safe_list(business.get("time_fields")),
             "suitable_for": _safe_list(business.get("suitable_for")),
             "not_suitable_for": _safe_list(business.get("not_suitable_for")),
@@ -174,7 +185,20 @@ def build_entry_and_spec(dataset: dict[str, Any]) -> tuple[dict[str, Any], dict[
         ],
         "measures": [
             {"name": name, "display_name": name, "data_type": "number"}
-            for name in measure_names
+            for name in measure_fields
+        ],
+        "metrics": [
+            {
+                "name": _metric_name(metric),
+                "display_name": _safe_str(metric.get("display_name")) or _metric_name(metric),
+                "expression": _safe_str(metric.get("expression")),
+                "source_field": _safe_str(metric.get("source_field")),
+                "description": _safe_str(metric.get("description")),
+                "unit": _safe_str(metric.get("unit")),
+                "aggregation": _safe_str(metric.get("aggregation")),
+            }
+            for metric in metrics
+            if _metric_name(metric)
         ],
         "filters": [
             {"key": _field_source_name(field), "display_name": _field_display_name(field), "apply_via": "sql_where"}

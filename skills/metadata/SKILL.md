@@ -5,103 +5,78 @@ description: Use when initializing, registering, refreshing, validating, searchi
 
 # Metadata Skill
 
-RealAnalyst 的统一元数据入口。用它把“数据源发现、业务语义维护、低 token 检索、分析上下文构造”收敛成一条清楚链路。
+RealAnalyst 的统一元数据入口。它负责把“数据源发现、业务语义维护、低 token 检索、分析上下文构造”收敛成一条链路；细节契约放在 `references/`，本文件只保留触发条件、执行顺序和硬门禁。
 
-核心原则：**sources 是证据层；dictionaries 是公共语义层；mappings 是字段映射层；datasets 只放真实数据源；index/context 是生成层；`runtime/registry.db` 是运行层。**
+核心原则：**sources 是证据层；dictionaries 是公共语义层；mappings 是字段映射层；datasets 只放真实数据源；index/context 是生成层；`runtime/registry.db` 是运行层；OSI 是交换层。**
 
 ## When to Use
 
 使用本 skill：
 
-- 用户要“注册数据集”“初始化元数据”“维护字段/指标/术语”。
+- 用户要注册数据集、初始化元数据、维护字段/指标/术语。
 - 分析前需要查指标、字段、业务定义、同义词或适用场景。
-- 用户提到 Tableau / DuckDB source onboarding，但目标是进入统一元数据体系。
-- 需要为 `RA:analysis-plan` 生成小型 metadata context pack，避免直接读取完整 YAML。
+- 用户提到 Tableau / DuckDB source onboarding，且目标是进入统一元数据体系。
+- 需要为 `RA:analysis-plan` 生成小型 metadata context pack。
 - 需要检查 LLM 维护的 YAML 是否满足字段、指标、证据、置信度和 review 契约。
 
 不要使用本 skill：
 
-- 已经进入正式数据导出阶段：Tableau 取数使用 `RA:data-export`，DuckDB 取数使用 `RA:data-export`。
+- 已经进入正式数据导出阶段：Tableau / DuckDB 取数使用 `RA:data-export`。
 - 用户只要求写报告、做 data profile 或 report verify。
-- 用户明确要求操作 Tableau Server 或 DuckDB 运行态脚本本身；此时仍先说明它是 connector adapter，不把它当业务口径真源。
+- 用户明确要求操作 Tableau Server 或 DuckDB 运行态脚本本身；此时说明它是 connector adapter，不把它当业务口径真源。
+
+## Reference First
+
+执行前按场景读取最小 reference：
+
+| 场景 | 读取 |
+| --- | --- |
+| 维护分层、review 规则、运行层边界 | `references/maintenance-contract.md` |
+| 判断 YAML 应落到 sources / dictionaries / mappings / datasets 哪一层 | `references/yaml-structure-contract.md` |
+| Tableau / DuckDB 字段刷新、adapter handoff、connector 禁止事项 | `references/connector-adapters.md` |
+
+不要把这些细节复制回 `SKILL.md`。入口保持轻，契约放 reference。
 
 ## Operating Model
 
-| 层级 | 职责 | 维护方式 |
+metadata skill 只暴露一个用户入口，但内部有清楚分层：
+
+| 层级 | 本文件内记住什么 | 细节在哪里 |
 | --- | --- | --- |
-| sources | 用户提供或 connector 产出的原始材料、迁移输入、抽取报告 | 只读归档 |
-| dictionaries | 公共指标、公共维度、公共术语、同义词、词表 | LLM 维护 |
-| mappings | Tableau/DuckDB/文件字段到标准指标/维度的映射和口径覆盖 | LLM 维护 |
-| datasets | 一个真实可分析数据源一个 YAML，包括字段、指标、粒度、时间字段、限制 | LLM 维护 |
-| index | 从 YAML 生成的轻量检索记录 | 自动生成 |
-| context pack | 本轮分析需要的最小上下文 | 按需生成 |
-| connector adapter | Tableau/DuckDB 外部元数据发现与初始化素材 | metadata 调用 |
-| registry.db | 执行稳定性与运行时 source 信息 | `metadata sync-registry` 受控写入 |
-| OSI | 对外交换语义模型 | 按需导出 |
+| sources | 原始证据先归档，不直接当分析上下文 | `yaml-structure-contract.md` |
+| dictionaries | 公共指标、维度、术语的语义真源 | `maintenance-contract.md` |
+| mappings | source 字段到标准语义的映射和口径覆盖 | `yaml-structure-contract.md` |
+| datasets | 一个真实可分析对象一份 YAML | `yaml-structure-contract.md` |
+| index / context | 生成层；需求理解先 search，再 context | `maintenance-contract.md` |
+| connector adapter | 只提供 Tableau / DuckDB 初始化素材 | `connector-adapters.md` |
+| registry.db | 运行层；只允许 `sync-registry` 受控写入 | `maintenance-contract.md` |
+| OSI | 交换层；不进入本地分析主路径 | `maintenance-contract.md` |
 
-不要把 connector adapter 当成业务口径真源。Tableau/DuckDB 可以告诉你字段和筛选器有什么，但“这个字段在业务上怎么解释”“这个指标能不能作为确定口径”必须回到 metadata YAML 和 review 标记。
-
-## Directory Contract
-
-维护 YAML 前先按 `references/yaml-structure-contract.md` 判断应该落到哪里：
-
-```text
-metadata/
-├── sources/        # 原始证据，不直接作为分析上下文
-├── dictionaries/   # 公共 metrics / dimensions / glossary
-├── mappings/       # source 字段到标准语义的映射和覆盖
-├── datasets/       # 一个真实数据源一个 YAML
-├── index/          # 自动生成，不手工改
-└── sync/           # connector live discovery 素材，按需创建
-```
-
-硬规则：
-
-- 不把公共指标、公共维度、术语总表放进 `datasets/`。
-- 不把用户给的 Markdown/Excel/抽取报告直接改写成 dataset；先归档到 `sources/`。
-- `datasets/` 只放 Tableau view/workbook、DuckDB view/table、CSV/Excel sheet 等可分析对象。
-- 真实数据源 YAML 可以引用 dictionaries 和 mappings，但不要复制完整公共字典。
+Tableau/DuckDB 字段和筛选器只能作为素材。业务定义、确定口径和 review 状态必须回到 metadata YAML。
 
 ## Core Workflow
 
-### 1. 初始化元数据工作区
+1. 初始化或补齐元数据工作区：
 
 ```bash
 python3 {baseDir}/skills/metadata/scripts/metadata.py init
 ```
 
-用于创建或补齐 `metadata/README.md`、demo dataset YAML、demo model YAML。已有文件默认不覆盖。
-
-### 2. 为外部 source 生成 adapter handoff
+2. 如需外部 source 素材，先生成 adapter handoff，不直接写运行层：
 
 ```bash
 python3 {baseDir}/skills/metadata/scripts/metadata.py init-source --backend tableau --source-id <source_id> --dry-run
 python3 {baseDir}/skills/metadata/scripts/metadata.py init-source --backend duckdb --source-id <source_id> --dry-run
 ```
 
-`init-source` 当前输出 connector adapter 执行计划，不直接写 `registry.db`。需要 live connector 发现时，按 `references/connector-adapters.md` 调用保留的 adapter scripts。
+3. 按 `references/yaml-structure-contract.md` 维护 YAML：
 
-### 3. 维护 YAML 语义层
+- 原始材料归档到 `metadata/sources/`。
+- 公共指标、维度、术语放到 `metadata/dictionaries/`。
+- source 字段到标准语义的映射放到 `metadata/mappings/`。
+- 真实可分析对象放到 `metadata/datasets/`，并引用 dictionaries / mappings。
 
-更新 `metadata/dictionaries/*.yaml` 时维护公共：
-
-- `metrics.yaml`：指标 ID、中文名、别名、单位、定义、公式、聚合方式、方向、benchmark。
-- `dimensions.yaml`：维度分组、字段 ID、源字段、字段类型、枚举、lookup。
-- `glossary.yaml`：业务术语、航司、机场、舱等、周期、同义词。
-
-更新 `metadata/mappings/*.yaml` 时维护：
-
-- `source_id`、`view_field`、`standard_id`、字段/指标类型、口径覆盖、来源证据。
-
-更新 `metadata/datasets/*.yaml` 时必须维护：
-
-- dataset identity：`id`、`display_name`、`source.connector`、`source.object`
-- business：业务描述、适用/不适用场景、粒度、时间字段
-- fields：数据源内字段、角色、类型、描述、业务定义、证据、置信度、`needs_review`
-- metrics：数据源可直接提供或可计算的指标、表达式、证据、置信度、`needs_review`
-- references：引用到 dictionaries/mappings 的标准 ID，不复制整套公共口径
-
-### 4. 校验、生成索引、同步运行层
+4. 校验、生成索引、同步运行层：
 
 ```bash
 python3 {baseDir}/skills/metadata/scripts/metadata.py validate
@@ -111,9 +86,9 @@ python3 {baseDir}/skills/metadata/scripts/metadata.py sync-registry --dataset-id
 python3 {baseDir}/skills/metadata/scripts/metadata.py status --dataset-id <dataset_id>
 ```
 
-校验失败时不要继续生成 index、context pack 或 registry。先修 YAML 的缺字段、重复字段、低置信度 review 标记或证据缺口。`sync-registry` 是唯一允许从 YAML 进入运行层的路径：它把通过校验的 dataset YAML upsert 到 `runtime/registry.db`，保留 `runtime/tableau/registry.db` 旧路径兼容，但新写入走统一 registry。
+校验失败时停止，先修 YAML。`sync-registry` 是唯一允许从已校验 YAML 写入 `runtime/registry.db` 的路径。
 
-### 5. 低 token 检索
+5. 需求理解阶段先低 token 检索，不直接扫完整 YAML：
 
 ```bash
 python3 {baseDir}/skills/metadata/scripts/metadata.py search --type metric --query 收入
@@ -121,9 +96,7 @@ python3 {baseDir}/skills/metadata/scripts/metadata.py search --type field --quer
 python3 {baseDir}/skills/metadata/scripts/metadata.py search --type all --query 转化率
 ```
 
-需求理解阶段先查 index，不要直接读取完整 dataset YAML。
-
-### 6. 构造分析上下文
+6. 构造分析上下文：
 
 ```bash
 python3 {baseDir}/skills/metadata/scripts/metadata.py context --dataset-id <dataset_id> --metric <metric> --field <field>
@@ -150,7 +123,7 @@ context pack 是 `RA:analysis-plan` 的正式语义输入。若输出中出现 `
 
 - `metadata validate` 返回 `success=true`。
 - `metadata index` 成功生成 `metadata/index/*.jsonl`，包括 mappings 索引。
-- `metadata status --dataset-id ...` 显示 `metadata_yaml=true`、`metadata_index=true`、`runtime_registry=true`，需要取数时还要 `export_ready=true`。
+- `metadata status --dataset-id ...` 显示 `metadata_yaml=true`、`metadata_index=true`、`runtime_registry=true`；需要取数时还要 `export_ready=true`。
 - 需求理解只读取 search/context 结果，不扫完整 YAML。
 - `needs_review=true` 不得作为确定口径通过验证。
 - 不手工覆盖 `registry.db`；只能用 `metadata sync-registry` 从已校验 YAML 受控 upsert。
@@ -160,15 +133,12 @@ context pack 是 `RA:analysis-plan` 的正式语义输入。若输出中出现 `
 
 | 错误 | 修正 |
 | --- | --- |
-| 直接读完整 YAML 来理解需求 | 先 search，再 context |
+| 直接读完整 YAML 来理解需求 | 先 `metadata search`，再 `metadata context` |
 | 把公共术语/指标总表放进 `datasets/` | 拆到 `dictionaries/`；`datasets/` 只收真实数据源 |
 | 把 source 字段映射塞进公共字典 | 拆到 `mappings/`；字典只放标准语义 |
 | 只引用用户 Downloads 里的原始文件 | 复制到 `metadata/sources/` 后再作为证据引用 |
 | 把 Tableau/DuckDB 字段名当业务定义 | 字段名只是素材，业务定义写回 YAML |
-| 低置信度定义没有 `needs_review=true` | 补 review 标记和证据 |
-| 手工让 YAML 覆盖 `registry.db` | 停止；先 validate/index，再用 `metadata sync-registry` 受控同步 |
 | validate/index 成功就说“可取数” | 先跑 `metadata status`；runtime registry 和 export-ready 要单独验收 |
-| 把 OSI 当本地分析主路径 | 停止；OSI 是交换层 |
 | 创建新的 connector-specific skill | 停止；把能力接进 metadata adapter |
 
 ## Failure Handling
@@ -178,12 +148,6 @@ context pack 是 `RA:analysis-plan` 的正式语义输入。若输出中出现 `
 - validate 返回低置信度错误：补证据或设置 `needs_review=true`。
 - adapter 脚本失败：修 connector 脚本根因，不手工绕过；失败细节写入初始化报告或分析计划限制项。
 - source 冲突：向用户列出候选 dataset、关键字段和适用场景，请用户确认。
-
-## References
-
-- `references/maintenance-contract.md`：元数据五层边界、LLM 维护规则、review 规则。
-- `references/connector-adapters.md`：Tableau/DuckDB adapter 的职责、脚本入口和禁止事项。
-- `references/yaml-structure-contract.md`：sources/dictionaries/mappings/datasets 的 YAML 结构契约。
 
 ## CLI Quick Reference
 
