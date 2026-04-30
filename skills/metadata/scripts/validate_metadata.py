@@ -53,7 +53,7 @@ def validate_definition(
     subject_names: set[str] | None = None,
     enforce_semantic_text: bool = False,
 ) -> None:
-    for key in ("text", "confidence", "source_evidence", "needs_review"):
+    for key in ("text", "source_type", "confidence", "source_evidence", "needs_review"):
         require(definition, key, errors, prefix)
     text = _as_text(definition.get("text"))
     source_type = _as_text(definition.get("source_type"))

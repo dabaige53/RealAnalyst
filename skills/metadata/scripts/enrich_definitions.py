@@ -62,6 +62,47 @@ def _clean_schema_description(item: dict[str, Any], object_name: str) -> None:
         item["description"] = item["schema_note"]
 
 
+def _subject_names(item: dict[str, Any]) -> set[str]:
+    return {
+        as_text(item.get("name")),
+        as_text(item.get("display_name")),
+        as_text(item.get("source_field")),
+        as_text(item.get("physical_name")),
+    }
+
+
+def _existing_definition(item: dict[str, Any]) -> dict[str, Any]:
+    definition = item.get("business_definition")
+    return definition if isinstance(definition, dict) else {}
+
+
+def _definition_needs_enrichment(item: dict[str, Any]) -> bool:
+    definition = _existing_definition(item)
+    text = as_text(definition.get("text"))
+    if not text:
+        return True
+    if as_text(definition.get("source_type")) == "pending":
+        return True
+    return is_schema_only_definition(text, _subject_names(item))
+
+
+def _source_type_for_existing(item: dict[str, Any], fallback: str) -> str:
+    definition = _existing_definition(item)
+    source_type = as_text(definition.get("source_type") or item.get("definition_source"))
+    return source_type or fallback
+
+
+def _apply_definition(item: dict[str, Any], definition: dict[str, Any], source_type: str) -> bool:
+    if _definition_needs_enrichment(item):
+        item["business_definition"] = definition
+        item["definition_source"] = source_type
+        return True
+    source_type = _source_type_for_existing(item, "industry_draft")
+    item["business_definition"]["source_type"] = source_type
+    item["definition_source"] = source_type
+    return False
+
+
 def enrich_dataset(workspace: Path, dataset_id: str) -> dict[str, Any]:
     path = resolve_dataset_path(workspace, dataset_id)
     dataset = load_dataset_file(path)
@@ -85,11 +126,11 @@ def enrich_dataset(workspace: Path, dataset_id: str) -> dict[str, Any]:
         mapping_item = mapping_index.get(source_field)
         dictionary_item = find_dictionary_item(item=field, mapping=mapping_item, role="field", indexes=dictionary_indexes)
         definition, source_type = enriched_definition(item=field, mapping=mapping_item, dictionary_item=dictionary_item, role="field")
-        field["business_definition"] = definition
-        field["definition_source"] = source_type
+        changed = _apply_definition(field, definition, source_type)
         _clean_schema_description(field, object_name)
-        updated_fields += 1
-        if source_type == "pending":
+        if changed:
+            updated_fields += 1
+        if as_text(_existing_definition(field).get("source_type")) == "pending":
             pending_fields += 1
 
     for metric in dataset.get("metrics") or []:
@@ -99,8 +140,7 @@ def enrich_dataset(workspace: Path, dataset_id: str) -> dict[str, Any]:
         mapping_item = mapping_index.get(source_field)
         dictionary_item = find_dictionary_item(item=metric, mapping=mapping_item, role="metric", indexes=dictionary_indexes)
         definition, source_type = enriched_definition(item=metric, mapping=mapping_item, dictionary_item=dictionary_item, role="metric")
-        metric["business_definition"] = definition
-        metric["definition_source"] = source_type
+        changed = _apply_definition(metric, definition, source_type)
         if dictionary_item:
             if not as_text(metric.get("unit")) and as_text(dictionary_item.get("unit")):
                 metric["unit"] = as_text(dictionary_item.get("unit"))
@@ -109,8 +149,9 @@ def enrich_dataset(workspace: Path, dataset_id: str) -> dict[str, Any]:
             if as_text(dictionary_item.get("expression")) and as_text(metric.get("expression")).startswith("source_field:"):
                 metric["standard_expression"] = as_text(dictionary_item.get("expression"))
         _clean_schema_description(metric, object_name)
-        updated_metrics += 1
-        if source_type == "pending":
+        if changed:
+            updated_metrics += 1
+        if as_text(_existing_definition(metric).get("source_type")) == "pending":
             pending_metrics += 1
 
     path.write_text(yaml.dump(dataset, Dumper=NoAliasDumper, allow_unicode=True, sort_keys=False), encoding="utf-8")

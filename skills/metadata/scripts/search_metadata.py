@@ -11,7 +11,7 @@ from _bootstrap import bootstrap_workspace_path
 
 WORKSPACE_DIR = bootstrap_workspace_path()
 
-from skills.metadata.lib.metadata_search import load_jsonl, search_records
+from skills.metadata.lib.metadata_search import load_jsonl, search_fts5, search_records
 
 
 INDEX_FILES = {
@@ -20,6 +20,15 @@ INDEX_FILES = {
     "metric": "metrics.jsonl",
     "mapping": "mappings.jsonl",
     "term": "glossary.jsonl",
+}
+
+FTS5_TYPE_MAP = {
+    "dataset": "dataset",
+    "field": "field",
+    "metric": "metric",
+    "mapping": "mapping",
+    "term": "glossary",
+    "all": "all",
 }
 
 
@@ -44,6 +53,26 @@ def main() -> int:
 
     workspace = Path(args.workspace).expanduser().resolve() if args.workspace else WORKSPACE_DIR
     index_dir = Path(args.index_dir).expanduser().resolve() if args.index_dir else workspace / "metadata" / "index"
+
+    fts5_db = index_dir / "search.db"
+    if fts5_db.exists():
+        fts5_record_type = FTS5_TYPE_MAP.get(args.type, args.type)
+        matches = search_fts5(
+            fts5_db,
+            args.query,
+            record_type=fts5_record_type if fts5_record_type != "all" else None,
+            limit=args.limit,
+        )
+        _json_output(
+            {
+                "success": True,
+                "query": args.query,
+                "type": args.type,
+                "backend": "fts5",
+                "matches": matches,
+            }
+        )
+        return 0
 
     missing = [
         INDEX_FILES[record_type]
@@ -72,6 +101,7 @@ def main() -> int:
             "success": True,
             "query": args.query,
             "type": args.type,
+            "backend": "jsonl",
             "matches": search_records(records, args.query, limit=args.limit),
         }
     )

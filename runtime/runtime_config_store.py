@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """SQLite-backed runtime lookup store.
 
-Stores structured runtime metadata from runtime/*.yaml in SQLite for lookup.
-YAML remains the bootstrap / migration source until each runtime family is fully
-moved to DB-native authoring.
+Structured runtime metadata lives in the global runtime database:
+`runtime/registry.db`.
 """
 
 from __future__ import annotations
@@ -24,9 +23,14 @@ if _SITE_PACKAGES and str(_SITE_PACKAGES) not in sys.path:
     sys.path.insert(0, str(_SITE_PACKAGES))
 
 _RUNTIME_DIR = Path(__file__).resolve().parent
-_DB_PATH = _RUNTIME_DIR / "runtime_config.db"
+try:
+    from runtime.paths import runtime_db_path
+except ModuleNotFoundError:  # invoked with runtime/ on sys.path
+    from paths import runtime_db_path  # type: ignore[no-redef]
 
-# NOTE: per project decision, runtime_config.db only stores structured configs:
+_DB_PATH = runtime_db_path()
+
+# NOTE: Only these structured lookup families are mirrored into SQLite.
 # - metrics / dimensions / glossary
 # Templates/frameworks/workflow/long prose remain YAML/Markdown only.
 _YAML_DOCS: dict[str, Path] = {
@@ -46,7 +50,7 @@ def _yaml_module() -> Any:
     try:
         return importlib.import_module("yaml")
     except ModuleNotFoundError as exc:  # pragma: no cover - environment dependent
-        raise RuntimeError("PyYAML is required to bootstrap runtime_config.db") from exc
+        raise RuntimeError("PyYAML is required to bootstrap runtime lookup tables") from exc
 
 
 def _json_dumps(value: Any) -> str:
@@ -225,15 +229,14 @@ def migrate_from_yaml(*, force: bool = False) -> dict[str, int]:
 
     with _connect() as conn:
         if force:
-            # Clear current content; also drop legacy tables from earlier iterations.
-            conn.execute("DELETE FROM metadata")
+            conn.execute("DELETE FROM metadata WHERE key = 'yaml_snapshot'")
             conn.execute("DELETE FROM documents")
+            conn.execute("DELETE FROM metric_benchmarks")
+            conn.execute("DELETE FROM metric_aliases")
+            conn.execute("DELETE FROM dimension_fields")
             conn.execute("DELETE FROM metrics")
             conn.execute("DELETE FROM dimensions")
-            conn.execute("DELETE FROM dimension_fields")
             conn.execute("DELETE FROM glossary_items")
-            conn.execute("DROP TABLE IF EXISTS templates")
-            conn.execute("DROP TABLE IF EXISTS frameworks")
 
         for doc_key, payload in docs.items():
             conn.execute(

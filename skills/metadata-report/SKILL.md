@@ -172,4 +172,13 @@ DuckDB 报告至少包含：
 | 用字段名猜业务定义 | 回到 dictionaries / mappings / sources 找证据；找不到就标记待确认 |
 | 把 metadata report 写成分析报告 | 只说明元数据能力和边界，不输出业务经营结论 |
 | 忽略筛选器枚举值 | 可列举值、默认值、参数用法必须单独写 |
-| 遇到 validate 失败仍继续写确定口径 | 报告降级为“元数据待修复报告”，失败项进入待确认问题 |
+| 遇到 validate 失败仍继续写确定口径 | 报告降级为"元数据待修复报告"，失败项进入待确认问题 |
+
+## Completion Summary
+
+元数据报告完成后，向用户汇报：
+
+1. 生成了哪种类型的报告（同步报告 / 注册说明 / review gap 报告）。
+2. 报告输出路径。
+3. 存在多少待确认项（review gap / needs_review / 校验失败项）。
+4. 下一步建议：修复待确认项后进入 `/skill RA:metadata` 继续维护元数据，或进入 `/skill RA:analysis-plan` 开始分析。

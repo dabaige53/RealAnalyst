@@ -4,19 +4,25 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+import sys
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 import yaml
 
+WORKSPACE_DIR = Path(__file__).resolve().parents[2]
+if str(WORKSPACE_DIR) not in sys.path:
+    sys.path.insert(0, str(WORKSPACE_DIR))
+
 try:
     from sqlite_store import load_spec_by_entry_key, load_spec_by_ref, load_spec_for_entry
 except ModuleNotFoundError:  # pragma: no cover - package import path
     from runtime.tableau.sqlite_store import load_spec_by_entry_key, load_spec_by_ref, load_spec_for_entry
 
-WORKSPACE_DIR = Path(__file__).resolve().parents[2]
-RUNTIME_CONFIG_DB = WORKSPACE_DIR / "runtime" / "runtime_config.db"
+from runtime.runtime_config_store import db_path as runtime_db_path, ensure_store_ready as ensure_runtime_ready  # noqa: E402
+
+RUNTIME_DB = runtime_db_path()
 MAPPINGS_PATH = Path(__file__).resolve().parent / "source_context_mappings.yaml"
 
 _STATUS_MAPPED = "mapped"
@@ -39,7 +45,8 @@ def _load_mappings() -> dict[str, Any]:
 
 @lru_cache(maxsize=1)
 def _load_metric_index() -> tuple[dict[str, dict[str, Any]], dict[str, list[dict[str, Any]]]]:
-    conn = sqlite3.connect(RUNTIME_CONFIG_DB)
+    ensure_runtime_ready()
+    conn = sqlite3.connect(RUNTIME_DB)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
 
@@ -102,7 +109,8 @@ def _load_metric_index() -> tuple[dict[str, dict[str, Any]], dict[str, list[dict
 
 @lru_cache(maxsize=1)
 def _load_dimension_index() -> tuple[dict[tuple[str, str], dict[str, Any]], dict[str, list[dict[str, Any]]]]:
-    conn = sqlite3.connect(RUNTIME_CONFIG_DB)
+    ensure_runtime_ready()
+    conn = sqlite3.connect(RUNTIME_DB)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
 

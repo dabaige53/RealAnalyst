@@ -183,3 +183,13 @@ ls -1 jobs/{SESSION_ID}/*.csv jobs/{SESSION_ID}/*.md 2>/dev/null
 9. 禁止生成 `pivot.csv` 这类无业务语义的文件名。
 10. 严禁删除 `data/` 和 `profile/` 目录。
 11. 严禁把子集指标写成总量指标，别名必须显式披露映射关系。
+
+## Completion Summary
+
+报告撰写完成后，向用户汇报：
+
+1. 报告已写入 `jobs/{SESSION_ID}/报告_{主题}_{时间}.md`。
+2. 本次生成/追加了哪些章节。
+3. 口径说明附录是否已补齐。
+4. 输出文件清单是否已更新。
+5. 下一步建议：进入 `/skill RA:report-verify` 做交付前门禁检查。

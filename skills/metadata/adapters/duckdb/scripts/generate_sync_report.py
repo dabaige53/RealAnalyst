@@ -23,6 +23,7 @@ from skills.metadata.lib.metadata_io import (  # noqa: E402
     normalize_dataset,
     resolve_dataset_path,
 )
+from skills.metadata.scripts.validate_metadata import validate_dataset  # noqa: E402
 
 
 def default_report_dir(workspace: Path) -> Path:
@@ -73,6 +74,15 @@ def _definition(item: dict[str, Any]) -> dict[str, Any]:
 def _definition_text(item: dict[str, Any]) -> str:
     definition = _definition(item)
     return str(definition.get("text") or item.get("description") or "未配置")
+
+
+def _definition_source(item: dict[str, Any]) -> str:
+    definition = _definition(item)
+    return str(definition.get("source_type") or item.get("definition_source") or "未配置")
+
+
+def _schema_note(item: dict[str, Any]) -> str:
+    return str(item.get("schema_note") or item.get("description") or "未配置")
 
 
 def _review_text(item: dict[str, Any]) -> str:
@@ -201,6 +211,19 @@ def _load_dataset_mapping(workspace: Path, dataset: dict[str, Any]) -> dict[str,
     if not path.exists():
         return None
     return load_mapping_file(path)
+
+
+def _validate_yaml_datasets(workspace: Path, datasets: list[dict[str, Any]]) -> list[str]:
+    errors: list[str] = []
+    for dataset in datasets:
+        dataset_id = str(dataset.get("id") or dataset.get("source_id") or "")
+        try:
+            path = resolve_dataset_path(workspace, dataset_id)
+        except MetadataError as exc:
+            errors.append(str(exc))
+            continue
+        errors.extend(validate_dataset(dataset, path=path))
+    return errors
 
 
 def render_sync_report(
@@ -436,8 +459,8 @@ def render_yaml_metadata_report(
     lines.append("## 5. 字段明细")
     lines.append("")
     if fields:
-        lines.append("| 展示名 | 源字段 | DuckDB 类型 | metadata 类型 | 角色 | 业务定义 | 证据 | Review |")
-        lines.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
+        lines.append("| 展示名 | 源字段 | DuckDB 类型 | metadata 类型 | 角色 | 业务定义 | 定义来源 | Schema 说明 | 证据 | Review |")
+        lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
         for field in fields:
             source_field = field.get("source_field") or field.get("physical_name") or field.get("name")
             lines.append(
@@ -450,6 +473,8 @@ def render_yaml_metadata_report(
                         _code(field.get("type")),
                         _code(field.get("role")),
                         _cell(_definition_text(field)),
+                        _code(_definition_source(field)),
+                        _cell(_schema_note(field)),
                         _evidence_cell(field),
                         _cell(_review_text(field)),
                     ]
@@ -463,8 +488,8 @@ def render_yaml_metadata_report(
     lines.append("## 6. 指标明细")
     lines.append("")
     if metrics:
-        lines.append("| 指标 | 源字段 | 表达式 | 聚合方式 | 单位 | 业务定义 | 证据 | Review |")
-        lines.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
+        lines.append("| 指标 | 源字段 | 表达式 | 聚合方式 | 单位 | 业务定义 | 定义来源 | Schema 说明 | 证据 | Review |")
+        lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
         for metric in metrics:
             lines.append(
                 "| "
@@ -476,6 +501,8 @@ def render_yaml_metadata_report(
                         _code(metric.get("aggregation")),
                         _code(metric.get("unit")),
                         _cell(_definition_text(metric)),
+                        _code(_definition_source(metric)),
+                        _cell(_schema_note(metric)),
                         _evidence_cell(metric),
                         _cell(_review_text(metric)),
                     ]
@@ -648,6 +675,13 @@ def main() -> None:
         if not datasets:
             print("[WARN] No DuckDB dataset YAML matched")
             return
+        validation_errors = _validate_yaml_datasets(workspace, datasets)
+        if validation_errors:
+            print("[Error] metadata validate failed:")
+            for error in validation_errors:
+                print(f"- {error}")
+            raise SystemExit(1)
+        step_results["validate"] = "success"
         for dataset in datasets:
             report_path = write_yaml_report(
                 workspace=workspace,

@@ -20,6 +20,7 @@ metrics:
     synonyms: [sales, total sales, revenue]
     business_definition:
       text: Total order revenue calculated by summing the revenue field.
+      source_type: dictionary
       confidence: 0.64
       source_evidence:
         - type: metric_expression
@@ -39,6 +40,7 @@ glossary:
     values: []
     business_definition:
       text: Region used for grouping order performance.
+      source_type: dictionary
       confidence: 0.82
       source_evidence:
         - type: column_name

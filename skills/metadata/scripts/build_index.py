@@ -10,7 +10,7 @@ from _bootstrap import bootstrap_workspace_path
 
 WORKSPACE_DIR = bootstrap_workspace_path()
 
-from skills.metadata.lib.metadata_index import build_all_indexes, write_jsonl
+from skills.metadata.lib.metadata_index import build_all_indexes, write_fts5_index, write_jsonl
 from skills.metadata.lib.metadata_io import (
     iter_dataset_files,
     iter_dictionary_files,
@@ -38,6 +38,10 @@ def main() -> int:
     for name, records in indexes.items():
         write_jsonl(output_dir / f"{name}.jsonl", records)
 
+    fts5_db = output_dir / "search.db"
+    write_fts5_index(fts5_db, indexes)
+
+    total_records = sum(len(records) for records in indexes.values())
     print(
         json.dumps(
             {
@@ -46,6 +50,8 @@ def main() -> int:
                 "dictionary_count": len(dictionaries),
                 "mapping_count": len(mappings),
                 "output_dir": str(output_dir),
+                "fts5_db": str(fts5_db),
+                "total_records": total_records,
             },
             ensure_ascii=False,
             sort_keys=True,

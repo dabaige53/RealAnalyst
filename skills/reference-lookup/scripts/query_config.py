@@ -6,7 +6,7 @@
 - --framework -> query/type/found/framework 或 query/type/found/available_frameworks
 
 实现说明（按项目约束分隔）：
-- SQLite（runtime/runtime_config.db）仅承载：metric / dimension / glossary
+- SQLite（runtime/registry.db）承载：source registry + metric / dimension / glossary lookup tables
 - report_templates / analysis_frameworks / workflow / 长文案不入库，仍从 YAML 读取
 
 边界说明：

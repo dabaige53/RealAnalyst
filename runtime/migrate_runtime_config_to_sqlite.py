@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bootstrap runtime/runtime_config.db from runtime/*.yaml."""
+"""Bootstrap runtime lookup tables in runtime/registry.db from runtime/*.yaml."""
 
 from __future__ import annotations
 

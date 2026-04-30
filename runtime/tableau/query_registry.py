@@ -12,6 +12,7 @@ from __future__ import annotations
     python query_registry.py --filter <source_id或source_key>     # 查询数据源的筛选器配置
     python query_registry.py --fields <source_id或source_key>     # 查询数据源的字段列表
     python query_registry.py --search <keyword>        # 搜索数据源（名称/描述）
+    python query_registry.py --save-group <group_id> --primary-source <source_id> --member-source <source_id>
 """
 
 import argparse
@@ -24,7 +25,16 @@ from typing import Any, cast
 
 import yaml
 
-from sqlite_store import db_path, ensure_store_ready, load_registry_document, load_spec_by_entry_key, load_spec_for_entry
+from sqlite_store import (
+    db_path,
+    ensure_store_ready,
+    find_groups_by_source,
+    list_source_groups,
+    load_registry_document,
+    load_spec_by_entry_key,
+    load_spec_for_entry,
+    save_source_group,
+)
 from source_context import build_source_context
 
 REGISTRY_PATH = db_path()
@@ -364,6 +374,22 @@ def cmd_source(args: argparse.Namespace) -> None:
     }
     if args.with_context:
         output["source_context"] = build_source_context(src)
+
+    source_id = src.get("source_id")
+    if isinstance(source_id, str) and source_id:
+        groups = find_groups_by_source(source_id)
+        if groups:
+            output["associated_groups"] = [
+                {
+                    "group_id": g["group_id"],
+                    "display_name": g["display_name"],
+                    "members": [m.get("source_id") if isinstance(m, dict) else m for m in g["member_sources"]],
+                    "use_count": g["use_count"],
+                    "last_used_at": g["last_used_at"],
+                }
+                for g in groups
+            ]
+
     # 移除空值
     output = {k: v for k, v in output.items() if v is not None and v != [] and v != {}}
     print(yaml.dump(output, allow_unicode=True, default_flow_style=False, sort_keys=False))
@@ -647,6 +673,77 @@ def cmd_search(args: argparse.Namespace) -> None:
             print(f"已锁定数据源: {locked['source_id']}")
 
 
+def cmd_groups(args: argparse.Namespace) -> None:
+    """列出数据源组（可指定 source_id 过滤）"""
+    if args.groups == "__all__":
+        groups = list_source_groups()
+    else:
+        groups = find_groups_by_source(args.groups)
+
+    if not groups:
+        print("未找到数据源组" + (f"（过滤: {args.groups}）" if args.groups != "__all__" else ""))
+        return
+
+    print(f"找到 {len(groups)} 个数据源组:")
+    print("-" * 40)
+    for g in groups:
+        members = g.get("member_sources", [])
+        member_ids = [m.get("source_id") if isinstance(m, dict) else str(m) for m in members]
+        print(f"• [{g['group_id']}] {g.get('display_name', '')}")
+        print(f"  主数据源: {g['primary_source_id']}")
+        print(f"  成员: {member_ids}")
+        print(f"  使用次数: {g.get('use_count', 0)}  最后使用: {g.get('last_used_at', 'N/A')}")
+        if g.get("notes"):
+            print(f"  备注: {g['notes']}")
+        print()
+
+
+def cmd_save_group(args: argparse.Namespace) -> None:
+    """保存已确认的数据源组。"""
+    data = load_registry(args.job_id)
+    primary, _ = resolve_source(data, args.primary_source)
+    if not primary:
+        print(f"错误: 未找到 primary source '{args.primary_source}'")
+        sys.exit(1)
+
+    member_inputs = list(args.member_source or [])
+    if args.primary_source not in member_inputs:
+        member_inputs.insert(0, args.primary_source)
+
+    members: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for source_key in member_inputs:
+        src, _ = resolve_source(data, source_key)
+        if not src:
+            print(f"错误: 未找到 member source '{source_key}'")
+            sys.exit(1)
+        source_id = str(src.get("source_id") or "")
+        if not source_id or source_id in seen:
+            continue
+        seen.add(source_id)
+        members.append(
+            {
+                "source_id": source_id,
+                "display_name": str(src.get("display_name") or ""),
+                "role": "primary" if source_id == primary.get("source_id") else "supplementary",
+            }
+        )
+
+    now = datetime.datetime.now(UTC).isoformat()
+    group_doc = {
+        "group_id": args.save_group,
+        "display_name": args.group_display_name or args.save_group,
+        "primary_source_id": primary.get("source_id"),
+        "member_sources": members,
+        "created_at": now,
+        "last_used_at": now,
+        "use_count": 1,
+        "notes": args.group_notes,
+    }
+    save_source_group(group_doc)
+    print(yaml.dump({"success": True, "source_group": group_doc}, allow_unicode=True, sort_keys=False))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Registry 按需查询工具")
     parser.add_argument("--job-id", help="job 级缓存与锁定所需的 job id")
@@ -660,6 +757,12 @@ def main() -> None:
     group.add_argument("--filter", "-f", help="查询数据源的筛选器配置")
     group.add_argument("--fields", help="查询数据源的字段列表")
     group.add_argument("--search", help="搜索数据源（名称/描述/适用场景）")
+    group.add_argument("--groups", nargs="?", const="__all__", help="列出数据源组（可指定 source_id 过滤）")
+    group.add_argument("--save-group", help="保存数据源组 group_id")
+    parser.add_argument("--primary-source", help="保存 source group 时的主数据源")
+    parser.add_argument("--member-source", action="append", default=[], help="保存 source group 时的成员数据源，可重复")
+    parser.add_argument("--group-display-name", help="保存 source group 时的展示名")
+    parser.add_argument("--group-notes", help="保存 source group 时的备注")
 
     args = parser.parse_args()
 
@@ -673,6 +776,12 @@ def main() -> None:
         cmd_fields(args)
     elif args.search:
         cmd_search(args)
+    elif args.groups is not None:
+        cmd_groups(args)
+    elif args.save_group:
+        if not args.primary_source:
+            parser.error("--save-group requires --primary-source")
+        cmd_save_group(args)
 
 
 if __name__ == "__main__":

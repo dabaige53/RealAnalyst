@@ -8,7 +8,7 @@ description: |
 
 # Profiling Skill
 
-生成数据集的正式画像产物。当前业务语义注入（metrics）运行时真源为 `runtime/runtime_config.db`（不再回退读取 `runtime/metrics.yaml`）：
+生成数据集的正式画像产物。当前业务语义注入（metrics）运行时真源为 `runtime/registry.db`：
 
 - `profile/manifest.json`：schema、lineage、profile_summary
 - `profile/profile.json`：signals、quality、statistics
@@ -127,3 +127,12 @@ Profiling 会自动识别以下语义类型（用于格式化）：
 1. `schema` 与语义类型
 2. 行数、列数、缺失率、Top 值分布
 3. 必要时再补充少量样本行
+
+## Completion Summary
+
+画像完成后，向用户汇报：
+
+1. 画像了哪个 CSV（文件路径和行列数）。
+2. `manifest.json` 和 `profile.json` 已生成到 `profile/` 目录。
+3. 关键质量信号：缺失率、异常字段、质量评分。
+4. 下一步建议：进入 `RA:analysis-run` Phase 3（LLM 分析），或如有质量问题先回到数据修正。

@@ -134,6 +134,8 @@ DuckDB wrapper 成功后通常产生：
 - `jobs/{SESSION_ID}/.meta/acquisition_log.jsonl`
 - `jobs/{SESSION_ID}/.meta/artifact_index.json`
 
+> **注意**：DuckDB 路径当前不生成 `source_context.json` 和 `context_injection.md`（仅 Tableau 路径生成）。若下游分析（`RA:analysis-run` Phase 3）需要语义上下文，Agent 应从 `RA:metadata` 的 context pack（`metadata/osi/<dataset_id>/context.md`）获取等效的字段说明、指标口径和业务边界信息。
+
 ## 验证
 
 ```bash
@@ -145,3 +147,13 @@ DuckDB wrapper 成功后通常产生：
 ```
 
 `run_tests.py` 需要先安装 `duckdb` 并准备 demo DuckDB registry/data。若未准备 DuckDB 文件，帮助命令仍应能跑通，但正式导出会失败。
+
+## Completion Summary
+
+导出完成后，向用户汇报：
+
+1. 导出了哪些 CSV 文件（路径和行数）。
+2. 使用了哪个后端（Tableau / DuckDB）和哪些筛选条件。
+3. `export_summary.json` 或 `duckdb_export_summary.json` 已生成。
+4. `acquisition_log.jsonl` 已追加本次导出记录。
+5. 下一步建议：进入 `/skill RA:data-profile` 生成数据画像。如果是 source group 内多源导出，提醒是否需要 `RA:artifact-fusion` 合并。

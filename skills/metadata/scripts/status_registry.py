@@ -11,7 +11,7 @@ from _bootstrap import bootstrap_workspace_path
 
 WORKSPACE_DIR = bootstrap_workspace_path()
 
-from runtime.tableau.sqlite_store import db_path, legacy_db_path  # noqa: E402
+from runtime.tableau.sqlite_store import db_path  # noqa: E402
 from skills.metadata.lib.metadata_io import iter_dataset_files, load_dataset_file, resolve_dataset_path  # noqa: E402
 
 
@@ -32,7 +32,7 @@ def _index_has_dataset(workspace: Path, dataset_id: str) -> bool:
 
 
 def _load_registry_item(dataset_id: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None, Path | None]:
-    registry_path = db_path() if db_path().exists() else legacy_db_path()
+    registry_path = db_path()
     if not registry_path.exists():
         return None, None, None
     with sqlite3.connect(registry_path) as conn:

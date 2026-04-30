@@ -10,7 +10,7 @@
 | 文件 | 作用 |
 | --- | --- |
 | `query_registry.py` | 查询已注册 Tableau source、字段、筛选器和 source context |
-| `sqlite_store.py` | 读写统一本地 `runtime/registry.db`，兼容旧 `runtime/tableau/registry.db` |
+| `sqlite_store.py` | 读写统一本地 `runtime/registry.db`（含 source_groups CRUD） |
 | `source_context.py` | 将 source 与指标/维度定义组装成分析上下文 |
 | `source_context_contract.md` | 说明 source context 的输出契约 |
 | `source_context_mappings.example.yaml` | source 与标准指标/维度映射示例 |
@@ -26,7 +26,9 @@ flowchart LR
     QR --> Filter[filters / parameters]
     QR --> Fields[fields]
     QR --> Context[source_context]
+    QR --> Groups[source_groups]
     Context --> Analysis[analysis-run / report]
+    Groups --> Analysis
 ```
 
 ---
@@ -38,6 +40,8 @@ python3 runtime/tableau/query_registry.py --source <source_id>
 python3 runtime/tableau/query_registry.py --filter <source_id>
 python3 runtime/tableau/query_registry.py --fields <source_id>
 python3 runtime/tableau/query_registry.py --source <source_id> --with-context
+python3 runtime/tableau/query_registry.py --groups
+python3 runtime/tableau/query_registry.py --groups <source_id>
 ```
 
 ---

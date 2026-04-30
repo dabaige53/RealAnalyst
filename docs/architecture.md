@@ -10,14 +10,19 @@ flowchart LR
         Sync["connector sync<br/>Tableau / DuckDB"] --> Sources["metadata/sources<br/>evidence"]
         Sources --> YAML["metadata YAML<br/>dictionaries / mappings / datasets"]
         YAML --> Validate["metadata validate"]
-        Validate --> Index["metadata index"]
-        Index --> Context["metadata context<br/>minimal context pack"]
+        Validate --> Index["metadata index<br/>JSONL + search.db (FTS5)"]
+        Index --> Catalog["metadata catalog<br/>lightweight dataset summary"]
+        Index --> Search["metadata search<br/>FTS5 BM25 ranking"]
+        Search --> Context["metadata context<br/>single or multi-dataset pack"]
+        Catalog --> Context
+        YAML --> Reconcile["metadata reconcile<br/>compare runtime vs metadata"]
     end
 
     subgraph Run["实施分析线"]
         Request["business request"] --> Plan["analysis-plan"]
         Plan --> Export["data-export<br/>controlled CSV"]
-        Export --> Profile["data-profile"]
+        Export --> Fusion["artifact-fusion<br/>source group merge"]
+        Fusion --> Profile["data-profile"]
         Profile --> Report["report"]
         Report --> Verify["report-verify"]
         Verify --> Delivery["reviewable delivery"]
@@ -33,10 +38,11 @@ flowchart TD
     Dictionaries["metadata/dictionaries/*.yaml<br/>shared semantics"] --> IndexFile["metadata/index/*.jsonl<br/>generated lookup index"]
     Mappings["metadata/mappings/*.yaml<br/>source field mappings"] --> IndexFile
     Dataset["metadata/datasets/*.yaml<br/>real source metadata"] --> IndexFile
-    Dictionaries --> ContextJson["metadata context JSON<br/>planning input"]
+    IndexFile --> FTS5["metadata/index/search.db<br/>FTS5 full-text index"]
+    Dictionaries --> ContextJson["metadata context JSON<br/>single or multi-dataset pack"]
     Mappings --> ContextJson
     Dataset --> ContextJson
-    Registry["runtime/**/registry.db<br/>local execution registry"] --> ExportScript["data-export scripts"]
+    Registry["runtime/registry.db<br/>source registry + lookup tables"] --> ExportScript["data-export scripts"]
     ContextJson --> PlanDoc["jobs/{SESSION_ID}/.meta/analysis_plan.md"]
     ExportScript --> JobData["jobs/{SESSION_ID}/<br/>CSV / summary / manifest"]
     JobData --> ProfileJson["profile manifest / profile json"]

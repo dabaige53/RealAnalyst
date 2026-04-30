@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0 - 2026-04-30
+
+- Unified runtime storage around a single `runtime/registry.db` for source registry and lookup tables.
+- Added FTS5-backed metadata search with JSONL fallback, plus catalog and reconcile metadata commands.
+- Added multi-dataset context packs, source-group registry helpers, and clearer skill interaction documentation.
+- Expanded `RA:metadata-report`, `RA:analysis-run`, and runtime docs for open-source usage and controlled artifacts.
+
 ## 0.2.8 - 2026-04-30
 
 - Added `metadata enrich-definitions` to backfill dataset business definitions from mapping overrides and shared dictionaries.

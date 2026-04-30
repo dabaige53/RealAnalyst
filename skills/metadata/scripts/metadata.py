@@ -18,6 +18,8 @@ COMMANDS = (
     "index",
     "search",
     "context",
+    "catalog",
+    "reconcile",
     "enrich-definitions",
     "sync-registry",
     "status",
@@ -103,9 +105,16 @@ def build_parser() -> argparse.ArgumentParser:
     search.add_argument("--limit", type=int, default=10)
 
     context = subparsers.add_parser("context", help="Build an analysis context pack.")
-    context.add_argument("--dataset-id", required=True, help="Metadata dataset id, for example demo.retail.orders")
+    context.add_argument("--dataset-id", action="append", required=True, help="Metadata dataset id (repeatable for multi-dataset context)")
     context.add_argument("--metric", action="append", default=[])
     context.add_argument("--field", action="append", default=[])
+
+    catalog = subparsers.add_parser("catalog", help="Build a lightweight dataset catalog summary.")
+    catalog.add_argument("--domain", default=None, help="Filter datasets by business domain.")
+    catalog.add_argument("--group-by", dest="group_by", choices=["domain"], default=None, help="Group output by field.")
+
+    reconcile = subparsers.add_parser("reconcile", help="Reconcile runtime registry lookup tables vs metadata YAML.")
+    reconcile.add_argument("--runtime-db", default=None, help="Path to runtime SQLite DB. Defaults to runtime/registry.db.")
 
     export_osi = subparsers.add_parser("export-osi", help="Export metadata YAML into an OSI semantic model YAML.")
     export_osi.add_argument("--model-name", required=True)
@@ -177,7 +186,9 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     if args.command == "context":
-        forwarded = [*workspace_args(workspace), "--dataset-id", args.dataset_id]
+        forwarded = list(workspace_args(workspace))
+        for did in args.dataset_id:
+            forwarded.extend(["--dataset-id", did])
         for metric in args.metric:
             forwarded.extend(["--metric", metric])
         for field in args.field:
@@ -185,6 +196,28 @@ def main(argv: list[str] | None = None) -> int:
         return run_python_script(
             workspace,
             metadata_script("build_context.py"),
+            forwarded,
+        )
+
+    if args.command == "catalog":
+        forwarded = list(workspace_args(workspace))
+        if args.domain:
+            forwarded.extend(["--domain", args.domain])
+        if args.group_by:
+            forwarded.extend(["--group-by", args.group_by])
+        return run_python_script(
+            workspace,
+            metadata_script("build_catalog.py"),
+            forwarded,
+        )
+
+    if args.command == "reconcile":
+        forwarded = list(workspace_args(workspace))
+        if args.runtime_db:
+            forwarded.extend(["--runtime-db", args.runtime_db])
+        return run_python_script(
+            workspace,
+            metadata_script("reconcile_metadata.py"),
             forwarded,
         )
 

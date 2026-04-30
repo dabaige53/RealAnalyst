@@ -11,7 +11,7 @@ from _bootstrap import bootstrap_workspace_path
 
 WORKSPACE_DIR = bootstrap_workspace_path()
 
-from runtime.tableau.sqlite_store import db_path, legacy_db_path, save_entry, save_spec  # noqa: E402
+from runtime.tableau.sqlite_store import db_path, save_entry, save_spec  # noqa: E402
 from skills.metadata.lib.metadata_io import (  # noqa: E402
     MetadataError,
     iter_dataset_files,
@@ -263,7 +263,6 @@ def main() -> int:
                 "success": success,
                 "dry_run": args.dry_run,
                 "registry_db": str(db_path()),
-                "legacy_registry_db": str(legacy_db_path()),
                 "results": results,
             },
             ensure_ascii=False,

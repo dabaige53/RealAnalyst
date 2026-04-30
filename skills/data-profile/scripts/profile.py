@@ -22,13 +22,6 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-try:
-    import yaml  # type: ignore[import-untyped]
-    YAML_AVAILABLE = True
-except ModuleNotFoundError:  # pragma: no cover - optional fallback
-    yaml = None  # type: ignore[assignment]
-    YAML_AVAILABLE = False
-
 def _find_workspace_root(start: Path) -> Path:
     env_root = os.environ.get("ANALYST_WORKSPACE_DIR")
     if env_root:
@@ -76,36 +69,16 @@ def _load_metrics_config(output_dir: str) -> dict[str, Any]:
     """
     加载 metrics 配置。
 
-    优先级：
-    1. SQLite 运行时仓库 `runtime/runtime_config.db`
-    2. `runtime/metrics.yaml`（兼容回退）
-
     Returns:
         包含 field_mapping 和 categories 的配置字典，加载失败返回空字典
     """
     try:
         config = load_document("metrics")
         if isinstance(config, dict) and config:
-            log(output_dir, f"已加载业务配置: {WORKSPACE_ROOT / 'runtime' / 'runtime_config.db'}")
+            log(output_dir, f"已加载业务配置: {WORKSPACE_ROOT / 'runtime' / 'registry.db'}")
             return config
     except Exception as e:
-        log(output_dir, f"加载 runtime_config.db 失败，回退 YAML: {e}")
-
-    if not YAML_AVAILABLE:
-        log(output_dir, "YAML 模块不可用，跳过业务语义注入")
-        return {}
-
-    config_path = WORKSPACE_ROOT / "runtime" / "metrics.yaml"
-    if config_path.exists():
-        try:
-            with open(config_path, encoding="utf-8") as f:
-                assert yaml is not None
-                config = yaml.safe_load(f)
-                log(output_dir, f"已加载业务配置回退源: {config_path}")
-                return config if config else {}
-        except Exception as e:
-            log(output_dir, f"加载 metrics.yaml 失败: {e}")
-            return {}
+        log(output_dir, f"加载 runtime registry 业务配置失败: {e}")
 
     log(output_dir, "未找到 metrics 配置，跳过业务语义注入")
     return {}
@@ -622,7 +595,7 @@ def profile_data(csv_path: str, output_dir: str) -> dict[str, Any]:
 
     log(output_dir, f"开始数据画像: {csv_path}")
 
-    # 加载 metrics.yaml 获取业务语义映射
+    # 加载 runtime registry 获取业务语义映射
     metrics_config = _load_metrics_config(output_dir)
     field_mapping = metrics_config.get("field_mapping", {})
     metrics_definitions = _build_metrics_lookup(metrics_config)

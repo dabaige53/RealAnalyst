@@ -45,11 +45,13 @@ fields:
     description: Unique order identifier.
     business_definition:
       text: Identifier for one order record.
+      source_type: industry_draft
       confidence: 0.95
       source_evidence:
         - type: column_name
           value: order_id
       needs_review: false
+    schema_note: Order ID 字段存在于 DuckDB 对象 orders。
     synonyms: [order number]
     sensitive_level: public
   - name: order_date
@@ -60,11 +62,13 @@ fields:
     description: Date when the order was placed.
     business_definition:
       text: Calendar date used for order trend analysis.
+      source_type: industry_draft
       confidence: 0.9
       source_evidence:
         - type: column_name
           value: order_date
       needs_review: false
+    schema_note: Order Date 字段存在于 DuckDB 对象 orders。
     synonyms: [purchase date, transaction date]
     sensitive_level: public
   - name: region
@@ -75,11 +79,13 @@ fields:
     description: Sales region attached to the order.
     business_definition:
       text: Region used for grouping order performance.
+      source_type: mapping_override
       confidence: 0.82
       source_evidence:
         - type: column_name
           value: region
       needs_review: false
+    schema_note: Region 字段存在于 DuckDB 对象 orders。
     synonyms: [sales region, territory]
     sensitive_level: public
   - name: revenue
@@ -90,15 +96,18 @@ fields:
     description: Monetary revenue value on the order record.
     business_definition:
       text: Order revenue amount. Tax and shipping inclusion is not confirmed.
+      source_type: mapping_override
       confidence: 0.64
       source_evidence:
         - type: column_name
           value: revenue
       needs_review: true
+    schema_note: Revenue 字段存在于 DuckDB 对象 orders。
     synonyms: [sales, order amount]
     sensitive_level: public
 metrics:
   - name: total_revenue
+    source_field: revenue
     expression: SUM(revenue)
     aggregation: sum
     unit: USD
@@ -106,6 +115,7 @@ metrics:
     description: Sum of order revenue.
     business_definition:
       text: Total order revenue calculated by summing the revenue field.
+      source_type: dictionary
       confidence: 0.64
       source_evidence:
         - type: metric_expression
@@ -113,5 +123,6 @@ metrics:
         - type: source_field
           value: revenue
       needs_review: true
+    schema_note: total_revenue 指标由 DuckDB 对象 orders 的 revenue 字段汇总生成。
     synonyms: [sales, total sales]
 relationships: []

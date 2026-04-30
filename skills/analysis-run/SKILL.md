@@ -247,12 +247,15 @@ data_source:
 
 **数据源选择最小颗粒度硬约束（必须）**：
 
-- **每一轮分析默认只允许锁定 1 个主 source entry** 作为当前轮次的分析数据源。
-- 这个 entry 只能是 **1 个 view / 1 个 domain/仪表盘 / 1 个 duckdb table/view**。
-- **同一 job 内若后续要引入新的 source entry，必须先取得用户确认**，再进入新的取数动作。
-- 即使同一 job 后续出现多个轮次，也要在报告与元数据中按轮次记录：本轮用了哪个 source、为什么补数、筛选条件是什么。
-- **禁止无说明跨 view、跨 dashboard/domain、跨 source 混合分析。** 若确需引入新 source，必须在报告中显式写清新增原因、使用范围、与前序轮次的关系。
-- 只有在用户明确要求、且后续工作流显式支持数据融合时，才允许进入独立的融合流程；默认分析流程仍不做静默拼接。
+- **每一轮 plan 最多锁定 1 个 primary source + 2 个 supplementary source**，三者构成一个 **source group**。
+- primary source 只能是 **1 个 view / 1 个 domain/仪表盘 / 1 个 duckdb table/view**。supplementary source 用于维表关联或补充字段。
+- **source group 在 plan 确认时一并通过**，组内 source 不需要逐个确认。
+- **source group 持久化到 `registry.db`**（`source_groups` 表），后续分析如命中相同 primary source，自动推荐已有 group。查询已有 group 用 `query_registry.py --groups` 或 `query_registry.py --groups <source_id>`；保存已确认 group 用 `query_registry.py --save-group <group_id> --primary-source <source_id> --member-source <source_id>`。
+- **新增超出已确认 group 的 source，仍需用户确认**，再进入新的取数动作。
+- 每个 source 的 export 仍独立执行，独立记入 `acquisition_log.jsonl`。
+- 即使同一 job 后续出现多个轮次，也要在报告与元数据中按轮次记录：本轮用了哪个 source group、为什么补数、筛选条件是什么。
+- **禁止无说明跨 view、跨 dashboard/domain、跨 source 混合分析。** 若确需引入 group 外的新 source，必须在报告中显式写清新增原因、使用范围、与前序轮次的关系。
+- source group 内多次 export 完成后，可调用 `RA:artifact-fusion` 合并数据集，fusion 后必须重新调用 `RA:data-profile`。fusion lineage 必须记入 `artifact_index.json`。
 
 #### Step 0.4: 交互式确认（强制）
 
@@ -517,6 +520,53 @@ echo "phase2_complete" > jobs/{SESSION_ID}/phase2_complete.flag
 7. **把本轮新增结果追加到既有报告**：不得整篇重写，必须保留旧内容，并新增本轮需求、数据、分析、结论、限制与建议。
 8. **更新 `analysis_journal.md` 与 `user_request_timeline.md`**：让 job 能回看“这轮为什么做、用了什么、得出了什么”。
 9. **向用户做阶段性说明**：明确告诉用户当前已拿到哪些数据、已做哪些分析、基于当前数据还能继续做什么、若要继续扩展是否需要确认新数据源。
+10. **生成 `analysis.json`**：分析完成后，必须将本轮结构化分析结果写入 `jobs/{SESSION_ID}/analysis.json`。该文件是 `RA:report-verify` 的正式输入，缺失会导致交付门禁无法运行。
+
+#### Phase 3 产出：analysis.json（必须）
+
+每轮分析完成后，必须生成或更新 `jobs/{SESSION_ID}/analysis.json`。结构遵循 `{baseDir}/schemas/analysis.schema.json`，至少包含：
+
+```json
+{
+  "job_id": "{SESSION_ID}",
+  "dataset_id": "<metadata dataset id>",
+  "created_at": "<ISO 8601>",
+  "analysis_type": "<executive_summary | trend_analysis | comparison | deep_dive | forecast>",
+  "findings": [
+    {
+      "id": "f_001",
+      "type": "ranking | trend | comparison | anomaly | correlation | summary",
+      "claim": "结论声明（自然语言）",
+      "value": 12345,
+      "unit": "人次",
+      "metric": "CSV 列名",
+      "dimension": "分组依据",
+      "evidence": {
+        "source_file": "data/<正式CSV>.csv",
+        "calculation": "SUM(col) GROUP BY dim",
+        "row_indices": [1, 2, 3]
+      },
+      "confidence": 0.95
+    }
+  ],
+  "statistics": {
+    "<operation_id>": {
+      "total": 100000,
+      "top_items": [{"name": "...", "value": 50000}],
+      "trend_label": "up | down | flat",
+      "delta_pct": 12.3
+    }
+  }
+}
+```
+
+**规则**：
+
+- 每条分析结论必须对应一个 `finding`，`id` 格式 `f_001` 递增。
+- `evidence.source_file` 必须指向 `jobs/{SESSION_ID}/` 内的实际文件路径。
+- `statistics` 保存聚合统计结果，用于 `RA:report-verify` 的排名一致性和趋势方向校验。
+- 连续分析场景下，后续轮次向同一 `analysis.json` 追加新 findings，不覆盖已有条目。
+- `needs_review=true` 的口径对应的 finding 必须设置 `confidence < 0.7`。
 
 **文件选择规则**：
 
@@ -600,6 +650,7 @@ jobs/{SESSION_ID}/
 │   ├── artifact_index.json       # job 内正式产物索引
 │   ├── analysis_journal.md       # 每轮分析日志
 │   └── user_request_timeline.md  # 用户需求时间线
+├── analysis.json                  # 结构化分析结果（RA:report-verify 正式输入）
 ├── 报告_{主题}_{时间}.md          # 首版报告；后续轮次持续追加更新
 └── 汇总_*.csv / 交叉_*.csv        # 分析产出
 ```
@@ -638,7 +689,7 @@ jobs/{SESSION_ID}/
 | `RA:data-profile`     | 数据画像             | 大文件处理规则                                            |
 | `RA:reference-lookup` | 配置查询             | **⛔ 禁止 read YAML，必须用此 skill**                      |
 | `RA:report`           | 报告写作执行         | 撰写报告前必须使用，具体写作规则与输出契约以 skill 为准   |
-| `RA:artifact-fusion`  | 数据融合             | ⚠️ 当前版本不支持（单一视图原则）                          |
+| `RA:artifact-fusion`  | 数据融合             | source group 内多源合并，须经 data-profile 验证            |
 | `RA:report-verify`    | 报告验证             | 交付前校验证据、口径和 review 标记                        |
 
 ---
@@ -736,3 +787,15 @@ gog drive share <fileId> --role reader --type anyone
 ```
 
 回复格式：文件名 + Drive 链接。**禁止只回复本地路径。**
+
+## Completion Summary
+
+每个 Phase 完成后，向用户汇报：
+
+- **Phase 0 完成**：已生成 `normalized_request.json`，确认了业务问题、数据源范围和分析目标。下一步：进入 Phase 0.1 规划（`RA:analysis-plan`）。
+- **Phase 0.1 完成**：已生成 `analysis_plan.md`，锁定了数据源、指标、维度和报告模板。下一步：用户确认 plan 后进入 Phase 1 取数。
+- **Phase 1 完成**：已导出 CSV 和 `export_summary.json`。下一步：进入 Phase 2 画像。如果是 source group 多源导出，提醒是否需要 `RA:artifact-fusion`。
+- **Phase 2 完成**：已生成 `manifest.json` 和 `profile.json`。下一步：进入 Phase 3 分析。
+- **Phase 3 完成**：已生成 `analysis.json`。下一步：进入 Phase 4 报告撰写（`RA:report`）。
+- **Phase 4 完成**：报告已写入 `报告_{主题}_{时间}.md`。下一步：进入 Phase 5 验证（`RA:report-verify`）。
+- **Phase 5 完成**：`verification.json` 已生成。如果通过：交付报告。如果有失败项：回到对应 Phase 修正。

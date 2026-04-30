@@ -67,3 +67,63 @@ def search_records(records: Iterable[dict[str, Any]], query: str, *, limit: int 
     ]
     scored.sort(key=lambda item: (-item[0], item[1]))
     return [record for _, _, record in scored[:limit]]
+
+
+def _fts5_match_expr(query: str, record_type: str | None = None) -> tuple[str, list[str]]:
+    """Build an FTS5 MATCH expression from a query string.
+
+    Keep CJK words intact because SQLite unicode61 indexes contiguous Chinese
+    text as whole tokens. Prefix matching keeps partial inputs such as "客座"
+    useful for "客座率".
+    The ``record_type`` filter (if given) is prepended as an AND clause.
+    """
+    terms: list[str] = []
+    for term in _query_terms(query):
+        if term not in terms:
+            terms.append(term)
+    if not terms:
+        return "", []
+    body = " OR ".join(f'"{t.replace(chr(34), chr(34) + chr(34))}"*' for t in terms)
+    if record_type and record_type not in ("all",):
+        expr = f'record_type:"{record_type}" AND ({body})'
+    else:
+        expr = body
+    return expr, terms
+
+
+def search_fts5(
+    db_path: Path,
+    query: str,
+    *,
+    record_type: str | None = None,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """Search the FTS5 index at *db_path* and return matching records sorted by BM25."""
+    import sqlite3
+
+    if not db_path.exists():
+        return []
+
+    expr, terms = _fts5_match_expr(query, record_type)
+    if not expr:
+        return []
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            "SELECT payload, bm25(search_index) AS rank FROM search_index WHERE search_index MATCH ? ORDER BY rank LIMIT ?",
+            (expr, limit),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return []
+    finally:
+        conn.close()
+
+    results: list[dict[str, Any]] = []
+    for row in rows:
+        try:
+            results.append(json.loads(row["payload"]))
+        except (json.JSONDecodeError, KeyError):
+            continue
+    return results

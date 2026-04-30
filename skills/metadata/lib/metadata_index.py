@@ -25,6 +25,13 @@ def _definition_text(item: dict[str, Any]) -> str:
     return ""
 
 
+def _definition_source(item: dict[str, Any]) -> str:
+    definition = item.get("business_definition")
+    if isinstance(definition, dict):
+        return _as_text(definition.get("source_type"))
+    return ""
+
+
 def dataset_record(dataset: dict[str, Any]) -> dict[str, Any]:
     business = dataset.get("business") if isinstance(dataset.get("business"), dict) else {}
     source = dataset.get("source") if isinstance(dataset.get("source"), dict) else {}
@@ -60,6 +67,8 @@ def field_records(dataset: dict[str, Any]) -> list[dict[str, Any]]:
                 "type": _as_text(field.get("type")),
                 "description": _as_text(field.get("description")),
                 "definition": _definition_text(field),
+                "definition_source": _definition_source(field),
+                "schema_note": _as_text(field.get("schema_note")),
                 "synonyms": _as_list(field.get("synonyms")),
                 "sensitive_level": _as_text(field.get("sensitive_level")),
             }
@@ -85,6 +94,8 @@ def metric_records(dataset: dict[str, Any]) -> list[dict[str, Any]]:
                 "valid_grains": _as_list(metric.get("valid_grains")),
                 "description": _as_text(metric.get("description")),
                 "definition": _definition_text(metric),
+                "definition_source": _definition_source(metric),
+                "schema_note": _as_text(metric.get("schema_note")),
                 "synonyms": _as_list(metric.get("synonyms")),
             }
         )
@@ -217,3 +228,74 @@ def write_jsonl(path: Path, records: Iterable[dict[str, Any]]) -> None:
     with path.open("w", encoding="utf-8") as handle:
         for record in records:
             handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+
+
+def _fts5_row(record: dict[str, Any]) -> tuple[str, str, str, str, str, str, str, str, str]:
+    """Convert any index record into a flat tuple for the FTS5 search_index table."""
+    record_type = _as_text(record.get("record_type"))
+    dataset_id = _as_text(record.get("dataset_id") or record.get("source_id") or record.get("mapping_id"))
+    name = _as_text(
+        record.get("field_name")
+        or record.get("metric_name")
+        or record.get("term")
+        or record.get("view_field")
+        or record.get("display_name")
+    )
+    display_name = _as_text(record.get("display_name"))
+    description = _as_text(record.get("description"))
+    definition = _as_text(record.get("definition") or record.get("definition_override"))
+    synonyms = " ".join(_as_text(s) for s in _as_list(record.get("synonyms")))
+    extra_parts: list[str] = []
+    for key in ("role", "type", "domain", "expression", "aggregation", "unit", "notes",
+                "schema_note", "source_connector", "source_object", "mapping_type",
+                "standard_id", "entity_type", "entity_name"):
+        v = _as_text(record.get(key))
+        if v:
+            extra_parts.append(v)
+    for key in ("grain", "primary_key", "time_fields", "sample_questions", "valid_grains"):
+        for item in _as_list(record.get(key)):
+            v = _as_text(item)
+            if v:
+                extra_parts.append(v)
+    extra_text = " ".join(extra_parts)
+    payload = json.dumps(record, ensure_ascii=False, sort_keys=True)
+    return (record_type, dataset_id, name, display_name, description, definition, synonyms, extra_text, payload)
+
+
+def write_fts5_index(db_path: Path, indexes: dict[str, list[dict[str, Any]]]) -> None:
+    """Write all index records into a SQLite FTS5 database at *db_path*."""
+    import sqlite3
+
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    if db_path.exists():
+        db_path.unlink()
+
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.executescript(
+            """
+            CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
+                record_type,
+                dataset_id,
+                name,
+                display_name,
+                description,
+                definition,
+                synonyms,
+                extra_text,
+                payload UNINDEXED,
+                tokenize='unicode61'
+            );
+            """
+        )
+        rows: list[tuple[str, ...]] = []
+        for records in indexes.values():
+            for record in records:
+                rows.append(_fts5_row(record))
+        conn.executemany(
+            "INSERT INTO search_index(record_type, dataset_id, name, display_name, description, definition, synonyms, extra_text, payload) VALUES (?,?,?,?,?,?,?,?,?)",
+            rows,
+        )
+        conn.commit()
+    finally:
+        conn.close()

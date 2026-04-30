@@ -50,7 +50,7 @@ flowchart LR
 | `datasets/` | 真实可分析数据源，一个 source 一个 YAML | 只提交 demo/example |
 | `models/` | 语义模型，把多个数据集组织成业务域 | 只提交 demo/example |
 | `sync/` | Tableau / DuckDB connector 同步快照，给 LLM 整理 metadata 用 | 只提交 `.example.*` |
-| `index/` | 从 YAML 编译出的轻量检索索引 | 不提交 |
+| `index/` | 从 YAML 编译出的轻量检索索引（JSONL + search.db FTS5） | 不提交 |
 | `osi/` | 从 metadata 导出的标准交换文件 | 不提交，除非是脱敏示例 |
 | `conversion/` | 描述 metadata 转换关系和契约 | 可以提交 |
 
@@ -73,8 +73,11 @@ flowchart LR
 ```bash
 python3 skills/metadata/scripts/metadata.py validate
 python3 skills/metadata/scripts/metadata.py index
+python3 skills/metadata/scripts/metadata.py catalog
 python3 skills/metadata/scripts/metadata.py search --type all --query revenue
 python3 skills/metadata/scripts/metadata.py context --dataset-id demo.retail.orders --metric total_revenue
+python3 skills/metadata/scripts/metadata.py context --dataset-id id_1 --dataset-id id_2
+python3 skills/metadata/scripts/metadata.py reconcile
 ```
 
 ---
@@ -101,6 +104,6 @@ python3 skills/metadata/scripts/metadata.py context --dataset-id demo.retail.ord
 | 卡点 | 现象 | 解决办法 |
 | --- | --- | --- |
 | `validate` 失败 | 不能进入 index/context | 按报错补齐字段、指标、证据或 review 标记 |
-| `search` 没结果 | 指标未进入索引 | 先运行 `metadata.py index`，再确认 YAML 中是否存在关键词 |
+| `search` 没结果 | 指标未进入索引 | 先运行 `metadata.py index`，再确认 YAML 中是否存在关键词；FTS5 检索需要 search.db 存在 |
 | context 太大 | Agent 读到过多无关字段 | search 后只传本轮需要的 `dataset-id`、metric、field |
 | connector 快照很完整，但业务定义仍不清楚 | 字段名有了，口径没写 | 将快照整理回 `datasets/*.yaml`，补业务定义和证据 |

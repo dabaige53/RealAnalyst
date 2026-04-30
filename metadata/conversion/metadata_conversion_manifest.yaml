@@ -8,7 +8,7 @@ current_derivatives:
   - metadata/index/*.jsonl
   - metadata context JSON output
 future_targets:
-  - runtime/tableau/registry.db
+  - runtime/registry.db
   - metadata/osi/*.osi.yaml
   - skills/analysis-run/SKILL.md
 phase_boundaries:
@@ -35,7 +35,7 @@ conversion_steps:
     command: metadata search + metadata context
   - name: compile_runtime_registry
     input: metadata/datasets/*.yaml
-    output: runtime/tableau/registry.db
+    output: runtime/registry.db
     command: not exposed in current phase
     phase: 4
   - name: export_osi_model

@@ -37,8 +37,8 @@
 
 1. 显式映射：`runtime/tableau/source_context_mappings.yaml`
 2. 标准库精确匹配：
-   - 指标：`runtime/runtime_config.db -> metrics / metric_aliases`
-   - 维度：`runtime/runtime_config.db -> dimensions / dimension_fields`
+   - 指标：`runtime/registry.db -> metrics / metric_aliases`
+   - 维度：`runtime/registry.db -> dimensions / dimension_fields`
 3. 无法精确匹配时：标记为 `unresolved`
 4. 若 source 语义角色与标准库角色冲突：标记为 `role_mismatch`
 

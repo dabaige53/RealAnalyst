@@ -22,6 +22,7 @@ def _business_definition(item: dict[str, Any]) -> dict[str, Any]:
         return {"text": "", "confidence": None, "needs_review": False}
     return {
         "text": _as_text(definition.get("text")),
+        "source_type": _as_text(definition.get("source_type")),
         "confidence": definition.get("confidence"),
         "needs_review": bool(definition.get("needs_review")),
     }
@@ -68,6 +69,8 @@ def _field_pack(field: dict[str, Any], *, source_layer: str, dictionary_id: str 
         "type": _as_text(field.get("type")),
         "description": _as_text(field.get("description")),
         "definition": definition["text"],
+        "definition_source": definition["source_type"],
+        "schema_note": _as_text(field.get("schema_note")),
         "confidence": definition["confidence"],
         "needs_review": definition["needs_review"],
         "source_layer": source_layer,
@@ -85,6 +88,8 @@ def _metric_pack(metric: dict[str, Any], *, source_layer: str, dictionary_id: st
         "unit": _as_text(metric.get("unit")),
         "description": _as_text(metric.get("description")),
         "definition": definition["text"],
+        "definition_source": definition["source_type"],
+        "schema_note": _as_text(metric.get("schema_note")),
         "confidence": definition["confidence"],
         "needs_review": definition["needs_review"],
         "source_layer": source_layer,
@@ -255,4 +260,45 @@ def build_context_pack(
         "missing_metrics": _missing_names(available_metrics, metrics),
         "pending_questions": _as_list(maintenance.get("pending_questions")),
         "review_required": any(item["needs_review"] for item in [*field_packs, *metric_packs, *glossary_items]),
+    }
+
+
+def build_multi_context_pack(
+    datasets: list[dict[str, Any]],
+    *,
+    metrics: list[str] | None = None,
+    fields: list[str] | None = None,
+    dictionaries: list[dict[str, Any]] | None = None,
+    mappings: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Build a combined context pack for multiple datasets.
+
+    Each dataset gets a full context pack.  Shared dictionary refs and glossary
+    items are deduplicated and lifted to the top level.
+    """
+    packs = [
+        build_context_pack(ds, metrics=metrics, fields=fields, dictionaries=dictionaries, mappings=mappings)
+        for ds in datasets
+    ]
+
+    all_dict_refs: list[list[str]] = [p.get("dictionary_refs", []) for p in packs]
+    shared_refs = set(all_dict_refs[0]) if all_dict_refs else set()
+    for refs in all_dict_refs[1:]:
+        shared_refs &= set(refs)
+
+    seen_glossary_keys: set[str] = set()
+    shared_glossary: list[dict[str, Any]] = []
+    for pack in packs:
+        for item in pack.get("glossary", []):
+            key = _as_text(item.get("key") or item.get("display_name"))
+            if key and key not in seen_glossary_keys:
+                seen_glossary_keys.add(key)
+                shared_glossary.append(item)
+
+    return {
+        "mode": "multi",
+        "datasets": packs,
+        "shared_dictionary_refs": sorted(shared_refs),
+        "shared_glossary": shared_glossary,
+        "review_required": any(bool(pack.get("review_required")) for pack in packs),
     }

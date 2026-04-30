@@ -96,19 +96,43 @@ python3 {baseDir}/skills/metadata/scripts/metadata.py search --type field --quer
 python3 {baseDir}/skills/metadata/scripts/metadata.py search --type all --query 转化率
 ```
 
-6. 构造分析上下文：
+6. 浏览数据集目录（选源阶段使用，token 开销低）：
 
 ```bash
+python3 {baseDir}/skills/metadata/scripts/metadata.py catalog
+python3 {baseDir}/skills/metadata/scripts/metadata.py catalog --domain <domain>
+python3 {baseDir}/skills/metadata/scripts/metadata.py catalog --group-by domain
+```
+
+catalog 输出每个 dataset 的轻量摘要（id / display_name / domain / grain / top 3 metrics / suitable_for / field_count / metric_count / review_required），适合在需求理解阶段快速了解可用数据集全貌。
+
+7. 构造分析上下文：
+
+```bash
+# 单数据集
 python3 {baseDir}/skills/metadata/scripts/metadata.py context --dataset-id <dataset_id> --metric <metric> --field <field>
+
+# 多数据集（输出带 mode=multi 的合并 context）
+python3 {baseDir}/skills/metadata/scripts/metadata.py context --dataset-id <id_1> --dataset-id <id_2>
 ```
 
 context pack 是 `RA:analysis-plan` 的正式语义输入。若输出中出现 `needs_review=true` 或 `review_required=true`，必须在计划、报告和验证中标记为推断口径。
+
+多数据集 context 输出包含 `shared_dictionary_refs`（共享字典引用）和 `shared_glossary`（去重后的共享术语）。
+
+8. 比对运行时配置与元数据 YAML 的指标/维度/术语差异：
+
+```bash
+python3 {baseDir}/skills/metadata/scripts/metadata.py reconcile
+```
+
+reconcile 输出每个类别（metrics / dimensions / glossary）的匹配数、仅运行时存在项、仅元数据存在项、以及定义不一致项，用于发现两套系统的语义漂移。
 
 ## Decision Rules
 
 | 情况 | 动作 |
 | --- | --- |
-| 用户只给指标/术语，没有 dataset | 先 `metadata search`，再按候选 dataset 生成 context |
+| 用户只给指标/术语，没有 dataset | 先 `metadata catalog` 浏览全貌，再 `metadata search` 定位候选，最后按候选 dataset 生成 context |
 | 用户给了 dataset 和指标 | 先 `metadata context --dataset-id ... --metric ...`，再用 context 中的 `dataset.runtime_source_id` 查 runtime registry |
 | index 缺失 | 运行 `metadata validate`，通过后运行 `metadata index` |
 | registry 缺失 | 运行 `metadata sync-registry --dataset-id ... --dry-run`，确认后正式同步 |
@@ -116,6 +140,7 @@ context pack 是 `RA:analysis-plan` 的正式语义输入。若输出中出现 `
 | Tableau/DuckDB 字段需要刷新 | 读取 `references/connector-adapters.md`，通过 adapter scripts 获取素材 |
 | 需要跨系统标准交换 | 使用 `metadata export-osi`；不要新建独立 `osi-export` skill |
 | 用户给了配置抽取文档 | 先保存到 `metadata/sources/`，再拆成 dictionaries/mappings/datasets |
+| 怀疑运行时与元数据指标/维度不一致 | 运行 `metadata reconcile`，根据输出修补 YAML 或 runtime 配置 |
 
 ## Quality Gates
 
@@ -159,8 +184,24 @@ python3 {baseDir}/skills/metadata/scripts/metadata.py index
 python3 {baseDir}/skills/metadata/scripts/metadata.py sync-registry --dataset-id <dataset_id> --dry-run
 python3 {baseDir}/skills/metadata/scripts/metadata.py sync-registry --dataset-id <dataset_id>
 python3 {baseDir}/skills/metadata/scripts/metadata.py status --dataset-id <dataset_id>
+python3 {baseDir}/skills/metadata/scripts/metadata.py catalog
+python3 {baseDir}/skills/metadata/scripts/metadata.py catalog --domain <domain>
 python3 {baseDir}/skills/metadata/scripts/metadata.py search --type all --query <query>
 python3 {baseDir}/skills/metadata/scripts/metadata.py context --dataset-id <dataset_id>
+python3 {baseDir}/skills/metadata/scripts/metadata.py context --dataset-id <id_1> --dataset-id <id_2>
+python3 {baseDir}/skills/metadata/scripts/metadata.py reconcile
 python3 {baseDir}/skills/metadata/scripts/metadata.py inventory
 python3 {baseDir}/skills/metadata/scripts/metadata.py export-osi --model-name <model_name>
 ```
+
+## Completion Summary
+
+每类 metadata 任务完成后，向用户汇报：
+
+- **validate 完成**：校验结果（成功/失败项数）。下一步：`metadata index` 生成索引。
+- **index 完成**：生成了多少条 JSONL 记录，search.db 是否创建。下一步：`metadata search` 或 `metadata catalog` 浏览数据集。
+- **catalog 完成**：列出了多少个数据集。下一步：选定候选数据集后运行 `metadata context`。
+- **search 完成**：命中了多少条记录，使用了哪个后端（FTS5 / JSONL）。下一步：用命中的 dataset_id 生成 `metadata context`。
+- **context 完成**：为哪些数据集生成了 context pack，是否有 `review_required` 或 `missing_fields`。下一步：进入 `/skill RA:analysis-plan` 或 `/skill RA:analysis-run`。
+- **reconcile 完成**：各类别匹配数、不一致数。下一步：修补 YAML 或 runtime 配置中的差异项。
+- **sync-registry 完成**：同步了哪些 dataset 到 registry。下一步：`metadata status` 确认状态。

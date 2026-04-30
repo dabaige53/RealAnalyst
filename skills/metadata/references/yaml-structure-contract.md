@@ -70,6 +70,7 @@ Metric item shape:
   synonyms: [LF, PLF, 上座率]
   business_definition:
     text: 旅客客公里与可提供座位公里数之比。
+    source_type: dictionary
     confidence: 0.85
     source_evidence:
       - type: document
@@ -95,6 +96,7 @@ Field item shape:
   sensitive_level: internal
   business_definition:
     text: 航班执行日期。
+    source_type: user_confirmed
     confidence: 0.8
     source_evidence:
       - type: document
@@ -118,6 +120,7 @@ Glossary item shape:
   values: [PVG, SHA]
   business_definition:
     text: 吉祥航空。
+    source_type: dictionary
     confidence: 0.85
     source_evidence:
       - type: document

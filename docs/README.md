@@ -10,10 +10,12 @@
 ```mermaid
 flowchart TD
     Start[第一次了解项目] --> Layout[repository-layout.md]
-    Layout --> Lookup[metadata-lookup-workflow.md]
+    Layout --> Arch[architecture.md]
+    Arch --> Lookup[metadata-lookup-workflow.md]
     Lookup --> Conversion[metadata-conversion-flow.md]
     Conversion --> Semantic[semantic-analysis-run.md]
-    Semantic --> Privacy[PRIVACY.md / TERMS.md]
+    Semantic --> Interaction[skill-interaction-design.md]
+    Interaction --> Privacy[PRIVACY.md / TERMS.md]
 ```
 
 ---
@@ -26,6 +28,9 @@ flowchart TD
 | `metadata-lookup-workflow.md` | 分析师 / Agent builder | 解释为什么需求理解阶段先 search/context，而不是扫完整 YAML |
 | `metadata-conversion-flow.md` | 贡献者 / 架构维护者 | 解释 YAML、index、context、registry、OSI 的转换关系 |
 | `metadata-skill-consolidation.md` | 维护者 | 解释 metadata skill 为什么是统一入口 |
+| `update-guide.md` | 用户 / LLM / Codex | 先更新插件本体，再按最新架构逐层检查和更新项目内容物 |
+| `architecture.md` | 所有用户 / 贡献者 | 两条主线架构图、文件职责、公开仓库边界 |
+| `skill-interaction-design.md` | 维护者 / Agent builder | 11 个 skill 的调用关系、数据契约和运行时序 |
 | `semantic-analysis-run.md` | 分析师 / 产品经理 | 解释从 metadata 到报告验证的端到端链路 |
 | `validation-report.md` | 维护者 / 发布前检查者 | 记录发布前验证结果、已知限制和复查建议 |
 | `PRIVACY.md` | 用户 / 组织管理员 | 了解隐私边界 |

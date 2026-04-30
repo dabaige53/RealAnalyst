@@ -11,6 +11,28 @@ description: |
 
 将多个 Dataset Pack 合并为单一数据集，并生成统一 manifest。
 
+## 什么时候该用？
+
+| 场景 | 说明 |
+|------|------|
+| 多 source 同 schema 合并 | 多个 Tableau 视图或 DuckDB 表结构相同，需要纵向拼接（`union`） |
+| 补充维表 join | 主表需要关联参考维度表的字段（`join`）；**注意：当前 join 是按索引拼列，非键 join** |
+| 单 source 通行 | 只有一个输入但需要统一 manifest 格式（`passthrough`） |
+
+### 前置条件
+
+- 必须先有 **两个以上已完成的 `RA:data-export` 产物**（`union`/`join`），或至少一个（`passthrough`）。
+- 每个输入目录必须包含有效的 CSV 和 `export_summary.json` / `duckdb_export_summary.json`。
+
+### 从 analysis-run 进入 fusion 的路径
+
+1. `RA:analysis-run` Phase 3 发现当前数据不足以回答问题，需要引入新数据源。
+2. 用户确认新增数据源后，`RA:data-export` 完成第二次导出。
+3. 此时可调用 `RA:artifact-fusion` 将两次导出产物合并。
+4. 合并后的数据送入 `RA:data-profile` 做画像，再继续分析。
+
+> `RA:analysis-run` 默认不做静默拼接。只有在用户明确要求合并、且有多个已完成的导出产物时，才触发 fusion。
+
 ## 用法
 
 ```bash
@@ -206,3 +228,13 @@ echo "\n=== 空行检查 ==="
 empty_lines=$(awk -F',' 'NF==1' data_merged.csv | wc -l)
 echo "空行数: $empty_lines"
 ```
+
+## Completion Summary
+
+融合完成后，向用户汇报：
+
+1. 使用了哪种策略（union / join / passthrough）。
+2. 合并了哪些输入（路径和行数）。
+3. 输出 `data.csv` 行数和列数。
+4. `manifest.json` 已生成，包含 lineage 信息。
+5. 下一步建议：进入 `/skill RA:data-profile` 对合并后数据做画像。

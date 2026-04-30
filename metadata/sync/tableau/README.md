@@ -24,7 +24,7 @@ flowchart LR
     Sync --> Sources[metadata/sources]
     Sync --> Mapping[metadata/mappings/*.yaml]
     Sync --> YAML[metadata/datasets/*.yaml]
-    YAML --> Registry[runtime/tableau/registry.db]
+    YAML --> Registry[runtime/registry.db]
     Registry --> Export[data-export]
 ```
 

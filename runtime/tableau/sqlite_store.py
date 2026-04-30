@@ -1,51 +1,37 @@
 #!/usr/bin/env python3
-"""SQLite-backed unified registry/spec store.
-
-Current runtime truth is stored in `runtime/registry.db`.
-The old `runtime/tableau/registry.db` path is read once as a compatibility
-source when the new database does not exist.
-No YAML bootstrap or YAML refresh path is retained here.
-"""
+"""SQLite-backed unified runtime registry/spec store."""
 
 from __future__ import annotations
 
 import json
-import shutil
 import sqlite3
+import sys
 from pathlib import Path
 from typing import Any
 
 _WORKSPACE_DIR = Path(__file__).resolve().parents[2]
-_RUNTIME_DIR = _WORKSPACE_DIR / "runtime"
-_DB_PATH = _RUNTIME_DIR / "registry.db"
-_LEGACY_DB_PATH = Path(__file__).resolve().parent / "registry.db"
+if str(_WORKSPACE_DIR) not in sys.path:
+    sys.path.insert(0, str(_WORKSPACE_DIR))
+
+from runtime.paths import (  # noqa: E402
+    runtime_db_path,
+    runtime_dir as _runtime_dir,
+    workspace_dir as _workspace_dir,
+)
+
+_DB_PATH = runtime_db_path()
 
 
 def workspace_dir() -> Path:
-    return _WORKSPACE_DIR
+    return _workspace_dir()
 
 
 def runtime_dir() -> Path:
-    return _RUNTIME_DIR
+    return _runtime_dir()
 
 
 def db_path() -> Path:
     return _DB_PATH
-
-
-def legacy_db_path() -> Path:
-    return _LEGACY_DB_PATH
-
-
-def active_db_path() -> Path:
-    return _DB_PATH if _DB_PATH.exists() or not _LEGACY_DB_PATH.exists() else _LEGACY_DB_PATH
-
-
-def _ensure_primary_db_path() -> None:
-    if _DB_PATH.exists() or not _LEGACY_DB_PATH.exists() or _DB_PATH == _LEGACY_DB_PATH:
-        return
-    _DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(_LEGACY_DB_PATH, _DB_PATH)
 
 
 def _json_dumps(value: Any) -> str:
@@ -62,7 +48,6 @@ def _json_loads(value: str | None, default: Any) -> Any:
 
 
 def _connect() -> sqlite3.Connection:
-    _ensure_primary_db_path()
     _DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(_DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -113,21 +98,32 @@ def _init_db(conn: sqlite3.Connection) -> None:
             enum_ref TEXT PRIMARY KEY,
             enum_json TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS source_groups (
+            group_id TEXT PRIMARY KEY,
+            display_name TEXT,
+            primary_source_id TEXT NOT NULL,
+            member_sources_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            last_used_at TEXT,
+            use_count INTEGER NOT NULL DEFAULT 1,
+            notes TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_sg_primary ON source_groups(primary_source_id);
         """
     )
     conn.commit()
 
 
 def migrate_from_yaml(*, force: bool = False) -> dict[str, int]:
-    """Legacy no-op kept only for old script entrypoints."""
     ensure_store_ready(force_migrate=False)
-    return {"db_path": str(_DB_PATH), "note": "YAML migration path removed; runtime is already SQLite-only"}
+    return {"db_path": str(_DB_PATH), "note": "runtime registry is SQLite-only"}
 
 
 def migrate_specs_enums_from_yaml(*, force: bool = False) -> dict[str, int]:
-    """Legacy no-op kept only for old script entrypoints."""
     ensure_store_ready(force_migrate=False)
-    return {"db_path": str(_DB_PATH), "note": "YAML refresh path removed; runtime is already SQLite-only"}
+    return {"db_path": str(_DB_PATH), "note": "runtime specs/enums are SQLite-only"}
 
 
 def ensure_store_ready(*, force_migrate: bool = False) -> Path:
@@ -466,3 +462,111 @@ def normalize_allowed_value(enum_ref: str, value: str) -> str:
             if isinstance(canonical, str) and canonical.strip():
                 return canonical.strip()
     return raw
+
+
+# ---------------------------------------------------------------------------
+# Source Groups
+# ---------------------------------------------------------------------------
+
+def save_source_group(group: dict[str, Any]) -> None:
+    """Upsert a source group into registry.db."""
+    ensure_store_ready()
+    group_id = group.get("group_id")
+    if not isinstance(group_id, str) or not group_id.strip():
+        raise ValueError("group.group_id is required")
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO source_groups(group_id, display_name, primary_source_id, member_sources_json, created_at, last_used_at, use_count, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(group_id) DO UPDATE SET
+                display_name = excluded.display_name,
+                primary_source_id = excluded.primary_source_id,
+                member_sources_json = excluded.member_sources_json,
+                last_used_at = excluded.last_used_at,
+                use_count = excluded.use_count,
+                notes = excluded.notes
+            """,
+            (
+                group_id,
+                group.get("display_name"),
+                group.get("primary_source_id", ""),
+                _json_dumps(group.get("member_sources") or []),
+                group.get("created_at", ""),
+                group.get("last_used_at"),
+                group.get("use_count", 1),
+                group.get("notes"),
+            ),
+        )
+        conn.commit()
+
+
+def find_groups_by_source(source_id: str) -> list[dict[str, Any]]:
+    """Return all source groups that contain *source_id* as any member."""
+    ensure_store_ready()
+    results: list[dict[str, Any]] = []
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT group_id, display_name, primary_source_id, member_sources_json, created_at, last_used_at, use_count, notes FROM source_groups"
+        ).fetchall()
+    for row in rows:
+        members = _json_loads(row["member_sources_json"], [])
+        member_ids = [m.get("source_id") if isinstance(m, dict) else str(m) for m in members]
+        if source_id in member_ids or row["primary_source_id"] == source_id:
+            results.append({
+                "group_id": row["group_id"],
+                "display_name": row["display_name"],
+                "primary_source_id": row["primary_source_id"],
+                "member_sources": members,
+                "created_at": row["created_at"],
+                "last_used_at": row["last_used_at"],
+                "use_count": row["use_count"],
+                "notes": row["notes"],
+            })
+    return results
+
+
+def touch_source_group(group_id: str) -> None:
+    """Increment use_count and update last_used_at for an existing group."""
+    from datetime import datetime, timezone
+
+    ensure_store_ready()
+    now = datetime.now(timezone.utc).astimezone().isoformat()
+    with _connect() as conn:
+        conn.execute(
+            "UPDATE source_groups SET use_count = use_count + 1, last_used_at = ? WHERE group_id = ?",
+            (now, group_id),
+        )
+        conn.commit()
+
+
+def list_source_groups() -> list[dict[str, Any]]:
+    """Return all known source groups ordered by last_used_at descending."""
+    ensure_store_ready()
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT group_id, display_name, primary_source_id, member_sources_json, created_at, last_used_at, use_count, notes "
+            "FROM source_groups ORDER BY last_used_at DESC, use_count DESC"
+        ).fetchall()
+    return [
+        {
+            "group_id": row["group_id"],
+            "display_name": row["display_name"],
+            "primary_source_id": row["primary_source_id"],
+            "member_sources": _json_loads(row["member_sources_json"], []),
+            "created_at": row["created_at"],
+            "last_used_at": row["last_used_at"],
+            "use_count": row["use_count"],
+            "notes": row["notes"],
+        }
+        for row in rows
+    ]
+
+
+def delete_source_group(group_id: str) -> bool:
+    """Delete a source group. Returns True if a row was deleted."""
+    ensure_store_ready()
+    with _connect() as conn:
+        cursor = conn.execute("DELETE FROM source_groups WHERE group_id = ?", (group_id,))
+        conn.commit()
+        return cursor.rowcount > 0

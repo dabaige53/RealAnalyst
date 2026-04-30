@@ -132,3 +132,12 @@ python3 {baseDir}/skills/report-verify/scripts/verify.py \
   {baseDir}/jobs/job_001/报告_上海区域代理人销售分析_2025Q4.md \
   {baseDir}/jobs/job_001
 ```
+
+## Completion Summary
+
+验证完成后，向用户汇报：
+
+1. `verification.json` 已生成，总检查数 / 通过 / 失败 / 警告。
+2. 列出失败项和警告项的摘要。
+3. 如果全部通过：下一步建议是交付报告给用户。
+4. 如果有失败项：下一步建议是回到 `/skill RA:report` 修正对应问题后重新验证。

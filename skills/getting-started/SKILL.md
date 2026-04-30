@@ -76,3 +76,11 @@ python3 {baseDir}/skills/metadata/scripts/metadata.py context --dataset-id <data
 ```
 
 之后再进入 `RA:analysis-plan` 和 `RA:analysis-run`。
+
+## Completion Summary
+
+本 skill 任务完成后，向用户汇报：
+
+1. 确认了哪种数据源类型（Tableau / DuckDB / CSV / Excel / 手工整理）。
+2. 列出了哪些待准备信息（字段、指标、筛选器、证据、待确认项）。
+3. 下一步建议：进入 `/skill RA:metadata` 开始注册和整理元数据。

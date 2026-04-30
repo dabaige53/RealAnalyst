@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -15,12 +16,17 @@ def _find_workspace_root(start: Path) -> Path:
 
 
 WORKSPACE = _find_workspace_root(Path(__file__).resolve())
+if str(WORKSPACE) not in sys.path:
+    sys.path.insert(0, str(WORKSPACE))
+
+from runtime.paths import runtime_db_path  # noqa: E402
+
 RUNTIME_TABLEAU_DIR = WORKSPACE / "runtime" / "tableau"
 MAINT_DIR = WORKSPACE / "jobs" / "_maintenance"
 
 DB_BEFORE_SYNC = MAINT_DIR / "registry_before_20260320_1121.db"
 DB_BEFORE_ENRICH = MAINT_DIR / "registry_before_enrich_20260320_1334.db"
-DB_CURRENT = RUNTIME_TABLEAU_DIR / "registry.db"
+DB_CURRENT = runtime_db_path()
 OUT_HTML = RUNTIME_TABLEAU_DIR / "配置变更汇报看板.html"
 
 MISSING = object()
