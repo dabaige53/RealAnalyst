@@ -148,38 +148,4 @@ def completeness_findings(dataset: dict[str, Any], *, mappings: list[dict[str, A
                 }
             )
 
-    for field in normalized.get("fields", []):
-        if not isinstance(field, dict) or not isinstance(field.get("sample_profile"), dict):
-            continue
-        sample = field["sample_profile"]
-        sample_source = text(sample.get("source"))
-        definition = field.get("business_definition") if isinstance(field.get("business_definition"), dict) else {}
-        evidence_sources = {
-            text(item.get("source"))
-            for item in definition.get("source_evidence", [])
-            if isinstance(item, dict)
-        }
-        if sample_source and sample_source not in evidence_sources:
-            findings["needs_review"].append(
-                {
-                    "field": text(field.get("name")),
-                    "display_name": text(field.get("display_name")) or text(field.get("physical_name")),
-                    "reason": "sample_profile source is not cited in business_definition.source_evidence",
-                    "sample_source": sample_source,
-                }
-            )
-        if (
-            canonical(sample.get("observed_type")) == "string"
-            and isinstance(sample.get("distinct_count_sample"), int)
-            and sample.get("distinct_count_sample") <= 20
-            and not field.get("enum_values")
-        ):
-            findings["needs_review"].append(
-                {
-                    "field": text(field.get("name")),
-                    "display_name": text(field.get("display_name")) or text(field.get("physical_name")),
-                    "reason": "low-cardinality sample_profile may need enum_values",
-                }
-            )
-
     return findings

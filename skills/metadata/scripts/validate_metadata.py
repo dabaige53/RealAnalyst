@@ -37,6 +37,24 @@ SCHEMA_ONLY_PHRASES = (
     "来自 Tableau 视图",
     "的同名字段",
 )
+DATASET_FORBIDDEN_KEYS = {
+    "sample_profile": "profile output belongs in metadata/sources/refine or runtime registry, not dataset YAML",
+    "sample_values": "sample values belong in metadata/sources/refine or runtime registry, not dataset YAML",
+    "top_values": "value profiles belong in metadata/sources/refine or runtime registry, not dataset YAML",
+    "enum_values": "enumerations belong in dictionaries or runtime registry, not dataset YAML",
+    "source_mapping": "source mappings belong in metadata/mappings/*.yaml, not dataset YAML",
+    "definition_source": "use business_definition.source_type instead of definition_source",
+    "duckdb_type": "physical type snapshots belong in connector snapshots or runtime registry; use semantic type instead",
+    "nullable": "nullable flags belong in connector snapshots or runtime registry, not dataset YAML",
+}
+DATASET_FORBIDDEN_EVIDENCE_KEYS = {
+    "source_evidence": "dataset field/metric definitions must use business_definition.ref; evidence belongs in metadata/audit, dictionaries, mappings, or sources",
+    "quote": "audit quotes belong in metadata/audit, dictionaries, mappings, or sources, not dataset YAML",
+    "source": "audit source paths belong in metadata/audit, dictionaries, mappings, or sources, not dataset field/metric definitions",
+    "document_path": "document paths belong in metadata/audit or sources, not dataset YAML",
+}
+DATASET_WARN_LINES = 1000
+DATASET_MAX_LINES = 1500
 
 
 def require(mapping: dict[str, Any], key: str, errors: list[str], prefix: str) -> None:
@@ -48,6 +66,56 @@ def _as_text(value: Any) -> str:
     return str(value or "").strip()
 
 
+def _walk(value: Any, prefix: str) -> list[tuple[str, Any]]:
+    items = [(prefix, value)]
+    if isinstance(value, dict):
+        for key, child in value.items():
+            child_prefix = f"{prefix}.{key}" if prefix else str(key)
+            items.extend(_walk(child, child_prefix))
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            items.extend(_walk(child, f"{prefix}[{index}]"))
+    return items
+
+
+def validate_dataset_responsibility(data: dict[str, Any], errors: list[str], *, path: Path) -> None:
+    try:
+        line_count = len(path.read_text(encoding="utf-8").splitlines())
+    except OSError:
+        line_count = 0
+    if line_count > DATASET_MAX_LINES:
+        errors.append(
+            f"{path.name}: dataset YAML has {line_count} lines; keep datasets semantic-only and move profiles, enums, "
+            f"registry snapshots, and repeated evidence out of metadata/datasets"
+        )
+
+    for item_path, value in _walk(data, path.name):
+        if not isinstance(value, dict):
+            continue
+        for key, reason in DATASET_FORBIDDEN_KEYS.items():
+            if key in value:
+                errors.append(f"{item_path}.{key}: {reason}")
+        if item_path.endswith(".fields") or item_path.endswith(".metrics"):
+            continue
+        if ".fields[" in item_path or ".metrics[" in item_path:
+            for key, reason in DATASET_FORBIDDEN_EVIDENCE_KEYS.items():
+                if key in value:
+                    errors.append(f"{item_path}.{key}: {reason}")
+
+
+def dataset_size_warnings(*, path: Path) -> list[str]:
+    try:
+        line_count = len(path.read_text(encoding="utf-8").splitlines())
+    except OSError:
+        return []
+    if DATASET_WARN_LINES < line_count <= DATASET_MAX_LINES:
+        return [
+            f"{path.name}: dataset YAML has {line_count} lines; check whether profile, enum, mapping, registry, "
+            f"or repeated evidence data should be moved out"
+        ]
+    return []
+
+
 def validate_definition(
     definition: dict[str, Any],
     errors: list[str],
@@ -55,8 +123,15 @@ def validate_definition(
     *,
     subject_names: set[str] | None = None,
     enforce_semantic_text: bool = False,
+    description: str = "",
+    require_evidence: bool = True,
+    allow_evidence: bool = True,
+    require_ref: bool = False,
 ) -> None:
-    for key in ("text", "source_type", "confidence", "source_evidence", "needs_review"):
+    required_keys = ["text", "source_type", "confidence", "needs_review"]
+    if require_evidence:
+        required_keys.append("source_evidence")
+    for key in required_keys:
         require(definition, key, errors, prefix)
     text = _as_text(definition.get("text"))
     source_type = _as_text(definition.get("source_type"))
@@ -65,9 +140,13 @@ def validate_definition(
     confidence = definition.get("confidence")
     if isinstance(confidence, (int, float)) and confidence < 0.7 and definition.get("needs_review") is not True:
         errors.append(f"{prefix}: low confidence definitions must set needs_review=true")
+    if "source_evidence" in definition and not allow_evidence:
+        errors.append(f"{prefix}.source_evidence: dataset definitions must use ref instead of expanded evidence")
     evidence = definition.get("source_evidence")
-    if not isinstance(evidence, list) or not evidence:
+    if require_evidence and (not isinstance(evidence, list) or not evidence):
         errors.append(f"{prefix}.source_evidence must contain at least one evidence item")
+    if require_ref and source_type in {"dictionary", "mapping_override"} and not _as_text(definition.get("ref")):
+        errors.append(f"{prefix}.ref is required when source_type={source_type}")
     if definition.get("source_type") == "pending":
         if text != PENDING_DEFINITION_TEXT:
             errors.append(f"{prefix}: pending definitions must use text={PENDING_DEFINITION_TEXT!r}")
@@ -79,12 +158,15 @@ def validate_definition(
         errors.append(f"{prefix}: connector schema notes are not valid business definitions")
     if subject_names and text in {name for name in subject_names if name}:
         errors.append(f"{prefix}: business definition must not equal only the field or metric name")
+    if description and text == _as_text(description):
+        errors.append(f"{prefix}: business definition must not duplicate description")
 
 
 def validate_dataset(data: dict[str, Any], *, path: Path) -> list[str]:
     errors: list[str] = []
     for key in REQUIRED_DATASET_KEYS:
         require(data, key, errors, path.name)
+    validate_dataset_responsibility(data, errors, path=path)
 
     dataset = normalize_dataset(data, path=path)
     source = dataset.get("source")
@@ -121,6 +203,10 @@ def validate_dataset(data: dict[str, Any], *, path: Path) -> list[str]:
                 f"{prefix}.business_definition",
                 subject_names=subject_names,
                 enforce_semantic_text=True,
+                description=_as_text(field.get("description")),
+                require_evidence=False,
+                allow_evidence=False,
+                require_ref=True,
             )
         else:
             errors.append(f"{prefix}.business_definition is required")
@@ -151,7 +237,13 @@ def validate_dataset(data: dict[str, Any], *, path: Path) -> list[str]:
                 f"{prefix}.business_definition",
                 subject_names=subject_names,
                 enforce_semantic_text=True,
+                description=_as_text(metric.get("description")),
+                require_evidence=False,
+                allow_evidence=False,
+                require_ref=True,
             )
+            if definition.get("source_type") == "pending":
+                errors.append(f"{prefix}.business_definition: pending definitions must not be registered as formal metrics")
         else:
             errors.append(f"{prefix}.business_definition is required")
     return errors
@@ -285,12 +377,15 @@ def main() -> int:
 
     workspace = Path(args.workspace).expanduser().resolve() if args.workspace else WORKSPACE_DIR
     errors: list[str] = []
+    warnings: list[str] = []
     dataset_files = list(iter_dataset_files(workspace))
     dictionary_files = list(iter_dictionary_files(workspace))
     mapping_files = list(iter_mapping_files(workspace))
     for path in dataset_files:
         try:
-            errors.extend(validate_dataset(load_dataset_file(path), path=path))
+            data = load_dataset_file(path)
+            errors.extend(validate_dataset(data, path=path))
+            warnings.extend(dataset_size_warnings(path=path))
         except MetadataError as exc:
             errors.append(str(exc))
     for path in dictionary_files:
@@ -315,6 +410,7 @@ def main() -> int:
         "dictionary_count": len(dictionary_files),
         "mapping_count": len(mapping_files),
         "errors": errors,
+        "warnings": warnings,
     }
     print(json.dumps(payload, ensure_ascii=False, indent=2))
     return 0 if not errors else 1

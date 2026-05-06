@@ -41,7 +41,6 @@ def definition(text: str = "已确认业务定义") -> dict:
         "text": text,
         "source_type": "user_confirmed",
         "confidence": 0.9,
-        "source_evidence": [{"type": "test", "source": "tests", "quote": "fixture"}],
         "needs_review": False,
     }
 
@@ -149,6 +148,204 @@ class MetadataProductFixTests(unittest.TestCase):
             proc = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "validate", "--completeness"])
             self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
 
+    def test_validate_blocks_dataset_runtime_and_mapping_payloads(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            write_dataset(workspace, metric_field_count=1, metric_count=1)
+            path = workspace / "metadata" / "datasets" / "test.dataset.yaml"
+            dataset = yaml.safe_load(path.read_text(encoding="utf-8"))
+            dataset["fields"][0]["sample_profile"] = {"null_count": 0}
+            dataset["fields"][0]["enum_values"] = ["A", "B"]
+            dataset["fields"][0]["source_mapping"] = {"view_field": "metric_field_0"}
+            dataset["fields"][0]["definition_source"] = "mapping_override"
+            dataset["fields"][0]["source_evidence"] = [{"type": "test", "source": "tests"}]
+            dataset["fields"][0]["business_definition"]["source_evidence"] = [{"type": "test", "source": "tests"}]
+            dataset["fields"][0]["business_definition"]["quote"] = "fixture"
+            path.write_text(yaml.safe_dump(dataset, allow_unicode=True), encoding="utf-8")
+
+            proc = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "validate"])
+
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("sample_profile", proc.stdout)
+            self.assertIn("enum_values", proc.stdout)
+            self.assertIn("source_mapping", proc.stdout)
+            self.assertIn("definition_source", proc.stdout)
+            self.assertIn("dataset field/metric definitions must use business_definition.ref", proc.stdout)
+            self.assertIn("dataset definitions must use ref instead of expanded evidence", proc.stdout)
+            self.assertIn("audit quotes belong", proc.stdout)
+
+    def test_validate_blocks_duplicate_description_and_definition(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            write_dataset(workspace, metric_field_count=1, metric_count=1)
+            path = workspace / "metadata" / "datasets" / "test.dataset.yaml"
+            dataset = yaml.safe_load(path.read_text(encoding="utf-8"))
+            dataset["fields"][0]["description"] = "Duplicated definition."
+            dataset["fields"][0]["business_definition"]["text"] = "Duplicated definition."
+            path.write_text(yaml.safe_dump(dataset, allow_unicode=True), encoding="utf-8")
+
+            proc = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "validate"])
+
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("business definition must not duplicate description", proc.stdout)
+
+    def test_validate_blocks_pending_formal_metric(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            write_dataset(workspace, metric_field_count=1, metric_count=1)
+            path = workspace / "metadata" / "datasets" / "test.dataset.yaml"
+            dataset = yaml.safe_load(path.read_text(encoding="utf-8"))
+            dataset["metrics"][0]["business_definition"] = {
+                "text": "业务定义待确认",
+                "source_type": "pending",
+                "confidence": 0.0,
+                "needs_review": True,
+            }
+            path.write_text(yaml.safe_dump(dataset, allow_unicode=True), encoding="utf-8")
+
+            proc = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "validate"])
+
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("pending definitions must not be registered as formal metrics", proc.stdout)
+
+    def test_validate_warns_for_large_but_clean_dataset(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            write_dataset(workspace, metric_field_count=1, metric_count=1)
+            path = workspace / "metadata" / "datasets" / "test.dataset.yaml"
+            dataset = yaml.safe_load(path.read_text(encoding="utf-8"))
+            dataset["business"]["sample_questions"] = [f"question {index}" for index in range(1100)]
+            path.write_text(yaml.safe_dump(dataset, allow_unicode=True), encoding="utf-8")
+
+            proc = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "validate"])
+
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            self.assertIn("warnings", proc.stdout)
+            self.assertIn("dataset YAML has", proc.stdout)
+
+    def test_enrich_definitions_removes_dataset_payload_leaks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            write_dataset(workspace, metric_field_count=1, metric_count=1)
+            path = workspace / "metadata" / "datasets" / "test.dataset.yaml"
+            dataset = yaml.safe_load(path.read_text(encoding="utf-8"))
+            dataset["fields"][0]["sample_profile"] = {"null_count": 0}
+            dataset["fields"][0]["enum_values"] = ["A"]
+            dataset["fields"][0]["source_mapping"] = {"view_field": "metric_field_0"}
+            dataset["fields"][0]["definition_source"] = "mapping_override"
+            dataset["fields"][0]["source_evidence"] = [{"type": "test", "source": "tests"}]
+            dataset["fields"][0]["business_definition"]["source_evidence"] = [{"type": "test", "source": "tests"}]
+            dataset["fields"][0]["business_definition"]["quote"] = "fixture"
+            dataset["fields"][0]["business_definition"]["source"] = "metadata/sources/refine/test/evidence.json"
+            dataset["fields"][0]["business_definition"]["document_path"] = "metadata/sources/refine/test/source.md"
+            dataset["fields"][0]["duckdb_type"] = "INTEGER"
+            dataset["fields"][0]["nullable"] = False
+            path.write_text(yaml.safe_dump(dataset, allow_unicode=True), encoding="utf-8")
+
+            enrich = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "enrich-definitions", "--dataset-id", "test.dataset"])
+            self.assertEqual(enrich.returncode, 0, enrich.stdout + enrich.stderr)
+            validate = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "validate"])
+
+            self.assertEqual(validate.returncode, 0, validate.stdout + validate.stderr)
+            cleaned = yaml.safe_load(path.read_text(encoding="utf-8"))
+            field = cleaned["fields"][0]
+            for key in ("sample_profile", "enum_values", "source_mapping", "definition_source", "source_evidence", "duckdb_type", "nullable"):
+                self.assertNotIn(key, field)
+            for key in ("source_evidence", "quote", "source", "document_path"):
+                self.assertNotIn(key, field["business_definition"])
+            self.assertEqual(field["business_definition"]["source_type"], "user_confirmed")
+
+    def test_enrich_definitions_uses_ref_without_copying_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            write_dataset(workspace, metric_field_count=1, metric_count=0)
+            path = workspace / "metadata" / "datasets" / "test.dataset.yaml"
+            dataset = yaml.safe_load(path.read_text(encoding="utf-8"))
+            dataset["fields"][0]["business_definition"] = {
+                "text": "业务定义待确认",
+                "source_type": "pending",
+                "confidence": 0.0,
+                "needs_review": True,
+            }
+            dataset["dictionary_refs"] = ["test.dictionary"]
+            path.write_text(yaml.safe_dump(dataset, allow_unicode=True), encoding="utf-8")
+            dictionary = {
+                "version": 1,
+                "id": "test.dictionary",
+                "kind": "dictionary",
+                "display_name": "Test Dictionary",
+                "source_evidence": [{"type": "test", "source": "tests", "quote": "fixture"}],
+                "fields": [
+                    {
+                        "name": "metric_field_0",
+                        "display_name": "metric_field_0",
+                        "role": "metric_source",
+                        "type": "number",
+                        "description": "Dictionary source field.",
+                        "business_definition": {
+                            "text": "Dictionary confirmed field definition.",
+                            "source_type": "dictionary",
+                            "confidence": 0.9,
+                            "source_evidence": [{"type": "test", "source": "tests", "quote": "fixture"}],
+                            "needs_review": False,
+                        },
+                    }
+                ],
+            }
+            (workspace / "metadata" / "dictionaries" / "test.dictionary.yaml").write_text(
+                yaml.safe_dump(dictionary, allow_unicode=True), encoding="utf-8"
+            )
+
+            enrich = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "enrich-definitions", "--dataset-id", "test.dataset"])
+            self.assertEqual(enrich.returncode, 0, enrich.stdout + enrich.stderr)
+
+            cleaned = yaml.safe_load(path.read_text(encoding="utf-8"))
+            definition_payload = cleaned["fields"][0]["business_definition"]
+            self.assertEqual(definition_payload["source_type"], "dictionary")
+            self.assertEqual(definition_payload["ref"], "test.dictionary.metric_field_0")
+            self.assertNotIn("source_evidence", definition_payload)
+
+    def test_record_relation_writes_audit_ref_association(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            proc = self.run_cmd(
+                [
+                    sys.executable,
+                    str(METADATA),
+                    "--workspace",
+                    str(workspace),
+                    "record-relation",
+                    "--ref",
+                    "test.dictionary.metric_field_0",
+                    "--dataset-id",
+                    "test.dataset",
+                    "--section",
+                    "fields",
+                    "--name",
+                    "metric_field_0",
+                    "--source-type",
+                    "dictionary",
+                    "--target",
+                    "metadata/dictionaries/test.dictionary.yaml",
+                    "--evidence",
+                    "metadata/sources/refine/refine-test/evidence_manifest.json",
+                    "--reason",
+                    "dictionary definition linked by ref",
+                ]
+            )
+
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            payload = json.loads(proc.stdout)
+            self.assertEqual(payload["relation_count"], 1)
+            relation_path = workspace / "metadata" / "audit" / "metadata_relations.jsonl"
+            report_path = workspace / "metadata" / "audit" / "metadata_change_report.md"
+            relation = json.loads(relation_path.read_text(encoding="utf-8").splitlines()[0])
+            self.assertEqual(relation["ref"], "test.dictionary.metric_field_0")
+            self.assertEqual(relation["targets"], ["metadata/dictionaries/test.dictionary.yaml"])
+            report = report_path.read_text(encoding="utf-8")
+            self.assertIn("relation_count: 1", report)
+            self.assertIn("test.dictionary.metric_field_0", report)
+
     def test_metadata_refine_build_reference_pack_without_job(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp)
@@ -235,7 +432,7 @@ class MetadataProductFixTests(unittest.TestCase):
         self.assertIn("Metric confirmed definition", report)
         self.assertIn("已确认（置信度 0.9）", report)
         self.assertNotIn("Field pending definition", report)
-        self.assertIn("- 无待确认字段或指标。", report)
+        self.assertIn("- 无显式待补齐项。", report)
 
     def test_duckdb_metadata_report_pending_definition_matches_tableau_default(self) -> None:
         module = load_script(DUCKDB_REPORTER, "duckdb_report_pending_default_test")
@@ -271,8 +468,8 @@ class MetadataProductFixTests(unittest.TestCase):
         )
 
         self.assertIn("业务定义待确认", report)
-        self.assertIn("`pending`", report)
-        self.assertIn("待确认（置信度 0.65）", report)
+        self.assertNotIn("`pending`", report)
+        self.assertIn("待补齐（置信度 0.65）", report)
         self.assertNotIn("在该数据源中作为指标候选字段使用", report)
 
         no_mapping_report = module.render_yaml_metadata_report(
@@ -282,7 +479,39 @@ class MetadataProductFixTests(unittest.TestCase):
             report_dir=Path("/tmp/ra-test-reports"),
             step_results={"validate": "success"},
         )
-        self.assertIn("- 待补充映射。", no_mapping_report)
+        self.assertNotIn("- 待补充映射。", no_mapping_report)
+
+    def test_metadata_report_does_not_use_description_as_definition(self) -> None:
+        module = load_script(DUCKDB_REPORTER, "duckdb_report_missing_definition_test")
+
+        dataset = {
+            "id": "test.duckdb.description",
+            "display_name": "Description Dataset",
+            "source": {"connector": "duckdb"},
+            "fields": [
+                {
+                    "name": "region",
+                    "display_name": "Region",
+                    "role": "dimension",
+                    "type": "string",
+                    "description": "Short field note that is not a business definition.",
+                    "business_definition": {},
+                }
+            ],
+            "metrics": [],
+        }
+
+        report = module.render_yaml_metadata_report(
+            dataset=dataset,
+            mapping=None,
+            generated_at=datetime(2026, 4, 30),
+            report_dir=Path("/tmp/ra-test-reports"),
+            step_results={"validate": "success"},
+        )
+
+        self.assertNotIn("Short field note that is not a business definition.", report)
+        self.assertIn("仅结构可用", report)
+        self.assertIn("metadata/datasets/test.duckdb.description.yaml::fields[name=region].business_definition.text", report)
 
     def test_duckdb_metadata_report_collapses_datetime_samples_to_regex(self) -> None:
         module = load_script(DUCKDB_REPORTER, "duckdb_report_pattern_test")
@@ -340,8 +569,8 @@ class MetadataProductFixTests(unittest.TestCase):
                 "description": "测试 Tableau 视图。",
                 "source": {"connector": "tableau"},
                 "business": {
-                    "grain": ["旅行年月"],
-                    "time_fields": ["开始日期"],
+                    "grain": ["period_key"],
+                    "time_fields": ["start_date"],
                     "suitable_for": ["测试分析"],
                     "not_suitable_for": ["替代底层事实表"],
                 },
@@ -353,13 +582,14 @@ class MetadataProductFixTests(unittest.TestCase):
                 "fields": [
                     {
                         "name": "travel_month",
-                        "source_field": "旅行年月",
-                        "display_name": "旅行年月",
+                        "source_field": "period_key",
+                        "display_name": "period_key",
                         "role": "time_dimension",
                         "type": "date",
                         "business_definition": {
-                            "text": "旅客旅行月份。",
+                            "text": "已确认的周期字段定义。",
                             "source_type": "user_confirmed",
+                            "ref": "metadata/audit/metadata_relations.jsonl#field-period",
                             "confidence": 0.8,
                             "source_evidence": [{"type": "sync_report", "source": "metadata/sync/tableau/reports/test.md"}],
                             "needs_review": False,
@@ -369,14 +599,15 @@ class MetadataProductFixTests(unittest.TestCase):
                 "metrics": [
                     {
                         "name": "passenger_count",
-                        "source_field": "旅客人数",
-                        "display_name": "旅客人数",
-                        "expression": "Σ `旅客人数`",
+                        "source_field": "measure_value",
+                        "display_name": "measure_value",
+                        "expression": "SUM(`measure_value`)",
                         "aggregation": "sum",
                         "unit": "人",
                         "business_definition": {
-                            "text": "当前 Tableau 视图中的旅客人数，口径待确认。",
+                            "text": "待补齐的指标定义。",
                             "source_type": "industry_draft",
+                            "ref": "metadata/audit/metadata_relations.jsonl#metric-measure",
                             "confidence": 0.6,
                             "source_evidence": [{"type": "sync_report", "source": "metadata/sync/tableau/reports/test.md"}],
                             "needs_review": True,
@@ -391,10 +622,10 @@ class MetadataProductFixTests(unittest.TestCase):
                 "mappings": [
                     {
                         "type": "metric",
-                        "view_field": "旅客人数",
+                        "view_field": "measure_value",
                         "standard_id": "passenger_count",
                         "field_id_or_override": "passenger_count",
-                        "definition_override": "人数指标，需确认去重口径。",
+                        "definition_override": "指标定义待补齐。",
                     }
                 ],
             }
@@ -420,10 +651,10 @@ class MetadataProductFixTests(unittest.TestCase):
                     },
                 },
                 spec={
-                    "dimensions": [{"name": "旅行年月", "data_type": "date"}],
-                    "measures": [{"name": "旅客人数", "data_type": "integer"}],
-                    "filters": [{"tableau_field": "旅行年月", "sample_values": ["2026-04"]}],
-                    "parameters": [{"tableau_field": "开始日期"}],
+                    "dimensions": [{"name": "period_key", "data_type": "date"}],
+                    "measures": [{"name": "measure_value", "data_type": "integer"}],
+                    "filters": [{"tableau_field": "period_key", "sample_values": ["2026-04"]}],
+                    "parameters": [{"tableau_field": "start_date"}],
                 },
                 context={"unresolved_dimensions": []},
                 generated_at=datetime(2026, 4, 30),
@@ -435,22 +666,41 @@ class MetadataProductFixTests(unittest.TestCase):
                 manifest=None,
             )
 
-        self.assertIn("metadata YAML：已读取", report)
-        self.assertIn("旅客旅行月份。", report)
+        self.assertIn("metadata/datasets/*.yaml", report)
+        self.assertIn("作为报告元数据事实读取", report)
+        self.assertIn("已确认的周期字段定义。", report)
         self.assertIn("业务定义待确认", report)
-        self.assertIn("`pending`", report)
-        self.assertNotIn("当前 Tableau 视图中的旅客人数，口径待确认。", report)
-        self.assertIn("待确认（置信度 0.6）", report)
-        self.assertIn("## 5. 字段明细", report)
-        self.assertIn("## 6. 指标明细", report)
-        self.assertIn("## 8. Tableau 使用方式", report)
+        self.assertNotIn("`pending`", report)
+        self.assertNotIn("待补齐的指标定义。", report)
+        self.assertIn("待补齐（置信度 0.6）", report)
+        self.assertIn("## 5. 元数据补齐清单", report)
+        self.assertIn("### 7.1 字段明细", report)
+        self.assertIn("### 7.2 指标明细", report)
+        self.assertIn("## 8. 数据源使用说明", report)
         self.assertIn("`--vf`", report)
         self.assertIn("`--vp`", report)
-        self.assertIn("`Σ 旅客人数`", report)
-        self.assertNotIn("Σ `旅客人数`", report)
-        self.assertIn("## 10. 校验结果", report)
-        self.assertIn("Tableau 正式 CSV 导出：未执行", report)
-        self.assertNotIn("人数指标，需确认去重口径。", report)
+        self.assertNotIn("常见用途", report)
+        self.assertNotIn("使用建议", report)
+        self.assertNotIn("适合做", report)
+        self.assertNotIn("先补齐业务定义，再用于正式结论", report)
+        self.assertNotIn("作为指标来源字段使用", report)
+        self.assertNotIn("来源摘要", report)
+        self.assertNotIn("字段名证据", report)
+        self.assertNotIn("指标表达式", report)
+        self.assertNotIn("来源字段", report)
+        self.assertIn("定义位置", report)
+        self.assertIn("metadata/datasets/tableau.test.view.yaml::fields[name=travel_month].business_definition", report)
+        self.assertIn("metadata/datasets/tableau.test.view.yaml::metrics[name=passenger_count].business_definition", report)
+        self.assertIn("metadata/audit/*", report)
+        self.assertIn("审计层隔离，不作为业务定义真源", report)
+        self.assertNotIn("metadata/audit/metadata_relations.jsonl#field-period", report)
+        self.assertNotIn("metadata/audit/metadata_relations.jsonl#metric-measure", report)
+        self.assertNotIn("industry_draft", report)
+        self.assertIn("SUM(measure_value)", report)
+        self.assertNotIn("SUM(`measure_value`)", report)
+        self.assertNotIn("`measure_value`)", report)
+        self.assertIn("未提供 manifest", report)
+        self.assertNotIn("指标定义待补齐。", report)
         self.assertTrue(module.build_report_filename("tableau.test.view", generated_at=datetime(2026, 4, 30)).endswith("_metadata_report.md"))
 
     def test_metadata_report_unified_cli_generates_duckdb_yaml_report(self) -> None:
@@ -475,8 +725,23 @@ class MetadataProductFixTests(unittest.TestCase):
             reports = list((workspace / "metadata" / "sync" / "duckdb" / "reports").glob("*test.dataset_metadata_report.md"))
             self.assertEqual(len(reports), 1)
             content = reports[0].read_text(encoding="utf-8")
-            self.assertIn("## 5. 字段明细", content)
-            self.assertIn("## 8. 映射与 Review 问题", content)
+            self.assertIn("### 7.1 字段明细", content)
+            self.assertIn("## 5. 元数据补齐清单", content)
+            self.assertNotIn("常见用途", content)
+            self.assertNotIn("使用建议", content)
+            self.assertNotIn("适合做", content)
+            self.assertNotIn("先补齐业务定义，再用于正式结论", content)
+            self.assertNotIn("作为指标来源字段使用", content)
+            self.assertNotIn("来源摘要", content)
+            self.assertNotIn("字段名证据", content)
+            self.assertNotIn("指标表达式", content)
+            self.assertNotIn("来源字段", content)
+            self.assertIn("定义位置", content)
+            self.assertIn("metadata/datasets/test.dataset.yaml::fields[name=year].business_definition", content)
+            self.assertIn("metadata/datasets/test.dataset.yaml::metrics[name=metric_field_0].business_definition", content)
+            self.assertIn("metadata/audit/*", content)
+            self.assertIn("审计层隔离，不作为业务定义真源", content)
+            self.assertNotIn("industry_draft", content)
 
     def test_metadata_report_renderer_modules_are_internal_only(self) -> None:
         for path, connector in [(DUCKDB_REPORTER, "duckdb"), (TABLEAU_REPORTER, "tableau")]:

@@ -25,7 +25,7 @@ def _definition_text(item: dict[str, Any]) -> str:
     return ""
 
 
-def _definition_source(item: dict[str, Any]) -> str:
+def _source_type(item: dict[str, Any]) -> str:
     definition = item.get("business_definition")
     if isinstance(definition, dict):
         return _as_text(definition.get("source_type"))
@@ -67,7 +67,7 @@ def field_records(dataset: dict[str, Any]) -> list[dict[str, Any]]:
                 "type": _as_text(field.get("type")),
                 "description": _as_text(field.get("description")),
                 "definition": _definition_text(field),
-                "definition_source": _definition_source(field),
+                "source_type": _source_type(field),
                 "synonyms": _as_list(field.get("synonyms")),
                 "sensitive_level": _as_text(field.get("sensitive_level")),
             }
@@ -93,7 +93,7 @@ def metric_records(dataset: dict[str, Any]) -> list[dict[str, Any]]:
                 "valid_grains": _as_list(metric.get("valid_grains")),
                 "description": _as_text(metric.get("description")),
                 "definition": _definition_text(metric),
-                "definition_source": _definition_source(metric),
+                "source_type": _source_type(metric),
                 "synonyms": _as_list(metric.get("synonyms")),
             }
         )

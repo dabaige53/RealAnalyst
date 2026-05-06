@@ -367,6 +367,7 @@ jobs/{SESSION_ID}/
 | `报告_*.md` | report | report-verify, 用户 | — |
 | `verification.json` | report-verify | 用户 | `schemas/verification.schema.json` |
 | `metadata/audit/metadata_changes.jsonl` | metadata | metadata | — |
+| `metadata/audit/metadata_relations.jsonl` | metadata | metadata / reviewer | — |
 | `metadata/audit/metadata_change_report.md` | metadata | 用户 / reviewer | — |
 
 ### Metadata 目录结构
@@ -377,7 +378,7 @@ metadata/
 ├── dictionaries/      # 公共语义层（指标、维度、术语）
 ├── mappings/          # source 字段 → 标准语义的映射
 ├── datasets/          # 一个真实可分析对象一份 YAML
-├── audit/             # metadata 维护日志和变更报告
+├── audit/             # metadata 维护日志、ref 关联记录和变更报告
 ├── index/             # 生成层：JSONL + search.db (FTS5) 检索索引
 └── osi/               # 生成层：context pack（给 analysis-plan 用）
 ```

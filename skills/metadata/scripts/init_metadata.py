@@ -17,6 +17,7 @@ WORKSPACE_DIRS = (
     "metadata/models",
     "metadata/sync/duckdb",
     "metadata/sync/tableau",
+    "metadata/audit",
     "metadata/index",
     "metadata/osi",
 )
@@ -46,7 +47,7 @@ FALLBACK_FILE_CONTENTS = {
     "metadata/datasets/README.md": "# Datasets\n\nCreate one YAML file per registered dataset.\n",
     "metadata/models/README.md": "# Models\n\nGroup related datasets into business domains or semantic models.\n",
     "metadata/sync/README.md": "# Sync\n\nStore connector discovery snapshots here only after the user asks to sync a source.\n",
-    "metadata/audit/README.md": "# Audit\n\nMetadata maintenance logs and change reports go here. Run `metadata.py record-change` after YAML edits.\n",
+    "metadata/audit/README.md": "# Audit\n\nMetadata maintenance logs, ref relation records, and change reports go here. Run `metadata.py record-change` after YAML edits and `metadata.py record-relation` when adding a `business_definition.ref` association.\n",
     "metadata/sync/duckdb/README.md": "# DuckDB Sync\n\nDuckDB discovery snapshots go here.\n",
     "metadata/sync/tableau/README.md": "# Tableau Sync\n\nTableau field, filter, and workbook snapshots go here.\n",
     "metadata/conversion/README.md": "# Conversion\n\nMetadata conversion notes and manifests go here.\n",

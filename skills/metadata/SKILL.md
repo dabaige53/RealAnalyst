@@ -86,7 +86,7 @@ metadata/sources/refine/{refine_id}/evidence_manifest.json
 metadata/sources/refine/{refine_id}/metadata_update_reference.md
 ```
 
-然后只修改相关 dictionaries / mappings / datasets YAML。新增或修正的 `business_definition.source_evidence[].source` 必须引用 `metadata/sources/refine/{refine_id}/...`，不引用 runtime 临时路径。
+然后只修改相关 dictionaries / mappings / datasets YAML。dataset 字段/指标不得复制 evidence；需要追溯时写 `business_definition.ref`，指向 dictionary、mapping 或 `metadata/audit` 关联记录。
 
 4. 每次维护 YAML 后必须记录变更日志并生成报告：
 
@@ -99,8 +99,17 @@ python3 {baseDir}/skills/metadata/scripts/metadata.py change-report
 
 ```text
 metadata/audit/metadata_changes.jsonl
+metadata/audit/metadata_relations.jsonl
 metadata/audit/metadata_change_report.md
 ```
+
+如果字段或指标通过 `business_definition.ref` 指向 dictionary、mapping 或 refine evidence，记录关联而不是复制 evidence：
+
+```bash
+python3 {baseDir}/skills/metadata/scripts/metadata.py record-relation --ref <definition_ref> --dataset-id <dataset_id> --section fields --name <field_name> --source-type dictionary --target metadata/dictionaries/<dict>.yaml --evidence metadata/sources/refine/<refine_id>/evidence_manifest.json
+```
+
+`metadata/audit/metadata_relations.jsonl` 只服务追溯和维护，不进入分析 context，也不作为业务定义真源。
 
 如果本次修改来自 `RA:metadata-refine`，修改前必须先保存旧 YAML 副本；记录时追加 `--refine-id <refine_id>`、`--before <旧YAML副本>` 和 `--evidence metadata/sources/refine/<refine_id>/evidence_manifest.json`。此时会生成对比报告：
 
@@ -119,7 +128,17 @@ python3 {baseDir}/skills/metadata/scripts/metadata.py sync-registry --dataset-id
 python3 {baseDir}/skills/metadata/scripts/metadata.py status --dataset-id <dataset_id>
 ```
 
-普通 `validate` 保持结构兼容；`validate --completeness` 会额外检查 metric-like 字段、mapping metric 和 sample profile 证据是否完整。校验失败时停止，先修 YAML。`sync-registry` 是唯一允许从已校验 YAML 写入 `runtime/registry.db` 的路径。
+普通 `validate` 同时检查结构和 dataset 责任边界；`validate --completeness` 会额外检查 metric-like 字段和 mapping metric 是否完整。校验失败时停止，先修 YAML。`sync-registry` 是唯一允许从已校验 YAML 写入 `runtime/registry.db` 的路径。
+
+Dataset YAML 只放语义元数据，不放运行时画像或副本数据：
+
+- 不写 `sample_profile`、`sample_values`、`top_values`、`enum_values`。
+- 不在字段或指标内嵌 `source_mapping`、`definition_source` 或字段级裸 `source_evidence`。
+- 字段/指标定义不写 `business_definition.source_evidence`、`quote` 或文档路径；使用 `business_definition.ref` 指向 dictionary/mapping/audit 证据链。
+- `description` 和 `business_definition.text` 不得完全重复。
+- source mapping 维护到 `metadata/mappings/*.yaml`；样本画像和枚举候选维护到 `metadata/sources/refine/` 或 `runtime/registry.db`。
+- `business_definition.source_type=pending` 不得注册为正式 `metrics`；先留在 fields、refine 建议或补齐清单中。
+- 单个 dataset YAML 超过 1000 行会产生膨胀预警，超过 1500 行会被视为责任边界失败，需要拆出 profile、enum、registry snapshot 或重复 evidence。
 
 6. 需求理解阶段先低 token 检索，不直接扫完整 YAML：
 

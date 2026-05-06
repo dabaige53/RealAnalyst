@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-from copy import deepcopy
 from typing import Any
 
 PENDING_DEFINITION_TEXT = "业务定义待确认"
@@ -36,47 +35,37 @@ def is_schema_only_definition(text: str, subject_names: set[str] | None = None) 
     return bool(subject_names and value in {name for name in subject_names if name})
 
 
-def source_evidence(*items: dict[str, Any]) -> list[dict[str, Any]]:
-    evidence: list[dict[str, Any]] = []
-    seen: set[tuple[str, str]] = set()
+def dictionary_ref(dictionary_item: dict[str, Any]) -> str:
+    dictionary_id = as_text(dictionary_item.get("_dictionary_id"))
+    item_id = as_text(dictionary_item.get("name") or dictionary_item.get("key") or dictionary_item.get("display_name"))
+    return ".".join(part for part in (dictionary_id, item_id) if part)
 
-    def add_evidence(raw_items: Any) -> None:
-        for evidence_item in as_list(raw_items):
-            if not isinstance(evidence_item, dict):
-                continue
-            key = (as_text(evidence_item.get("type")), as_text(evidence_item.get("source")))
-            if key in seen:
-                continue
-            seen.add(key)
-            evidence.append(deepcopy(evidence_item))
 
-    for item in items:
-        direct_source = as_text(item.get("source"))
-        if direct_source:
-            direct = {"type": as_text(item.get("type")) or "document", "source": direct_source}
-            key = (direct["type"], direct["source"])
-            if key not in seen:
-                seen.add(key)
-                evidence.append(direct)
-        add_evidence(item.get("source_evidence"))
-        definition = item.get("business_definition")
-        if isinstance(definition, dict):
-            add_evidence(definition.get("source_evidence"))
-    return evidence
+def mapping_ref(mapping: dict[str, Any]) -> str:
+    mapping_id = as_text(mapping.get("_mapping_id"))
+    item_id = as_text(mapping.get("standard_id") or mapping.get("view_field") or mapping.get("field_id_or_override"))
+    if mapping_id and item_id:
+        return f"mapping:{mapping_id}:{item_id}"
+    return f"mapping:{mapping_id or item_id}"
 
 
 def build_dictionary_indexes(dictionaries: list[dict[str, Any]]) -> dict[str, dict[str, dict[str, Any]]]:
     indexes: dict[str, dict[str, dict[str, Any]]] = {"metrics": {}, "fields": {}, "glossary": {}}
     for dictionary in dictionaries:
+        dictionary_id = as_text(dictionary.get("id"))
         for metric in as_list(dictionary.get("metrics")):
             if not isinstance(metric, dict):
                 continue
+            metric = dict(metric)
+            metric["_dictionary_id"] = dictionary_id
             for key in {as_text(metric.get("name")), as_text(metric.get("display_name")), *map(as_text, as_list(metric.get("synonyms")))}:
                 if key:
                     indexes["metrics"].setdefault(key, metric)
         for field in as_list(dictionary.get("fields")):
             if not isinstance(field, dict):
                 continue
+            field = dict(field)
+            field["_dictionary_id"] = dictionary_id
             for key in {
                 as_text(field.get("name")),
                 as_text(field.get("display_name")),
@@ -88,6 +77,8 @@ def build_dictionary_indexes(dictionaries: list[dict[str, Any]]) -> dict[str, di
         for term in as_list(dictionary.get("glossary")):
             if not isinstance(term, dict):
                 continue
+            term = dict(term)
+            term["_dictionary_id"] = dictionary_id
             for key in {
                 as_text(term.get("key")),
                 as_text(term.get("display_name")),
@@ -101,14 +92,13 @@ def build_dictionary_indexes(dictionaries: list[dict[str, Any]]) -> dict[str, di
 
 def mapping_by_source_field(mapping: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
     rows = as_list((mapping or {}).get("mappings"))
-    evidence = as_list((mapping or {}).get("source_evidence"))
+    mapping_id = as_text((mapping or {}).get("id"))
     result: dict[str, dict[str, Any]] = {}
     for row in rows:
         if not isinstance(row, dict) or not as_text(row.get("view_field")):
             continue
         item = dict(row)
-        if evidence and not item.get("source_evidence"):
-            item["source_evidence"] = deepcopy(evidence)
+        item["_mapping_id"] = mapping_id
         result[as_text(item.get("view_field"))] = item
     return result
 
@@ -173,7 +163,7 @@ def enriched_definition(
                     "text": text,
                     "source_type": "mapping_override",
                     "confidence": 0.75,
-                    "source_evidence": source_evidence(mapping),
+                    "ref": mapping_ref(mapping),
                     "needs_review": False,
                 },
                 "mapping_override",
@@ -187,30 +177,26 @@ def enriched_definition(
                     "text": text,
                     "source_type": "dictionary",
                     "confidence": source_definition.get("confidence", 0.85),
-                    "source_evidence": source_evidence(dictionary_item),
+                    "ref": dictionary_ref(dictionary_item),
                     "needs_review": bool(source_definition.get("needs_review", False)),
                 },
                 "dictionary",
             )
     if role == "field":
-        evidence = as_list((item.get("business_definition") or {}).get("source_evidence"))
         return (
             {
                 "text": PENDING_DEFINITION_TEXT,
                 "source_type": "pending",
                 "confidence": 0.0,
-                "source_evidence": evidence or [{"type": "metadata", "source": "metadata/datasets"}],
                 "needs_review": True,
             },
             "pending",
         )
-    evidence = as_list((item.get("business_definition") or {}).get("source_evidence"))
     return (
         {
             "text": PENDING_DEFINITION_TEXT,
             "source_type": "pending",
             "confidence": 0.0,
-            "source_evidence": evidence or [{"type": "metadata", "source": "metadata/datasets"}],
             "needs_review": True,
         },
         "pending",

@@ -92,7 +92,7 @@ def render_markdown(payload: dict[str, Any]) -> str:
             detail = item.get("sample_source") or item.get("standard_id") or ""
             lines.append(f"| {target} | {item.get('reason') or ''} | {detail} |")
     else:
-        lines.append("- 未发现 mapping、sample_profile 或枚举证据缺口。")
+        lines.append("- 未发现 mapping 或 profile/refine 证据缺口。")
 
     lines.extend(["", "## 不建议注册为指标", ""])
     if findings["not_metric"]:

@@ -50,6 +50,28 @@ LEGACY_SCHEMA_PHRASES = (
     "来自 DuckDB 视图",
     "来自 Tableau 视图",
 )
+DATASET_PAYLOAD_KEYS = (
+    "sample_profile",
+    "sample_values",
+    "top_values",
+    "enum_values",
+    "source_mapping",
+    "duckdb_type",
+    "nullable",
+)
+EXPANDED_EVIDENCE_KEYS = ("source_evidence", "quote", "source", "document_path")
+
+
+def _clean_dataset_payload(item: dict[str, Any]) -> None:
+    for key in DATASET_PAYLOAD_KEYS:
+        item.pop(key, None)
+    for key in EXPANDED_EVIDENCE_KEYS:
+        item.pop(key, None)
+    item.pop("definition_source", None)
+    definition = item.get("business_definition")
+    if isinstance(definition, dict):
+        for key in EXPANDED_EVIDENCE_KEYS:
+            definition.pop(key, None)
 
 
 def _clean_legacy_schema_notes(item: dict[str, Any]) -> None:
@@ -97,13 +119,14 @@ def _source_type_for_existing(item: dict[str, Any], fallback: str) -> str:
 
 
 def _apply_definition(item: dict[str, Any], definition: dict[str, Any], source_type: str) -> bool:
+    existing_source_type = _source_type_for_existing(item, "industry_draft")
+    _clean_dataset_payload(item)
     if _definition_needs_enrichment(item):
         item["business_definition"] = definition
-        item["definition_source"] = source_type
         return True
-    source_type = _source_type_for_existing(item, "industry_draft")
-    item["business_definition"]["source_type"] = source_type
-    item["definition_source"] = source_type
+    item["business_definition"]["source_type"] = existing_source_type
+    if source_type == existing_source_type and definition.get("ref") and not item["business_definition"].get("ref"):
+        item["business_definition"]["ref"] = definition["ref"]
     return False
 
 

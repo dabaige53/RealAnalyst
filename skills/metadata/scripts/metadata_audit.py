@@ -14,6 +14,7 @@ from _bootstrap import bootstrap_workspace_path
 WORKSPACE_DIR = bootstrap_workspace_path()
 AUDIT_DIR = Path("metadata/audit")
 LOG_NAME = "metadata_changes.jsonl"
+RELATION_NAME = "metadata_relations.jsonl"
 REPORT_NAME = "metadata_change_report.md"
 REFINE_DIFF_DIR = "refine-diffs"
 
@@ -32,6 +33,10 @@ def log_path(workspace: Path) -> Path:
 
 def report_path(workspace: Path) -> Path:
     return audit_dir(workspace) / REPORT_NAME
+
+
+def relation_path(workspace: Path) -> Path:
+    return audit_dir(workspace) / RELATION_NAME
 
 
 def refine_diff_dir(workspace: Path) -> Path:
@@ -135,69 +140,95 @@ def append_record(path: Path, record: dict[str, Any]) -> None:
         handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
 
 
-def render_report(records: list[dict[str, Any]]) -> str:
+def render_report(records: list[dict[str, Any]], relations: list[dict[str, Any]] | None = None) -> str:
+    relations = relations or []
     lines = [
         "# Metadata Change Report",
         "",
         f"- generated_at: {now_iso()}",
         f"- change_count: {len(records)}",
+        f"- relation_count: {len(relations)}",
         f"- log_file: metadata/audit/{LOG_NAME}",
+        f"- relation_file: metadata/audit/{RELATION_NAME}",
         "",
         "## Latest Changes",
         "",
     ]
     if not records:
         lines.append("No metadata changes have been recorded yet.")
+        lines.append("")
+    else:
+        lines.extend(
+            [
+                "| time | type | summary | paths | datasets | evidence |",
+                "| --- | --- | --- | --- | --- | --- |",
+            ]
+        )
+        for record in reversed(records[-50:]):
+            paths = "<br>".join(record.get("paths") or [])
+            datasets = "<br>".join(record.get("dataset_ids") or [])
+            evidence_items = list(record.get("evidence") or [])
+            if record.get("diff_report"):
+                evidence_items.append(str(record.get("diff_report")))
+            evidence = "<br>".join(evidence_items)
+            lines.append(
+                "| {time} | {kind} | {summary} | {paths} | {datasets} | {evidence} |".format(
+                    time=record.get("recorded_at") or "",
+                    kind=record.get("change_type") or "",
+                    summary=markdown_escape(str(record.get("summary") or "")),
+                    paths=markdown_escape(paths),
+                    datasets=markdown_escape(datasets),
+                    evidence=markdown_escape(evidence),
+                )
+            )
+        lines.extend(["", "## Full Record Details", ""])
+        for idx, record in enumerate(reversed(records), start=1):
+            lines.extend(
+                [
+                    f"### {idx}. {record.get('summary') or 'metadata change'}",
+                    "",
+                    f"- recorded_at: {record.get('recorded_at') or ''}",
+                    f"- change_type: {record.get('change_type') or ''}",
+                    f"- actor: {record.get('actor') or ''}",
+                    f"- paths: {', '.join(record.get('paths') or [])}",
+                    f"- dataset_ids: {', '.join(record.get('dataset_ids') or [])}",
+                    f"- refine_id: {record.get('refine_id') or ''}",
+                    f"- evidence: {', '.join(record.get('evidence') or [])}",
+                    f"- diff_report: {record.get('diff_report') or ''}",
+                    f"- details: {record.get('details') or ''}",
+                    "",
+                ]
+            )
+    lines.extend(["## Latest Relations", ""])
+    if not relations:
+        lines.append("No metadata relation records have been recorded yet.")
         return "\n".join(lines) + "\n"
-
     lines.extend(
         [
-            "| time | type | summary | paths | datasets | evidence |",
+            "| time | ref | dataset | item | targets | evidence |",
             "| --- | --- | --- | --- | --- | --- |",
         ]
     )
-    for record in reversed(records[-50:]):
-        paths = "<br>".join(record.get("paths") or [])
-        datasets = "<br>".join(record.get("dataset_ids") or [])
-        evidence_items = list(record.get("evidence") or [])
-        if record.get("diff_report"):
-            evidence_items.append(str(record.get("diff_report")))
-        evidence = "<br>".join(evidence_items)
+    for relation in reversed(relations[-50:]):
+        item = ".".join(part for part in [relation.get("section") or "", relation.get("name") or ""] if part)
+        targets = "<br>".join(relation.get("targets") or [])
+        evidence = "<br>".join(relation.get("evidence") or [])
         lines.append(
-            "| {time} | {kind} | {summary} | {paths} | {datasets} | {evidence} |".format(
-                time=record.get("recorded_at") or "",
-                kind=record.get("change_type") or "",
-                summary=markdown_escape(str(record.get("summary") or "")),
-                paths=markdown_escape(paths),
-                datasets=markdown_escape(datasets),
+            "| {time} | {ref} | {dataset} | {item} | {targets} | {evidence} |".format(
+                time=relation.get("recorded_at") or "",
+                ref=markdown_escape(str(relation.get("ref") or "")),
+                dataset=markdown_escape(str(relation.get("dataset_id") or "")),
+                item=markdown_escape(item),
+                targets=markdown_escape(targets),
                 evidence=markdown_escape(evidence),
             )
-        )
-
-    lines.extend(["", "## Full Record Details", ""])
-    for idx, record in enumerate(reversed(records), start=1):
-        lines.extend(
-            [
-                f"### {idx}. {record.get('summary') or 'metadata change'}",
-                "",
-                f"- recorded_at: {record.get('recorded_at') or ''}",
-                f"- change_type: {record.get('change_type') or ''}",
-                f"- actor: {record.get('actor') or ''}",
-                f"- paths: {', '.join(record.get('paths') or [])}",
-                f"- dataset_ids: {', '.join(record.get('dataset_ids') or [])}",
-                f"- refine_id: {record.get('refine_id') or ''}",
-                f"- evidence: {', '.join(record.get('evidence') or [])}",
-                f"- diff_report: {record.get('diff_report') or ''}",
-                f"- details: {record.get('details') or ''}",
-                "",
-            ]
         )
     return "\n".join(lines)
 
 
-def write_report(path: Path, records: list[dict[str, Any]]) -> None:
+def write_report(path: Path, records: list[dict[str, Any]], relations: list[dict[str, Any]] | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(render_report(records), encoding="utf-8")
+    path.write_text(render_report(records, relations), encoding="utf-8")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -216,6 +247,17 @@ def build_parser() -> argparse.ArgumentParser:
     record.add_argument("--details", default="")
     record.add_argument("--actor", default="llm")
 
+    relation = subparsers.add_parser("relation", help="Append a metadata ref relation record.")
+    relation.add_argument("--ref", required=True, help="business_definition.ref value used by dataset YAML.")
+    relation.add_argument("--dataset-id", required=True)
+    relation.add_argument("--section", required=True, choices=("fields", "metrics", "dataset"))
+    relation.add_argument("--name", default="", help="Field or metric name when section is fields/metrics.")
+    relation.add_argument("--target", action="append", default=[], help="Dictionary, mapping, source, or audit target path/ref. Repeatable.")
+    relation.add_argument("--evidence", action="append", default=[], help="Evidence path or source ref. Repeatable.")
+    relation.add_argument("--source-type", default="", help="Definition source_type associated with this ref.")
+    relation.add_argument("--reason", default="")
+    relation.add_argument("--actor", default="llm")
+
     subparsers.add_parser("report", help="Regenerate the metadata change report from the JSONL log.")
     return parser
 
@@ -224,6 +266,7 @@ def main() -> int:
     args = build_parser().parse_args()
     workspace = Path(args.workspace).expanduser().resolve() if args.workspace else WORKSPACE_DIR
     log_file = log_path(workspace)
+    relation_file = relation_path(workspace)
     report_file = report_path(workspace)
 
     if args.command == "record":
@@ -256,7 +299,8 @@ def main() -> int:
         }
         append_record(log_file, record)
         records = read_records(log_file)
-        write_report(report_file, records)
+        relations = read_records(relation_file)
+        write_report(report_file, records, relations)
         print(
             json.dumps(
                 {
@@ -272,16 +316,51 @@ def main() -> int:
         )
         return 0
 
+    if args.command == "relation":
+        record = {
+            "recorded_at": now_iso(),
+            "ref": args.ref.strip(),
+            "dataset_id": args.dataset_id.strip(),
+            "section": args.section.strip(),
+            "name": args.name.strip(),
+            "source_type": args.source_type.strip(),
+            "reason": args.reason.strip(),
+            "actor": args.actor.strip() or "llm",
+            "targets": [normalize_relpath(workspace, item) for item in args.target if item.strip()],
+            "evidence": [normalize_relpath(workspace, item) for item in args.evidence if item.strip()],
+        }
+        append_record(relation_file, record)
+        records = read_records(log_file)
+        relations = read_records(relation_file)
+        write_report(report_file, records, relations)
+        print(
+            json.dumps(
+                {
+                    "success": True,
+                    "record": record,
+                    "relations": str(relation_file),
+                    "report": str(report_file),
+                    "relation_count": len(relations),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+
     if args.command == "report":
         records = read_records(log_file)
-        write_report(report_file, records)
+        relations = read_records(relation_file)
+        write_report(report_file, records, relations)
         print(
             json.dumps(
                 {
                     "success": True,
                     "log": str(log_file),
+                    "relations": str(relation_file),
                     "report": str(report_file),
                     "change_count": len(records),
+                    "relation_count": len(relations),
                 },
                 ensure_ascii=False,
                 indent=2,

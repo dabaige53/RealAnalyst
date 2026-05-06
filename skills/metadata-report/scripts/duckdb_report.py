@@ -27,6 +27,7 @@ from skills.metadata.lib.metadata_io import (  # noqa: E402
 )
 from skills.metadata.lib.value_patterns import clean_sample_values, infer_value_pattern  # noqa: E402
 from skills.metadata.scripts.validate_metadata import validate_dataset  # noqa: E402
+from report_context import build_report_context, render_markdown, write_context_json  # noqa: E402
 
 
 def default_report_dir(workspace: Path) -> Path:
@@ -268,13 +269,6 @@ def _evidence_sources(item: dict[str, Any]) -> list[str]:
         source = record.get("source")
         if isinstance(source, str) and source and source not in sources:
             sources.append(source)
-            continue
-        evidence_type = record.get("type")
-        evidence_value = record.get("value") or record.get("quote")
-        if evidence_type and evidence_value:
-            label = f"{evidence_type}:{evidence_value}"
-            if label not in sources:
-                sources.append(label)
     return sources
 
 
@@ -284,23 +278,7 @@ def _evidence_cell(item: dict[str, Any]) -> str:
 
 
 def _source_label(source: str) -> str:
-    if source.startswith("column_name:"):
-        return "字段名证据"
-    if source.startswith("metric_expression:"):
-        return "指标表达式"
-    if source.startswith("source_field:"):
-        return "来源字段"
-    if source.startswith("metadata/sources/refine/"):
-        return "样本画像"
-    if "raw_20260430" in source or "指标卡" in source or "术语" in source:
-        return "业务字典"
-    if "配置定义抽取" in source:
-        return "配置定义抽取"
-    if "duckdb_ho_schema_snapshot" in source:
-        return "DuckDB schema"
-    if source.startswith("duckdb.") or source.startswith("tableau."):
-        return "mapping"
-    return Path(source).name or source
+    return source
 
 
 def _review_source_text(item: dict[str, Any]) -> str:
@@ -497,22 +475,17 @@ def _field_kind(field: dict[str, Any]) -> str:
     return "属性"
 
 
-def _field_usage(field: dict[str, Any]) -> str:
-    role = str(field.get("role") or "")
-    if role == "time_dimension":
-        return "用于时间筛选和趋势分析"
-    if role == "dimension":
-        return "用于筛选、分组和下钻"
-    if role in {"metric_source", "measure_candidate"}:
-        return "用于指标计算或汇总"
-    return "用于补充识别记录"
-
-
 def _source_summary_cell(item: dict[str, Any]) -> str:
     source_text = _review_source_text(item)
     if source_text == "来源未配置":
         return _definition_source(item)
     return source_text
+
+
+def _review_location(section: str, item: dict[str, Any], dataset_id: str) -> str:
+    name = str(item.get("name") or item.get("display_name") or "").strip()
+    selector = f"{section}[name={name}].business_definition.text" if name else f"{section}.business_definition.text"
+    return f"metadata/datasets/{dataset_id}.yaml::{selector}"
 
 
 def _load_targets(*, key: str | None, all_entries: bool) -> list[dict[str, Any]]:
@@ -587,198 +560,22 @@ def render_sync_report(
     sync_mode: str,
     step_results: dict[str, str],
 ) -> str:
-    duckdb_meta = entry.get("duckdb") if isinstance(entry.get("duckdb"), dict) else {}
-    semantics = entry.get("semantics") if isinstance(entry.get("semantics"), dict) else {}
-    dimensions = _safe_list_dicts(spec.get("dimensions"))
-    measures = _safe_list_dicts(spec.get("measures"))
-    filters = _safe_list_dicts(spec.get("filters"))
-
-    validate_state = step_results.get("validate")
-    ready_status = "可用" if validate_state == "success" else "暂不建议用于正式分析" if validate_state == "failed" else "可用但未完成校验"
-    suitable_for = _safe_list_str(semantics.get("suitable_for"))
-    not_suitable_for = _safe_list_str(semantics.get("not_suitable_for"))
-    grain = _safe_list_str(semantics.get("grain"))
-    time_fields = _safe_list_str(semantics.get("time_fields"))
-    field_count = len(_safe_list_str(entry.get("fields")))
-
-    lines: list[str] = []
-    lines.append(f"# {_cell(entry.get('display_name') or 'DuckDB 数据源')} 元数据报告")
-    lines.append("")
-    lines.append("## 1. 数据源结论")
-    lines.append("")
-    lines.append("| 项目 | 内容 |")
-    lines.append("| --- | --- |")
-    lines.append(f"| 数据源 | {_cell(entry.get('display_name'))} |")
-    lines.append(f"| 数据类型 | DuckDB / {_cell(duckdb_meta.get('object_kind'))} |")
-    lines.append(f"| 当前状态 | {ready_status} |")
-    lines.append(f"| 数据规模 | {field_count} 个字段，{len(measures)} 个指标，{len(filters)} 个筛选入口 |")
-    lines.append(f"| 主要用途 | {_cell(_short_list(suitable_for))} |")
-    lines.append(f"| 不能用于 | {_cell(_short_list(not_suitable_for))} |")
-    lines.append("| 最大风险 | 旧 runtime registry 报告缺少完整 YAML 业务定义，不能替代 metadata YAML 报告。 |")
-    lines.append("| 待确认项 | 以 metadata YAML / mapping YAML 的 review 状态为准 |")
-    lines.append("")
-
-    lines.append("## 2. 业务适用场景")
-    lines.append("")
-    lines.append("### 2.1 可以直接支持")
-    lines.append("")
-    for item in suitable_for or ["未配置明确适用场景"]:
-        lines.append(f"- {item}")
-    lines.append("")
-    lines.append("### 2.2 可以使用，但需要先确认口径")
-    lines.append("")
-    lines.append("- 旧 runtime registry 报告只说明运行结构；正式口径应补齐或读取 metadata YAML。")
-    lines.append("")
-    lines.append("### 2.3 不建议用于")
-    lines.append("")
-    for item in not_suitable_for or ["未配置不适用场景"]:
-        lines.append(f"- {item}")
-    lines.append("")
-
-    lines.append("## 3. 核心字段与指标速查")
-    lines.append("")
-    lines.append("### 3.1 常用字段")
-    lines.append("")
-    if dimensions:
-        lines.append("| 名称 | 类型 | 业务含义 | 常见用途 | 口径状态 | 使用提醒 |")
-        lines.append("| --- | --- | --- | --- | --- | --- |")
-        for item in dimensions[:20]:
-            lines.append(f"| {_cell(item.get('name'))} | 维度 | 业务定义待确认 | 用于筛选、分组和下钻 | 待确认 | 建议补齐 metadata YAML。 |")
-    else:
-        lines.append("- 无维度字段。")
-    lines.append("")
-    lines.append("### 3.2 常用指标")
-    lines.append("")
-    if measures:
-        lines.append("| 指标 | 业务含义 | 计算或聚合方式 | 单位 | 适用粒度 | 口径状态 | 使用提醒 |")
-        lines.append("| --- | --- | --- | --- | --- | --- | --- |")
-        for item in measures[:20]:
-            lines.append(f"| {_cell(item.get('name'))} | 业务定义待确认 | DuckDB 字段 | 未配置 | {_cell(_short_list(grain))} | 待确认 | 建议补齐 metadata YAML。 |")
-    else:
-        lines.append("- 无指标。")
-    lines.append("")
-
-    lines.append("## 4. 筛选方式与常用入口")
-    lines.append("")
-    if filters:
-        lines.append("| 筛选入口 | 类型 | 示例值/规则 | 使用方式 | 使用提醒 |")
-        lines.append("| --- | --- | --- | --- | --- |")
-        for item in filters:
-            lines.append(f"| {_cell(item.get('display_name') or item.get('key'))} | DuckDB 筛选字段 | 未采样 | {_code(item.get('apply_via') or 'sql_where')} | 正式值以实时数据为准。 |")
-    else:
-        lines.append("- 无筛选器。")
-    lines.append("")
-
-    lines.append("## 5. 重点口径确认清单")
-    lines.append("")
-    lines.append("- 该报告来自旧 runtime registry 路径，待确认项需要回到 metadata YAML / mapping YAML 中维护。")
-    lines.append("")
-
-    lines.append("## 6. 数据边界与风险")
-    lines.append("")
-    lines.append("| 边界/风险 | 说明 | 对使用者的影响 |")
-    lines.append("| --- | --- | --- |")
-    lines.append("| 业务定义边界 | runtime registry 只说明运行时结构 | 不能作为最终业务口径来源。 |")
-    lines.append(f"| 校验状态 | {ready_status} | 校验失败时需要先修复 registry/spec。 |")
-    lines.append("")
-
-    lines.append("## 7. 完整字段与指标明细")
-    lines.append("")
-    lines.append("### 7.1 字段明细")
-    lines.append("")
-    if dimensions:
-        lines.append("| 名称 | 源字段 | 类型 | 角色 | 业务定义 | 示例/规则 | 口径状态 | 来源摘要 |")
-        lines.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
-        for item in dimensions:
-            lines.append(f"| {_cell(item.get('name'))} | {_code(item.get('name'))} | {_code(item.get('data_type'))} | dimension | 业务定义待确认 | 未采样 | 待确认 | runtime registry |")
-    else:
-        lines.append("- 无维度字段。")
-    lines.append("")
-    lines.append("### 7.2 指标明细")
-    lines.append("")
-    if measures:
-        lines.append("| 指标 | 源字段/表达式 | 聚合方式 | 单位 | 业务定义 | 适用粒度 | 口径状态 | 来源摘要 |")
-        lines.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
-        for item in measures:
-            lines.append(f"| {_cell(item.get('name'))} | {_code(item.get('name'))} | 未配置 | 未配置 | 业务定义待确认 | {_cell(_short_list(grain))} | 待确认 | runtime registry |")
-    else:
-        lines.append("- 无指标。")
-    lines.append("")
-    lines.append("### 7.3 筛选器明细")
-    lines.append("")
-    if filters:
-        lines.append("| 名称 | 类型 | 字段/参数 | 可选值/规则 | 是否必填 | 口径状态 | 来源摘要 |")
-        lines.append("| --- | --- | --- | --- | --- | --- | --- |")
-        for item in filters:
-            lines.append(f"| {_cell(item.get('display_name') or item.get('key'))} | DuckDB 筛选字段 | {_code(item.get('key'))} | 未采样 | 否 | 仅结构可用 | runtime registry |")
-    else:
-        lines.append("- 无筛选器。")
-    lines.append("")
-
-    lines.append("## 8. Connector 使用说明")
-    lines.append("")
-    lines.append("### 8.1 DuckDB 使用说明")
-    lines.append("")
-    lines.append("| 项目 | 值 |")
-    lines.append("| --- | --- |")
-    lines.append(f"| DuckDB 文件 | {_code(duckdb_meta.get('db_path'))} |")
-    lines.append(f"| Schema | {_code(duckdb_meta.get('schema'))} |")
-    lines.append(f"| 对象 | {_code(duckdb_meta.get('object_name'))} |")
-    lines.append(f"| 对象类型 | {_code(duckdb_meta.get('object_kind'))} |")
-    lines.append("| 查询边界 | runtime registry 同步说明，非 YAML 业务口径报告 |")
-    lines.append("")
-    lines.append("### 8.2 Tableau 使用说明")
-    lines.append("")
-    lines.append("- 无。该报告为 DuckDB 数据源报告。")
-    lines.append("")
-
-    lines.append("## 9. 技术维护附录")
-    lines.append("")
-    lines.append("### 9.1 注册与生成信息")
-    lines.append("")
-    lines.append("| 项目 | 值 |")
-    lines.append("| --- | --- |")
-    rows = [
-        ("source_id / dataset_id", entry.get("source_id")),
-        ("key", entry.get("key")),
-        ("type", entry.get("type")),
-        ("status", entry.get("status")),
-        ("category", entry.get("category")),
-        ("报告生成时间", generated_at.strftime("%Y-%m-%d %H:%M:%S %Z")),
-        ("默认报告目录", str(report_dir)),
-        ("执行链路", "register -> sync_registry -> validate -> generate_report"),
-        ("步骤状态", f"register={step_results.get('register', 'unknown')}, registry={step_results.get('registry', 'unknown')}, validate={step_results.get('validate', 'unknown')}"),
-    ]
-    for key, value in rows:
-        lines.append(f"| `{_cell(key)}` | {_code(value)} |")
-    lines.append("")
-    lines.append("### 9.2 Metadata 来源")
-    lines.append("")
-    lines.append("| 来源 | 用途 | 状态 |")
-    lines.append("| --- | --- | --- |")
-    lines.append("| runtime registry | 运行时结构 | 已读取 |")
-    lines.append("| metadata YAML | 业务定义、字段、指标、粒度和适用边界 | 未在该路径读取 |")
-    lines.append("")
-    lines.append("### 9.3 映射明细")
-    lines.append("")
-    lines.append("- 旧 runtime registry 路径不展开 mapping 明细。")
-    lines.append("")
-    lines.append("### 9.4 校验结果")
-    lines.append("")
-    lines.append("| 校验项 | 结果 | 说明 |")
-    lines.append("| --- | --- | --- |")
-    lines.append(f"| registry/spec validate | {ready_status} | 该结果只说明运行结构，不确认业务口径。 |")
-    lines.append("")
-
-    lines.append("## 10. 结论")
-    lines.append("")
-    lines.append(f"- 这份 DuckDB runtime metadata 当前状态：{ready_status}。")
-    lines.append(f"- 可以优先用于：{_short_list(suitable_for)}。")
-    lines.append(f"- 暂不应用于：{_short_list(not_suitable_for)}。")
-    lines.append("- 下一步需要确认：补齐或读取 metadata YAML 后再作为业务口径材料。")
-    lines.append("")
-
-    return "\n".join(lines) + "\n"
+    context = build_report_context(
+        connector="duckdb",
+        dataset=None,
+        mapping=None,
+        entry=entry,
+        spec=spec,
+        source_context=None,
+        sample_values=None,
+        duckdb_meta=entry.get("duckdb") if isinstance(entry.get("duckdb"), dict) else {},
+        export_summary=None,
+        manifest=None,
+        step_results=step_results,
+        generated_at=generated_at,
+        report_dir=report_dir,
+    )
+    return render_markdown(context)
 
 
 def render_yaml_metadata_report(
@@ -789,326 +586,24 @@ def render_yaml_metadata_report(
     report_dir: Path,
     step_results: dict[str, str],
 ) -> str:
-    dataset_id = str(dataset.get("id") or dataset.get("source_id") or "")
-    business = _safe_mapping(dataset.get("business"))
-    maintenance = _safe_mapping(dataset.get("maintenance"))
-    summary = _safe_mapping(dataset.get("source_summary"))
-    source = _safe_mapping(dataset.get("source"))
-    duckdb_meta = _duckdb_meta(dataset)
-    fields = _safe_list_dicts(dataset.get("fields"))
-    metrics = _safe_list_dicts(dataset.get("metrics"))
-    dimensions, measures, filters = _role_counts(fields)
-    sample_values = _collect_duckdb_sample_values(dataset, fields)
-    mapping_rows = _safe_list_dicts(_safe_mapping(mapping).get("mappings")) if mapping else []
-    metric_lookup = _metric_lookup_by_source(metrics)
-    review_fields = [
-        field
-        for field in fields
-        if _metric_for_field(field, metric_lookup) is None and _definition(field).get("needs_review") is True
-    ]
-    review_metrics = [metric for metric in metrics if _definition(metric).get("needs_review") is True]
-
-    display_name = _display(dataset.get("display_name"))
-    suitable_for = _safe_list_str(business.get("suitable_for"))
-    not_suitable_for = _safe_list_str(business.get("not_suitable_for"))
-    grain = _safe_list_str(business.get("grain"))
-    time_fields = _safe_list_str(business.get("time_fields"))
-    filterable_fields = [field for field in fields if field.get("role") in {"dimension", "time_dimension"}]
-    pending_questions = _pending_questions(maintenance.get("pending_questions"))
-    review_count = len(review_fields) + len(review_metrics)
-    validate_state = step_results.get("validate")
-    if validate_state == "failed":
-        ready_status = "暂不建议用于正式分析"
-        primary_risk = "`metadata validate` 未通过，需要先修复定义或结构问题"
-    elif review_count or pending_questions:
-        ready_status = "可用但有待确认"
-        primary_risk = "存在待确认字段或指标，相关口径不能直接用于正式结论"
-    else:
-        ready_status = "可用"
-        primary_risk = "示例值来自只读采样，不代表完整枚举"
-
-    lines: list[str] = []
-    lines.append(f"# {display_name} 元数据报告")
-    lines.append("")
-    lines.append("## 1. 数据源结论")
-    lines.append("")
-    lines.append("| 项目 | 内容 |")
-    lines.append("| --- | --- |")
-    lines.append(f"| 数据源 | {display_name} |")
-    lines.append(f"| 数据类型 | DuckDB / {_cell(duckdb_meta.get('object_kind') or _source_type(dataset))} |")
-    lines.append(f"| 当前状态 | {ready_status} |")
-    lines.append(
-        f"| 数据规模 | {_cell(duckdb_meta.get('row_count'))} 行，{len(fields)} 个字段，{len(metrics)} 个指标，{len(filterable_fields)} 个筛选入口 |"
+    fields_for_sampling = _safe_list_dicts(dataset.get("fields"))
+    sample_values = _collect_duckdb_sample_values(dataset, fields_for_sampling)
+    context = build_report_context(
+        connector="duckdb",
+        dataset=dataset,
+        mapping=mapping,
+        entry=None,
+        spec=None,
+        source_context=None,
+        sample_values=sample_values,
+        duckdb_meta=_duckdb_meta(dataset),
+        export_summary=None,
+        manifest=None,
+        step_results=step_results,
+        generated_at=generated_at,
+        report_dir=report_dir,
     )
-    lines.append(f"| 主要用途 | {_cell(_short_list(suitable_for))} |")
-    lines.append(f"| 不能用于 | {_cell(_short_list(not_suitable_for))} |")
-    lines.append(f"| 最大风险 | {_cell(primary_risk)} |")
-    lines.append(f"| 待确认项 | {len(review_fields)} 个字段，{len(review_metrics)} 个指标 |")
-    lines.append("")
-    lines.append("本报告说明这份 DuckDB 数据源的 metadata 设计、字段和指标口径、筛选方式、来源依据和待确认问题。它不输出经营分析结论，只说明这份数据能怎样被可靠使用。")
-    lines.append("")
-
-    lines.append("## 2. 业务适用场景")
-    lines.append("")
-    lines.append("### 2.1 可以直接支持")
-    lines.append("")
-    if suitable_for:
-        lines.append("| 场景 | 可用依据 | 使用提醒 |")
-        lines.append("| --- | --- | --- |")
-        basis = f"{len(fields)} 个字段、{len(metrics)} 个指标、粒度：{_short_list(grain)}"
-        for item in suitable_for:
-            lines.append(f"| {_cell(item)} | {_cell(basis)} | 先按第 3、4 章选择字段、指标和筛选入口。 |")
-    else:
-        lines.append("- 未配置明确适用场景。")
-    lines.append("")
-    lines.append("### 2.2 可以使用，但需要先确认口径")
-    lines.append("")
-    if review_fields or review_metrics or pending_questions:
-        lines.append("| 场景 | 当前缺口 | 确认后可支持什么 |")
-        lines.append("| --- | --- | --- |")
-        for metric in review_metrics[:10]:
-            lines.append(
-                f"| {_cell(metric.get('display_name') or metric.get('name'))} 相关分析 | 指标业务定义待确认 | 可作为确定指标进入正式分析口径。 |"
-            )
-        for field in review_fields[:10]:
-            lines.append(
-                f"| {_cell(field.get('display_name') or field.get('name'))} 相关筛选或分组 | 字段业务定义待确认 | 可作为稳定维度进入分析上下文。 |"
-            )
-        for question in pending_questions[:10]:
-            lines.append(f"| 待确认主题 | {_cell(question)} | 明确后可补齐字段、指标或边界说明。 |")
-    else:
-        lines.append("- 当前没有显式待确认字段或指标。")
-    lines.append("")
-    lines.append("### 2.3 不建议用于")
-    lines.append("")
-    if not_suitable_for:
-        lines.append("| 场景 | 原因 |")
-        lines.append("| --- | --- |")
-        for item in not_suitable_for:
-            lines.append(f"| {_cell(item)} | 当前 metadata 已标记为不适用场景。 |")
-    else:
-        lines.append("- 未配置不适用场景；正式分析前仍需核对数据口径。")
-    lines.append("")
-
-    lines.append("## 3. 核心字段与指标速查")
-    lines.append("")
-    lines.append("### 3.1 常用字段")
-    lines.append("")
-    core_fields = [field for field in fields if field.get("role") in {"time_dimension", "dimension"}][:20]
-    if core_fields:
-        lines.append("| 名称 | 类型 | 业务含义 | 常见用途 | 口径状态 | 使用提醒 |")
-        lines.append("| --- | --- | --- | --- | --- | --- |")
-        for field in core_fields:
-            definition_item = _metric_for_field(field, metric_lookup) or field
-            lines.append(
-                f"| {_cell(field.get('display_name') or field.get('name'))} | {_cell(_field_kind(field))} | "
-                f"{_cell(_definition_text(definition_item))} | {_cell(_field_usage(field))} | "
-                f"{_cell(_definition_status(definition_item))} | 示例值不是完整枚举。 |"
-            )
-    else:
-        lines.append("- 无核心维度字段。")
-    lines.append("")
-    lines.append("### 3.2 常用指标")
-    lines.append("")
-    if metrics:
-        lines.append("| 指标 | 业务含义 | 计算或聚合方式 | 单位 | 适用粒度 | 口径状态 | 使用提醒 |")
-        lines.append("| --- | --- | --- | --- | --- | --- | --- |")
-        for metric in metrics[:20]:
-            aggregation = metric.get("aggregation") or metric.get("expression") or _metric_source_name(metric)
-            lines.append(
-                f"| {_cell(metric.get('display_name') or metric.get('name'))} | {_cell(_definition_text(metric))} | "
-                f"{_cell(aggregation)} | {_cell(metric.get('unit'))} | {_cell(_short_list(grain))} | "
-                f"{_cell(_definition_status(metric))} | 待确认指标不能直接用于正式结论。 |"
-            )
-    else:
-        lines.append("- 无指标。该数据源按 lookup 维表注册，只提供维度补充，不直接提供业务指标。")
-    lines.append("")
-
-    lines.append("## 4. 筛选方式与常用入口")
-    lines.append("")
-    lines.append("| 筛选入口 | 类型 | 示例值/规则 | 使用方式 | 使用提醒 |")
-    lines.append("| --- | --- | --- | --- | --- |")
-    for field in filterable_fields[:30]:
-        source_field = field.get("source_field") or field.get("physical_name") or field.get("name")
-        sample_cell = _format_sample_values_with_pattern(_sample_values_for_field(sample_values, source_field))
-        lines.append(
-            f"| {_cell(field.get('display_name') or field.get('name'))} | {_cell(_field_kind(field))} | "
-            f"{_cell(sample_cell)} | `sql_where` | 按 {_code(source_field)} 过滤；样例来自只读采样。 |"
-        )
-    if not filterable_fields:
-        lines.append("| 未配置 | 未配置 | 未配置 | 未配置 | 无已注册筛选候选字段。 |")
-    lines.append("")
-    lines.append("示例值只用于帮助识别字段值域，不代表完整枚举。DuckDB 数据源没有 Tableau 参数；正式取数筛选应通过 `sql_where` 或 data-export 的 DuckDB 筛选参数表达。")
-    lines.append("")
-
-    lines.append("## 5. 重点口径确认清单")
-    lines.append("")
-    if review_fields or review_metrics or pending_questions:
-        lines.append("| 优先级 | 主题 | 影响 | 当前问题 | 建议确认对象/材料 | 确认后用途 |")
-        lines.append("| --- | --- | --- | --- | --- | --- |")
-        for metric in review_metrics:
-            name = metric.get("display_name") or metric.get("name")
-            lines.append(f"| 高 | {_cell(name)} | 影响指标解释和汇总口径 | 业务定义待确认 | 业务字典或指标负责人 | 可进入正式指标口径。 |")
-        for field in review_fields:
-            name = field.get("display_name") or field.get("name")
-            lines.append(f"| 中 | {_cell(name)} | 影响筛选、分组或字段解释 | 业务定义待确认 | 数据源 owner 或口径文档 | 可作为稳定维度使用。 |")
-        for question in pending_questions:
-            lines.append(f"| 中 | 待确认主题 | 影响 metadata 完整性 | {_cell(question)} | 数据源 owner 或业务口径材料 | 补齐报告边界和使用说明。 |")
-    else:
-        lines.append("- 无显式待确认字段或指标。")
-    lines.append("")
-
-    lines.append("## 6. 数据边界与风险")
-    lines.append("")
-    lines.append("| 边界/风险 | 说明 | 对使用者的影响 |")
-    lines.append("| --- | --- | --- |")
-    lines.append(f"| 数据口径 | {_cell(dataset.get('description') or business.get('description') or '未配置业务描述')} | 只能按当前 metadata 描述解释数据。 |")
-    lines.append("| 样本值边界 | 示例值来自报告生成时的 DuckDB 只读采样 | 不能当作完整枚举清单。 |")
-    lines.append("| registry 边界 | YAML 模式下未反写 runtime registry | `registry.db` 不能作为业务口径来源。 |")
-    validate_text = "通过" if validate_state == "success" else "失败" if validate_state == "failed" else "未执行"
-    lines.append(f"| 校验状态 | metadata validate {validate_text} | 失败时报告只能作为待修复清单。 |")
-    lines.append("")
-
-    lines.append("## 7. 完整字段与指标明细")
-    lines.append("")
-    lines.append("### 7.1 字段明细")
-    lines.append("")
-    if fields:
-        lines.append("| 名称 | 源字段 | 类型 | 角色 | 业务定义 | 示例/规则 | 口径状态 | 来源摘要 |")
-        lines.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
-        for field in fields:
-            source_field = _field_source_name(field)
-            definition_item = _metric_for_field(field, metric_lookup) or field
-            lines.append(
-                f"| {_cell(field.get('display_name') or field.get('name'))} | {_code(source_field)} | "
-                f"{_code(field.get('type'))} | {_code(field.get('role'))} | {_cell(_definition_text(definition_item))} | "
-                f"{_cell(_sample_cell_for_field(field, sample_values))} | {_cell(_definition_status(definition_item))} | "
-                f"{_cell(_source_summary_cell(definition_item))} |"
-            )
-    else:
-        lines.append("- 无字段。")
-    lines.append("")
-    lines.append("### 7.2 指标明细")
-    lines.append("")
-    if metrics:
-        lines.append("| 指标 | 源字段/表达式 | 聚合方式 | 单位 | 业务定义 | 适用粒度 | 口径状态 | 来源摘要 |")
-        lines.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
-        for metric in metrics:
-            source_or_expression = metric.get("expression") or _metric_source_name(metric)
-            lines.append(
-                f"| {_cell(metric.get('display_name') or metric.get('name'))} | {_code(source_or_expression)} | "
-                f"{_code(metric.get('aggregation'))} | {_code(metric.get('unit'))} | {_cell(_definition_text(metric))} | "
-                f"{_cell(_short_list(grain))} | {_cell(_definition_status(metric))} | {_cell(_source_summary_cell(metric))} |"
-            )
-    else:
-        lines.append("- 无指标。该数据源按 lookup 维表注册，只提供维度补充，不直接提供业务指标。")
-    lines.append("")
-    lines.append("### 7.3 筛选器明细")
-    lines.append("")
-    if filterable_fields:
-        lines.append("| 名称 | 类型 | 字段 | 可选值/规则 | 是否必填 | 口径状态 | 来源摘要 |")
-        lines.append("| --- | --- | --- | --- | --- | --- | --- |")
-        for field in filterable_fields:
-            source_field = field.get("source_field") or field.get("physical_name") or field.get("name")
-            definition_item = _metric_for_field(field, metric_lookup) or field
-            sample_cell = _format_sample_values_with_pattern(_sample_values_for_field(sample_values, source_field))
-            lines.append(
-                f"| {_cell(field.get('display_name') or field.get('name'))} | DuckDB 筛选字段 | {_code(source_field)} | "
-                f"{_cell(sample_cell)} | 否 | {_cell(_definition_status(definition_item))} | {_cell(_source_summary_cell(definition_item))} |"
-            )
-    else:
-        lines.append("- 无已注册筛选候选字段。")
-    lines.append("")
-
-    lines.append("## 8. Connector 使用说明")
-    lines.append("")
-    lines.append("### 8.1 DuckDB 使用说明")
-    lines.append("")
-    lines.append("| 项目 | 值 |")
-    lines.append("| --- | --- |")
-    lines.append(f"| DuckDB 文件 | {_code(duckdb_meta.get('path'))} |")
-    lines.append(f"| Schema | {_code(duckdb_meta.get('schema'))} |")
-    lines.append(f"| 对象 | {_code(duckdb_meta.get('object_name'))} |")
-    lines.append(f"| 对象类型 | {_code(duckdb_meta.get('object_kind'))} |")
-    lines.append(f"| 查询边界 | 只读采样；报告不改写业务数据 |")
-    lines.append("")
-    lines.append("| 业务筛选 | DuckDB 条件示例 | 注意事项 |")
-    lines.append("| --- | --- | --- |")
-    for field in filterable_fields[:20]:
-        source_field = field.get("source_field") or field.get("physical_name") or field.get("name")
-        lines.append(f"| {_cell(field.get('display_name') or field.get('name'))} | `{_quote_ident(source_field)} = '<value>'` | 示例写法，正式值以实时数据为准。 |")
-    if not filterable_fields:
-        lines.append("| 无 | 无 | 无筛选候选字段。 |")
-    lines.append("")
-    lines.append("### 8.2 Tableau 使用说明")
-    lines.append("")
-    lines.append("- 无。该报告为 DuckDB 数据源报告。")
-    lines.append("")
-
-    lines.append("## 9. 技术维护附录")
-    lines.append("")
-    lines.append("### 9.1 注册与生成信息")
-    lines.append("")
-    lines.append("| 项目 | 值 |")
-    lines.append("| --- | --- |")
-    rows = [
-        ("source_id / dataset_id", dataset_id),
-        ("key", dataset_id),
-        ("type", _source_type(dataset)),
-        ("status", summary.get("status") or "active"),
-        ("category", summary.get("category") or business.get("domain")),
-        ("mapping_ref", dataset.get("mapping_ref")),
-        ("报告生成时间", generated_at.strftime("%Y-%m-%d %H:%M:%S %Z")),
-        ("默认报告目录", str(report_dir)),
-        ("执行链路", "metadata_yaml -> validate -> generate_report"),
-        ("步骤状态", f"register={step_results.get('register', 'success')}, registry=not_written, validate={step_results.get('validate', 'unknown')}"),
-    ]
-    for key, value in rows:
-        lines.append(f"| `{_cell(key)}` | {_code(value)} |")
-    lines.append("")
-    lines.append("### 9.2 Metadata 来源")
-    lines.append("")
-    lines.append("| 来源 | 用途 | 状态 |")
-    lines.append("| --- | --- | --- |")
-    lines.append("| `metadata/datasets/*.yaml` | 数据集、字段、指标、粒度和适用边界 | 已读取 |")
-    lines.append(f"| `metadata/mappings/*.yaml` | 源字段到标准语义的映射和 review 状态 | {'已读取' if mapping_rows else '未配置'} |")
-    lines.append("| `metadata/dictionaries/*.yaml` | 公共指标、维度和术语定义 | 通过 definition source 间接引用 |")
-    lines.append("| `metadata/sources/` | 原始证据、发现结果、用户说明和样本画像 | 作为来源摘要使用，完整路径不进入正文主线 |")
-    lines.append("| runtime registry | 运行时可用性 | YAML 模式未反写，不作为业务口径来源 |")
-    lines.append("")
-    lines.append("### 9.3 映射明细")
-    lines.append("")
-    if mapping_rows:
-        lines.append("| 源字段 | 类型 | 标准 ID | 字段 ID/覆盖 | 维护说明 |")
-        lines.append("| --- | --- | --- | --- | --- |")
-        for row in mapping_rows:
-            lines.append(f"| {_code(row.get('view_field'))} | {_code(row.get('type'))} | {_code(row.get('standard_id'))} | {_code(row.get('field_id_or_override'))} | {_cell(_mapping_note(row))} |")
-    else:
-        lines.append("- 待补充映射。")
-    lines.append("")
-    lines.append("### 9.4 校验结果")
-    lines.append("")
-    lines.append("| 校验项 | 结果 | 说明 |")
-    lines.append("| --- | --- | --- |")
-    lines.append(f"| metadata validate | {validate_text} | {'通过，可作为 metadata 说明使用。' if validate_state == 'success' else '未通过或未执行时，需要先修复或补充证据。'} |")
-    lines.append("| registry write | skipped | YAML 模式下不反写 runtime registry。 |")
-    lines.append("")
-
-    lines.append("## 10. 结论")
-    lines.append("")
-    lines.append(f"- 这份 DuckDB metadata 当前状态：{ready_status}。")
-    lines.append(f"- 可以优先用于：{_short_list(suitable_for)}。")
-    lines.append(f"- 暂不应用于：{_short_list(not_suitable_for)}。")
-    if review_fields or review_metrics:
-        top_reviews = [str(item.get("display_name") or item.get("name")) for item in [*review_metrics, *review_fields]][:5]
-        lines.append(f"- 下一步需要确认：{_short_list(top_reviews, limit=5)}。")
-    elif pending_questions:
-        lines.append(f"- 下一步需要确认：{_short_list(pending_questions, limit=3)}。")
-    else:
-        lines.append("- 下一步需要确认：无显式待确认项。")
-    lines.append("")
-
-    return "\n".join(lines) + "\n"
+    return render_markdown(context)
 
 
 def write_report(

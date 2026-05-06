@@ -21,6 +21,7 @@ description: Use when analysis jobs, user feedback, profile outputs, or real-dat
 - 直接修改 `metadata/datasets/*.yaml`、`metadata/mappings/*.yaml` 或 `metadata/dictionaries/*.yaml`。使用 `RA:metadata`。
 - 执行正式分析、写报告或生成业务结论。使用 `RA:analysis-run` / `RA:report`。
 - 发布 index 或同步 `runtime/registry.db`。使用 `RA:metadata validate/index/sync-registry`。
+- 把 profile、sample values、enum candidates、nullable、physical type 或 source mapping 写回 dataset YAML。
 
 ## Workflow
 
@@ -85,8 +86,11 @@ metadata/sources/refine/{refine_id}/
 
 - `runtime/metadata-refine/` 是临时工作区。
 - `metadata/sources/refine/` 是归档证据区。
-- `evidence_manifest.json` 必须记录 `job_id`、输入 CSV、profile、feedback 和归档路径。
+- `evidence_manifest.json` 必须记录 `job_id`、输入 CSV、profile、feedback 和归档路径；正式 YAML 只能通过 `business_definition.ref` 引用关联记录，不复制 evidence。
 - 参考材料可以提出建议，但不得声明为已确认口径。
+- profile 输出只允许留在 `runtime/metadata-refine/` 草稿区或归档后的 `metadata/sources/refine/`；不得自动生成 dataset YAML patch。
+- 枚举候选、样本值、空值率和物理类型只能作为 registry upsert / data_probe 建议，不得写成 `enum_values`、`sample_profile`、`sample_values`、`top_values`、`duckdb_type` 或 `nullable` 字段。
+- 发现 source 字段映射时，只生成 `metadata/mappings/*.yaml` 维护建议，不在 dataset fields/metrics 内嵌 `source_mapping`。
 - 如果材料含样例值或业务敏感信息，归档前必须先脱敏或确认该项目允许保存。
 
 ## Completion Summary

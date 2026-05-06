@@ -194,6 +194,29 @@ relationships: []
 
 Datasets may reference dictionaries and mappings. They should not duplicate full public dictionaries.
 
+Dataset YAML is a semantic entry, not a profile store, enum store, mapping file, or registry snapshot.
+
+Do not write these keys anywhere in `metadata/datasets/*.yaml`:
+
+- `sample_profile`
+- `sample_values`
+- `top_values`
+- `enum_values`
+- `source_mapping`
+- `definition_source`
+- `duckdb_type`
+- `nullable`
+
+Dataset field and metric definitions must use `business_definition.ref` to point to dictionary, mapping, or audit evidence. Do not expand `source_evidence`, `quote`, `source`, or document paths into dataset field/metric definitions.
+
+Move source field mappings to `metadata/mappings/*.yaml`. Move sample values, profile summaries, enum candidates, nullable flags, physical type snapshots, and registry data to `metadata/sources/refine/`, connector snapshots, or `runtime/registry.db`. Keep change logs, relation records, review trails, and diff reports in `metadata/audit/`.
+
+Metrics are formal analysis measures. Do not register a metric whose `business_definition.source_type` is `pending`; keep that item as a field, refine suggestion, or metadata gap until the metric has a usable definition.
+
+`description` is a short human summary. `business_definition.text` is the structured definition. They must not be identical.
+
+`metadata validate` enforces this responsibility boundary. A dataset YAML over 1000 lines produces a warning; over 1500 lines is treated as a failed boundary check because it usually means profile, enum, mapping, registry, or repeated evidence data has leaked into the semantic layer.
+
 ## index/
 
 Generated only. Do not hand-edit:

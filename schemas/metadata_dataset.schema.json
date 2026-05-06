@@ -66,9 +66,11 @@
     "business_definition": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["text", "confidence", "source_evidence", "needs_review"],
+      "required": ["text", "source_type", "confidence", "needs_review"],
       "properties": {
         "text": { "type": "string" },
+        "source_type": { "type": "string", "enum": ["user_confirmed", "mapping_override", "dictionary", "industry_draft", "pending"] },
+        "ref": { "type": "string" },
         "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
         "source_evidence": { "type": "array", "items": { "$ref": "#/$defs/source_evidence" } },
         "needs_review": { "type": "boolean" }

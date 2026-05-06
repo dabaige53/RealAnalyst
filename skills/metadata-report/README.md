@@ -1,14 +1,14 @@
 # RA:metadata-report
 
-把 RealAnalyst 的元数据、connector 同步结果、数据源注册信息和待 review 问题写成可复核的 Markdown 报告。
+把 RealAnalyst 的元数据、连接器同步结果、数据源注册信息和待补齐项写成可复核的 Markdown 报告。
 
 ---
 
 ## 什么时候用？
 
-- 需要生成、补齐或解释 metadata Markdown 报告。
-- 需要说明 Tableau / DuckDB metadata report 中同步了什么、哪些字段进入 metadata、哪些仍待确认。
-- 需要做 metadata inventory、注册结果说明、字段口径审阅清单或 review gap 报告。
+- 需要生成、补齐或解释元数据 Markdown 报告。
+- 需要说明 Tableau / DuckDB 元数据报告中同步了什么、哪些字段进入元数据、哪些仍待补齐。
+- 需要做元数据清单、注册结果说明、字段口径补齐清单或待补齐项报告。
 
 **不要用于**：
 
@@ -28,6 +28,7 @@
 | `metadata/dictionaries/*.yaml` | 公共指标、维度、术语定义 |
 | `metadata/sources/` | 原始证据、用户文档、connector discovery 归档 |
 | connector discovery/sync 素材 | Tableau / DuckDB 字段、筛选器、参数或 catalog 发现结果 |
+| `metadata/audit/*` | 只作为审计和维护追溯层，不作为业务定义真源 |
 
 ## 主要输出
 
@@ -57,15 +58,15 @@ python3 skills/metadata-report/scripts/generate_report.py --connector duckdb --a
 
 | 卡点 | 处理 |
 | --- | --- |
-| validate 失败 | 报告降级为"元数据待修复报告"，失败项进入待确认问题 |
+| validate 失败 | 报告降级为"元数据待修复报告"，失败项进入待补齐清单 |
 | 不知道用哪个脚本入口 | 统一用 `skills/metadata-report/scripts/generate_report.py`；优先传 `--dataset-id` |
 | 想写分析结论 | 不要用本 skill；分析结论报告使用 `RA:report` |
-| 字段名看不懂 | 回到 `metadata/dictionaries/` 和 `metadata/mappings/` 找证据；找不到就标记待确认 |
+| 字段没有定义 | 不根据字段名猜含义；进入“元数据补齐清单”，补齐位置指向对应 dataset YAML 节点 |
 
 ---
 
 ## 与其他 skill 的关系
 
-- **RA:metadata** → 负责维护 YAML、注册数据集、生成 index/context。metadata-report 只负责把元数据写成报告。
+- **RA:metadata** → 负责维护 YAML、注册数据集、生成索引和上下文。metadata-report 只负责把元数据写成报告。
 - **RA:report** → 负责写分析结论报告。metadata-report 不输出业务经营结论。
 - **RA:getting-started** → 初次使用时可能需要先跑 getting-started，再用 metadata-report 检视注册结果。

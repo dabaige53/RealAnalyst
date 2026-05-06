@@ -47,9 +47,6 @@ fields:
       text: Identifier for one order record.
       source_type: industry_draft
       confidence: 0.95
-      source_evidence:
-        - type: column_name
-          value: order_id
       needs_review: false
     synonyms: [order number]
     sensitive_level: public
@@ -63,9 +60,6 @@ fields:
       text: Calendar date used for order trend analysis.
       source_type: industry_draft
       confidence: 0.9
-      source_evidence:
-        - type: column_name
-          value: order_date
       needs_review: false
     synonyms: [purchase date, transaction date]
     sensitive_level: public
@@ -78,10 +72,8 @@ fields:
     business_definition:
       text: Region used for grouping order performance.
       source_type: mapping_override
+      ref: mapping:demo.retail.orders.mapping:region
       confidence: 0.82
-      source_evidence:
-        - type: column_name
-          value: region
       needs_review: false
     synonyms: [sales region, territory]
     sensitive_level: public
@@ -94,10 +86,8 @@ fields:
     business_definition:
       text: Order revenue amount. Tax and shipping inclusion is not confirmed.
       source_type: mapping_override
+      ref: mapping:demo.retail.orders.mapping:total_revenue
       confidence: 0.64
-      source_evidence:
-        - type: column_name
-          value: revenue
       needs_review: true
     synonyms: [sales, order amount]
     sensitive_level: public
@@ -112,12 +102,8 @@ metrics:
     business_definition:
       text: Total order revenue calculated by summing the revenue field.
       source_type: dictionary
+      ref: demo.retail.dictionary.total_revenue
       confidence: 0.64
-      source_evidence:
-        - type: metric_expression
-          value: SUM(revenue)
-        - type: source_field
-          value: revenue
       needs_review: true
     synonyms: [sales, total sales]
 relationships: []

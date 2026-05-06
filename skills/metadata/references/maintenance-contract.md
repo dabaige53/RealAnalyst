@@ -25,7 +25,8 @@
 - 公共指标、公共维度、公共术语不放入 `metadata/datasets/`。
 - 用户提供的原始文件先进入 `metadata/sources/`，其他 YAML 再引用项目内路径作为证据。
 - 每次修改 dictionaries/mappings/datasets YAML 后，必须运行 `metadata record-change`，记录修改原因、涉及文件、dataset 和证据路径。
-- `metadata/audit/metadata_changes.jsonl` 是机器可读日志，`metadata/audit/metadata_change_report.md` 是人工审阅报告。
+- `metadata/audit/metadata_changes.jsonl` 是机器可读变更日志，`metadata/audit/metadata_relations.jsonl` 是 `business_definition.ref` 到 dictionary/mapping/source/audit evidence 的关联记录，`metadata/audit/metadata_change_report.md` 是人工审阅报告。
+- `metadata/audit/*` 只用于追溯和维护，不进入分析 context，不作为业务定义真源。
 
 ## 原独立 skills 的合并关系
 

@@ -27,6 +27,7 @@ COMMANDS = (
     "inventory",
     "export-osi",
     "record-change",
+    "record-relation",
     "change-report",
     "list-commands",
 )
@@ -94,6 +95,17 @@ def build_parser() -> argparse.ArgumentParser:
     record_change.add_argument("--evidence", action="append", default=[])
     record_change.add_argument("--details", default="")
     record_change.add_argument("--actor", default="llm")
+
+    record_relation = subparsers.add_parser("record-relation", help="Append a metadata ref relation audit record.")
+    record_relation.add_argument("--ref", required=True)
+    record_relation.add_argument("--dataset-id", required=True)
+    record_relation.add_argument("--section", required=True, choices=("fields", "metrics", "dataset"))
+    record_relation.add_argument("--name", default="")
+    record_relation.add_argument("--target", action="append", default=[])
+    record_relation.add_argument("--evidence", action="append", default=[])
+    record_relation.add_argument("--source-type", default="")
+    record_relation.add_argument("--reason", default="")
+    record_relation.add_argument("--actor", default="llm")
 
     enrich = subparsers.add_parser("enrich-definitions", help="Enrich dataset business definitions from mappings and dictionaries.")
     enrich.add_argument("--dataset-id", action="append", required=True)
@@ -203,6 +215,31 @@ def main(argv: list[str] | None = None) -> int:
             forwarded.extend(["--before", before])
         for dataset_id in args.dataset_id:
             forwarded.extend(["--dataset-id", dataset_id])
+        for evidence in args.evidence:
+            forwarded.extend(["--evidence", evidence])
+        return run_python_script(workspace, metadata_script("metadata_audit.py"), forwarded)
+
+    if args.command == "record-relation":
+        forwarded = [
+            *workspace_args(workspace),
+            "relation",
+            "--ref",
+            args.ref,
+            "--dataset-id",
+            args.dataset_id,
+            "--section",
+            args.section,
+            "--actor",
+            args.actor,
+        ]
+        if args.name:
+            forwarded.extend(["--name", args.name])
+        if args.source_type:
+            forwarded.extend(["--source-type", args.source_type])
+        if args.reason:
+            forwarded.extend(["--reason", args.reason])
+        for target in args.target:
+            forwarded.extend(["--target", target])
         for evidence in args.evidence:
             forwarded.extend(["--evidence", evidence])
         return run_python_script(workspace, metadata_script("metadata_audit.py"), forwarded)
