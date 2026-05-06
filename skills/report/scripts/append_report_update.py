@@ -136,8 +136,6 @@ def _append_bullet_under_heading(text: str, heading: str, bullet: str) -> str:
         text = _ensure_section(text, heading)
 
     bullet_line = f"- {bullet}".strip()
-    if bullet_line in text:
-        return text
 
     m = re.search(rf"(?m)^{re.escape(heading)}\s*$", text)
     if not m:
@@ -150,6 +148,9 @@ def _append_bullet_under_heading(text: str, heading: str, bullet: str) -> str:
     end = start + (m2.start() if m2 else len(rest))
 
     section = text[start:end]
+    if bullet_line in section:
+        return text
+
     new_section = section.rstrip() + "\n" + bullet_line + "\n\n"
 
     return text[:start] + new_section + text[end:]
@@ -184,7 +185,7 @@ def _refresh_output_file_list(text: str, job_dir: Path) -> str:
     heading = "## 输出文件清单"
     analysis_products, raw_data = _scan_output_files(job_dir)
 
-    block_lines = [heading, "", "### 分析产物(可交付)"]
+    block_lines = [heading, "", "### 分析产物(已附邮件)"]
     if analysis_products:
         block_lines += [f"- {p}" for p in analysis_products]
     else:
