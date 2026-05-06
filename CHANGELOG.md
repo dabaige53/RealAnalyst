@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.12 - 2026-05-06
+
+- Restored the Tableau metadata report renderer to the business-first 10-section structure.
+- Kept Tableau export validation details embedded inside the technical appendix instead of emitting a separate validation chapter.
+- Tightened pending-definition detection and report update append behavior.
+
 ## 0.3.11 - 2026-05-06
 
 - Fixed `RA:analysis-reference` template lookup in project-local `.agents/skills` installations.

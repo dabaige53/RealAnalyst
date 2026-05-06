@@ -190,69 +190,6 @@ def _review_text(item: dict[str, Any]) -> str:
     return f"已确认：{source_text}" if definition else "未配置"
 
 
-def _append_column_notes(lines: list[str], notes: list[tuple[str, str]]) -> None:
-    lines.append("表头说明：")
-    lines.append("")
-    lines.append("| 表头 | 含义 |")
-    lines.append("| --- | --- |")
-    for name, meaning in notes:
-        lines.append(f"| `{name}` | {meaning} |")
-    lines.append("")
-
-
-FIELD_COLUMN_NOTES = [
-    ("展示名", "报告中给业务用户看的字段名称。"),
-    ("Tableau 字段", "Tableau 视图里暴露的真实字段名。"),
-    ("Tableau 类型", "Tableau discovery 或 spec 中记录的字段类型。"),
-    ("metadata 类型", "metadata 归一后的类型，用于分析上下文。"),
-    ("角色", "字段在分析中的用途，例如维度、时间字段或指标候选。"),
-    ("业务定义", "已确认的业务口径；没有真实定义时只写业务定义待确认。"),
-    ("定义来源", "定义来自字典、映射覆盖或 pending 待确认状态。"),
-    ("示例/规则", "字段样例值或格式规则；不是完整枚举。"),
-    ("证据", "支撑该字段说明的真实 YAML、source 或 Tableau 素材。"),
-    ("Review", "是否可作为确认口径，以及对应真实来源。"),
-]
-
-
-METRIC_COLUMN_NOTES = [
-    ("指标", "报告中给业务用户看的指标名称。"),
-    ("Tableau 字段", "指标对应的 Tableau 字段名。"),
-    ("表达式", "metadata 记录的指标取数字段或计算表达式。"),
-    ("聚合方式", "默认汇总方式，例如 sum、avg 或 weighted_avg。"),
-    ("单位", "指标单位；没有事实时显示未配置。"),
-    ("业务定义", "已确认的业务口径；没有真实定义时只写业务定义待确认。"),
-    ("定义来源", "定义来自字典、映射覆盖或 pending 待确认状态。"),
-    ("证据", "支撑该指标说明的真实 YAML、source 或 Tableau 素材。"),
-    ("Review", "是否可作为确认口径，以及对应真实来源。"),
-]
-
-
-FILTER_COLUMN_NOTES = [
-    ("字段", "Tableau 视图暴露的筛选字段。"),
-    ("当前类型", "Tableau spec 中记录的筛选类型。"),
-    ("传参方式", "后续导出时使用 `--vf` 传入。"),
-    ("示例值/规则", "当前采集到的示例值或格式规则，不代表完整枚举。"),
-    ("说明", "该筛选字段的使用边界。"),
-]
-
-
-PARAMETER_COLUMN_NOTES = [
-    ("参数", "Tableau 参数名。"),
-    ("推荐格式", "建议传入的数据格式。"),
-    ("示例", "后续导出时使用 `--vp` 的写法。"),
-    ("用途", "该参数控制的查询含义。"),
-]
-
-
-MAPPING_COLUMN_NOTES = [
-    ("源字段", "数据源中的真实字段名。"),
-    ("类型", "该映射对应 metric、dimension 或 field。"),
-    ("标准 ID", "映射到公共语义字典的 ID；source_specific 表示没有公共标准。"),
-    ("字段 ID/覆盖", "源字段本地 ID 或覆盖字段名，不等同于公共标准。"),
-    ("说明", "来自 mapping 的人工说明；无真实定义时只提示待补充。"),
-]
-
-
 def _field_source_name(field: dict[str, Any]) -> str:
     return str(field.get("source_field") or field.get("physical_name") or field.get("name") or "")
 
@@ -380,15 +317,6 @@ def _dimension_explanation(name: str, row: dict[str, Any]) -> str:
     return ""
 
 
-def _render_filter_values(values: list[str]) -> list[str]:
-    if not values:
-        return ["- 当前未采到样例值"]
-    pattern = infer_value_pattern(values)
-    if pattern:
-        return [f"- `{pattern['example']}`（正则：`{pattern['regex']}`）"]
-    return [f"- `{value}`" for value in values]
-
-
 def _format_sample_cell(values: list[str]) -> str:
     if not values:
         return "无"
@@ -396,10 +324,6 @@ def _format_sample_cell(values: list[str]) -> str:
     if pattern:
         return f"{pattern['example']}（正则：`{pattern['regex']}`）"
     return "、".join(values[:5])
-
-
-def _has_sample_values(items: list[dict[str, Any]]) -> bool:
-    return any(_safe_list_str(item.get("sample_values")) for item in items)
 
 
 def _short_list(values: list[str], *, limit: int = 3, fallback: str = "未配置") -> str:
@@ -445,16 +369,6 @@ def _source_summary_cell(item: dict[str, Any]) -> str:
     if source_text == "来源未配置":
         return _definition_source(item)
     return source_text
-
-
-def _usage_example_for_filter(filter_item: dict[str, Any]) -> str:
-    field = str(filter_item.get("tableau_field") or filter_item.get("key") or "")
-    values = _safe_list_str(filter_item.get("sample_values"))
-    if not field:
-        return ""
-    if not values:
-        return "不建议直接使用"
-    return f'`--vf "{field}={values[0]}"`'
 
 
 def _parse_export_payload(path_value: str | None) -> dict[str, Any] | None:
@@ -509,9 +423,8 @@ def _export_section(
             lines.append(f"{index}. `{column.get('name', '')}`")
         lines.append("")
 
-        logical_count = len(_safe_list_dicts(load_spec_by_entry_key(str(entry.get("key"))) or {}.get("dimensions"))) + len(
-            _safe_list_dicts(load_spec_by_entry_key(str(entry.get("key"))) or {}.get("measures"))
-        )
+        _spec = load_spec_by_entry_key(str(entry.get("key"))) or {}
+        logical_count = len(_safe_list_dicts(_spec.get("dimensions"))) + len(_safe_list_dicts(_spec.get("measures")))
         physical_count = len((((manifest.get("schema") or {}).get("columns")) or []))
         if logical_count and physical_count and logical_count != physical_count:
             lines.append("#### 结构差异说明")
@@ -556,8 +469,8 @@ def render_sync_report(
     unresolved_dimensions = _safe_list_str(context.get("unresolved_dimensions"))
     start_date, end_date = _default_date_examples(spec, generated_at)
     pending_questions = _safe_list_str(maintenance.get("pending_questions"))
-    review_fields = [field for field in yaml_fields if _definition(field).get("needs_review") is True]
-    review_metrics = [metric for metric in yaml_metrics if _definition(metric).get("needs_review") is True]
+    review_fields = [field for field in yaml_fields if _is_pending_definition(field)]
+    review_metrics = [metric for metric in yaml_metrics if _is_pending_definition(metric)]
 
     display_name = _cell((dataset or {}).get("display_name") or entry.get("display_name") or "Tableau 数据源")
     page_url = _page_url(entry)
@@ -565,7 +478,6 @@ def render_sync_report(
     dimension_rows = _dimension_rows(spec, context)
     metric_rows = _metric_rows(spec, context)
     semantic_grain = _safe_list_str(business.get("grain")) or _safe_list_str(semantics.get("grain"))
-    semantic_time_fields = _safe_list_str(business.get("time_fields")) or _safe_list_str(semantics.get("time_fields"))
     suitable_for = _safe_list_str(business.get("suitable_for")) or _safe_list_str(semantics.get("suitable_for"))
     not_suitable_for = _safe_list_str(business.get("not_suitable_for")) or _safe_list_str(semantics.get("not_suitable_for"))
     description_text = (dataset or {}).get("description") or business.get("description") or _description_suggestion(entry, spec, context)
