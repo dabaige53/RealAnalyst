@@ -24,8 +24,10 @@
 6. 需要取数前运行 `metadata status`，确认 runtime registry 和 export-ready 状态。
 7. `RA:analysis-run` 在执行阶段通过 `query_registry` 读取运行层信息，`--source` 输出会附带 `associated_groups`。
 8. 报告生成后进入 `RA:report-verify`，重点检查推断口径、review 标记和结果可复核性。
-9. 可选：`metadata reconcile` 比对运行时与元数据一致性。
-10. 需要跨系统交换时，走 OSI export；这是交换路径，不是分析主路径。
+9. 分析中如发现字段定义不清、指标口径待修或证据不足，由 `RA:metadata-refine` 整理参考材料，归档到 `metadata/sources/refine/`，再回到 `RA:metadata` 修正正式 YAML。
+10. 修正 YAML 后运行 `metadata record-change` 记录本次变更，再用 `metadata validate --completeness` 确认字段/指标/evidence 完整性。
+11. 可选：`metadata reconcile` 比对运行时与元数据一致性。
+12. 需要跨系统交换时，走 OSI export；这是交换路径，不是分析主路径。
 
 ## 边界
 

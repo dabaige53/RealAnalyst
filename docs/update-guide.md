@@ -228,9 +228,14 @@ TABLEAU_PAT_SECRET=
 | 域过滤目录 | `python3 skills/metadata/scripts/metadata.py catalog --domain <domain>` | 只列出指定域数据集 |
 | 多数据集 context | `python3 skills/metadata/scripts/metadata.py context --dataset-id <a> --dataset-id <b>` | 输出合并 context |
 | 一致性比对 | `python3 skills/metadata/scripts/metadata.py reconcile` | 输出匹配/不一致统计 |
+| 完整性校验 | `python3 skills/metadata/scripts/metadata.py validate --completeness` | 检查 metric-like fields、metric mappings、sample-profile 证据 |
+| profile-review | `python3 skills/metadata/scripts/metadata.py profile-review --dataset-id <id> --refine-id <refine_id>` | 输出 Markdown + JSON 完整性建议 |
+| metadata 审计 | `python3 skills/metadata/scripts/metadata.py record-change --summary "test" --path metadata/datasets/<file>.yaml` | 写入 `metadata/audit/metadata_changes.jsonl` |
+| 变更报告 | `python3 skills/metadata/scripts/metadata.py change-report` | 生成 `metadata/audit/metadata_change_report.md` |
 | source group 查询 | `python3 runtime/tableau/query_registry.py --groups` | 列出 source group |
 | source group 关联 | `python3 runtime/tableau/query_registry.py --source <id>` | 输出含 associated_groups |
 | artifact-fusion | 检查 `skills/artifact-fusion/SKILL.md` 存在 | skill 已安装 |
+| metadata-refine | 检查 `skills/metadata-refine/SKILL.md` 存在 | skill 已安装 |
 
 如有命令报错，记录错误信息，判断是缺失依赖、缺失数据还是代码问题，给出修复建议。
 

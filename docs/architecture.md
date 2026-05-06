@@ -28,7 +28,13 @@ flowchart LR
         Verify --> Delivery["reviewable delivery"]
     end
 
+    subgraph Feedback["反馈线"]
+        Refine["metadata-refine<br/>修正材料"] --> YAML
+    end
+
     Context --> Plan
+    Profile -.-> Refine
+    Report -.-> Refine
 ```
 
 ## File Responsibilities
@@ -49,9 +55,15 @@ flowchart TD
     PlanDoc --> ReportMd["report Markdown"]
     ProfileJson --> ReportMd
     ReportMd --> Verification["verification.json"]
+    JobData -.-> Feedback["metadata_feedback.jsonl"]
+    Feedback --> RefinePack["metadata/sources/refine/{id}/<br/>refine reference pack"]
+    RefinePack --> Dataset
+    Dataset --> AuditLog["metadata/audit/<br/>changes + change_report"]
 ```
 
 `runtime/registry.db` 是唯一运行时 SQLite DB；其中 `source_groups` 管理 1 个 primary source 与最多 2 个 supplementary sources，供 `artifact-fusion` 做多源合并。
+
+`metadata/audit/` 记录每次 YAML 维护的变更摘要、文件路径和证据，并可生成变更报告。
 
 ## Public Repository Boundary
 

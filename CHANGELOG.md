@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.11 - 2026-05-06
+
+- Fixed `RA:analysis-reference` template lookup in project-local `.agents/skills` installations.
+- Aligned skill count and compatibility docs with the installed `RA:reference-lookup` legacy entrypoint.
+- Routed analysis-run metadata lookup guidance through `RA:metadata-search`.
+- Cleaned artifact-fusion join docs so keyed joins are the recommended path and index joins are fallback only.
+
 ## 0.3.10 - 2026-04-30
 
 - Tightened skill ownership boundaries across metadata, metadata-report, data-export, data-profile, analysis-run, report, and report-verify.

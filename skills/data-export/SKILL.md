@@ -134,8 +134,9 @@ DuckDB wrapper 成功后通常产生：
 - `jobs/{SESSION_ID}/duckdb_export_summary.json`（latest pointer，便于兼容旧流程）
 - `jobs/{SESSION_ID}/.meta/acquisition_log.jsonl`
 - `jobs/{SESSION_ID}/.meta/artifact_index.json`
+- `jobs/{SESSION_ID}/context_injection.md`（若 `metadata/osi/<dataset_id>/context.md` 存在则自动复制）
 
-> **注意**：DuckDB 路径当前不生成 `source_context.json` 和 `context_injection.md`（仅 Tableau 路径生成）。若下游分析（`RA:analysis-run` Phase 3）需要语义上下文，Agent 应从 `RA:metadata` 的 context pack（`metadata/osi/<dataset_id>/context.md`）获取等效的字段说明、指标口径和业务边界信息。
+wrapper 输出的 `context_injection.available` 字段标明是否成功复制。若 `context_injection.available=false`，下游分析应直接读取 `metadata/osi/<dataset_id>/context.md` 作为等效语义上下文。
 
 ## 验证
 

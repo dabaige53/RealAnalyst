@@ -82,7 +82,11 @@ python3 skills/metadata/scripts/metadata.py search --type all --query revenue
 python3 skills/metadata/scripts/metadata.py context --dataset-id demo.retail.orders --metric total_revenue
 python3 skills/metadata/scripts/metadata.py context --dataset-id id_1 --dataset-id id_2
 python3 skills/metadata/scripts/metadata.py reconcile
+python3 skills/metadata/scripts/metadata.py validate --completeness
+python3 skills/metadata/scripts/metadata.py profile-review --dataset-id demo.retail.orders --refine-id <refine_id>
 ```
+
+`validate --completeness` 额外检查 metric-like fields、metric mappings 和 sample-profile 证据是否齐全。`profile-review` 基于 profile/refine 证据输出完整性建议（Markdown + JSON），不自动改 YAML。
 
 如果是基于 `metadata/sources/refine/` 修改 YAML，修改前先保存旧 YAML 副本，并用 `--before` 生成对比报告。
 

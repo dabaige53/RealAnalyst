@@ -148,11 +148,31 @@ def main() -> int:
         sys.stderr.write(idx_proc.stderr)
         return idx_proc.returncode
 
+    # 3) copy metadata context to job dir (parity with Tableau path)
+    context_available = False
+    context_dest: str | None = None
+    try:
+        summary_data = json.loads(summary_path.read_text(encoding="utf-8"))
+        dataset_id = summary_data.get("dataset_id") or summary_data.get("source_id", "")
+        if dataset_id:
+            osi_context = WORKSPACE_DIR / "metadata" / "osi" / dataset_id / "context.md"
+            if osi_context.exists():
+                import shutil
+                job_dir = WORKSPACE_DIR / "jobs" / args.session_id
+                job_dir.mkdir(parents=True, exist_ok=True)
+                dest = job_dir / "context_injection.md"
+                shutil.copy2(osi_context, dest)
+                context_available = True
+                context_dest = str(dest)
+    except Exception:
+        pass  # non-fatal: context copy is best-effort
+
     out = {
         "session_id": args.session_id,
         "export": run_payload,
         "acquisition_event": {"event_id": event_id, "log_file": f"jobs/{args.session_id}/.meta/acquisition_log.jsonl"},
         "artifact_index": f"jobs/{args.session_id}/.meta/artifact_index.json",
+        "context_injection": {"available": context_available, "path": context_dest},
     }
     print(json.dumps(out, ensure_ascii=False, indent=2))
     return 0

@@ -53,6 +53,8 @@ python3 skills/metadata/scripts/metadata.py search --type all --query revenue
 python3 skills/metadata/scripts/metadata.py context --dataset-id demo.retail.orders --metric total_revenue
 python3 skills/metadata/scripts/metadata.py context --dataset-id id_1 --dataset-id id_2
 python3 skills/metadata/scripts/metadata.py reconcile
+python3 skills/metadata/scripts/metadata.py validate --completeness
+python3 skills/metadata/scripts/metadata.py profile-review --dataset-id demo.retail.orders --refine-id <refine_id>
 ```
 
 ---
@@ -68,6 +70,8 @@ python3 skills/metadata/scripts/metadata.py reconcile
 - 数据集目录摘要（catalog）。
 - 本轮分析需要的 context pack（支持多数据集 / multi-dataset）。
 - 运行时 vs 元数据一致性报告（reconcile）。
+- 完整性校验报告（`validate --completeness`：metric-like fields / metric mappings / sample-profile 证据）。
+- profile/refine 完整性建议（`profile-review`：Markdown + JSON 建议，不自动改 YAML）。
 
 ---
 

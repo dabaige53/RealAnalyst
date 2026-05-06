@@ -49,7 +49,8 @@ getting-started → metadata → analysis-run
 
 | Skill | 角色 | 触发时机 |
 | --- | --- | --- |
-| `reference-lookup` | 内部工具 | analysis-plan 选框架/模板时；report 查术语时 |
+| `analysis-reference` | 内部工具 | analysis-plan 选框架/模板时 |
+| `metadata-search` | 内部工具 | analysis-plan 查指标/字段时；report 查术语时 |
 | `artifact-fusion` | 可选步骤 | source group 内多源合并，在 data-export 后、data-profile 前 |
 | `metadata-report` | 独立功能 | 用户需要生成元数据审阅报告时 |
 
@@ -64,7 +65,8 @@ sequenceDiagram
     actor User
     participant AR as RA:analysis-run
     participant AP as RA:analysis-plan
-    participant RL as RA:reference-lookup
+    participant RL as RA:analysis-reference
+    participant MS as RA:metadata-search
     participant EX as RA:data-export
     participant DP as RA:data-profile
     participant RPT as RA:report
@@ -76,8 +78,10 @@ sequenceDiagram
     AR->>AR: Step 0.1: 需求画像
     Note right of AR: → normalized_request.json
     AR->>AP: Step 0.2: /skill RA:analysis-plan
-    AP->>RL: 查框架/模板/指标定义
+    AP->>RL: 查框架/模板定义
     RL-->>AP: JSON 配置结果
+    AP->>MS: 查指标/字段定义
+    MS-->>AP: JSON 检索结果
     AP-->>AR: → analysis_plan.md (10 章)
     AR-->>User: 展示计划，等待确认
     User-->>AR: 确认 plan
@@ -203,7 +207,7 @@ sequenceDiagram
 | **输入** | `normalized_request.json` + metadata context pack |
 | **输出** | `.meta/analysis_plan.md`（10 章） |
 | **下游** | analysis-run（Phase 1+）、report |
-| **依赖** | `RA:reference-lookup`（查框架、模板、指标） |
+| **依赖** | `RA:analysis-reference`（查框架、模板）、`RA:metadata-search`（查指标、字段） |
 
 **10 章输出规范**：
 
@@ -212,7 +216,7 @@ sequenceDiagram
 3. 业务假设清单
 4. 异常判定标准
 5. 下钻路径设计
-6. 框架选择（via reference-lookup）
+6. 框架选择（via analysis-reference）
 7. 目标拆解（goals + artifacts）
 8. 报告模板锁定（selected_report_template）
 9. 数据采集方案
@@ -294,7 +298,7 @@ sequenceDiagram
 | **输出** | `报告_{主题}_{时间}.md` |
 | **上游** | analysis-run Phase 4 |
 | **下游** | report-verify |
-| **依赖** | `RA:reference-lookup`（查模板/术语） |
+| **依赖** | `RA:analysis-reference`（查模板）、`RA:metadata-search`（查术语） |
 
 **报告必备章节**：
 - 任务背景
@@ -369,20 +373,34 @@ sequenceDiagram
 | `join` | 横向拼列 | ⚠️ 按索引拼列，非键 join |
 | `passthrough` | 单 source 透传 | 只更新 manifest |
 
-### RA:reference-lookup
+### RA:analysis-reference
 
 | 项目 | 说明 |
 | --- | --- |
-| **触发条件** | 需要查询模板、指标、术语、框架或维度定义 |
-| **输入** | 关键词 + 查询类型 |
+| **触发条件** | 需要查询报告模板或分析框架 |
+| **输入** | 关键词 + 查询类型（template / framework） |
 | **输出** | JSON 查询结果 |
-| **消费者** | analysis-plan（框架/维度）、report（模板/术语） |
+| **消费者** | analysis-plan（框架）、report（模板） |
 
-**五种查询类型**：`--template`、`--metric`、`--glossary`、`--framework`、`--dimension`
+**两种查询类型**：`--template`、`--framework`
 
 **数据源**：
-- metric / dimension / glossary → `metadata/index/*.jsonl` 或 `metadata/index/search.db`
-- template / framework → `skills/report/references` 与内置框架定义
+- template → `skills/report/references/template-system-v2.md`
+- framework → 内置框架定义
+
+### RA:metadata-search
+
+| 项目 | 说明 |
+| --- | --- |
+| **触发条件** | 需要搜索指标、字段、术语、dataset 或 mapping 定义；或浏览数据集目录 |
+| **输入** | 关键词 + 类型（metric / field / term / dataset / mapping / all） |
+| **输出** | JSON 检索结果 + catalog 摘要 |
+| **消费者** | analysis-plan（指标/字段）、report（术语） |
+
+**六种查询类型**：`metric`、`field`、`term`、`dataset`、`mapping`、`all`
+
+**数据源**：
+- 全部类型 → `metadata/index/search.db`（FTS5）或 `metadata/index/*.jsonl`（fallback）
 
 ### RA:metadata-report
 
@@ -474,17 +492,30 @@ data-profile   ──→   profile.json      ──→   analysis-run Phase 3（
 
 ## 辅助 Skill 触发条件
 
-### reference-lookup
+### analysis-reference
 
 ```
-触发点 1: analysis-plan Phase 1-6
+触发点: analysis-plan Phase 3-4
   ├── 查框架定义 → --framework <name>
-  ├── 查指标定义 → --metric <keyword>
-  └── 查维度定义 → --dimension <keyword>
+  └── 查模板配置 → --template <keyword>
 
-触发点 2: report Phase 4
-  ├── 查模板配置 → --template <keyword>
-  └── 查业务术语 → --glossary <keyword>
+触发点: report Phase 4
+  └── 查模板配置 → --template <keyword>
+```
+
+### metadata-search
+
+```
+触发点: analysis-plan Phase 0.2
+  ├── 搜指标 → --type metric --query <keyword>
+  ├── 搜字段 → --type field --query <keyword>
+  └── 搜术语 → --type term --query <keyword>
+
+触发点: report Phase 4
+  └── 搜业务术语 → --type term --query <keyword>
+
+触发点: 需求理解阶段
+  └── 浏览数据集目录 → catalog [--domain <d>]
 ```
 
 ### artifact-fusion

@@ -54,7 +54,8 @@ flowchart TB
 
     subgraph Support["辅助 Skills"]
         direction LR
-        Ref["RA:reference-lookup<br/>配置查询"]
+        Ref["RA:analysis-reference<br/>模板/框架查询"]
+        MSrch["RA:metadata-search<br/>指标/字段/术语检索"]
         Fusion["RA:artifact-fusion<br/>数据融合"]
         MR["RA:metadata-report<br/>元数据报告"]
         Refine["RA:metadata-refine<br/>修正材料"]
@@ -82,13 +83,14 @@ flowchart TB
 │                  ├── Phase 4: 报告撰写                │
 │                  └── Phase 5: 交付门禁                │
 ├─────────────────────────────────────────────────────┤
-│  能力层          12 个独立 skill                      │
+│  能力层          14 个独立 skill                      │
 │                  getting-started · metadata ·         │
 │                  analysis-plan · data-export ·        │
 │                  data-profile · report ·              │
 │                  report-verify · artifact-fusion ·    │
-│                  reference-lookup · metadata-report ·  │
-│                  metadata-refine                      │
+│                  analysis-reference · metadata-search · │
+│                  metadata-report ·                      │
+│                  metadata-refine · reference-lookup   │
 ├─────────────────────────────────────────────────────┤
 │  数据层          metadata/   元数据 YAML + 索引       │
 │                  runtime/    运行时配置 + registry     │
@@ -136,7 +138,8 @@ flowchart TD
     Q -->|写报告| R["RA:report"]
     Q -->|交付前校验| RV["RA:report-verify"]
     Q -->|合并多个数据| AF["RA:artifact-fusion"]
-    Q -->|查配置/模板/框架| RL["RA:reference-lookup"]
+    Q -->|查模板/框架| RL["RA:analysis-reference"]
+    Q -->|搜指标/字段/术语| MS["RA:metadata-search"]
     Q -->|元数据报告| MR["RA:metadata-report"]
     Q -->|整理元数据修正材料| REF["RA:metadata-refine"]
 ```
@@ -164,8 +167,10 @@ flowchart TD
 | Skill | 职责 | 主要输入 | 主要输出 |
 | --- | --- | --- | --- |
 | `RA:artifact-fusion` | 数据融合：source group 内 union / join / passthrough | 多个 dataset pack | 合并 CSV + lineage manifest |
-| `RA:reference-lookup` | 配置查询：模板、指标、术语、框架、维度 | 关键词 | JSON 查询结果 |
+| `RA:analysis-reference` | 模板/框架查询 | 关键词 | JSON 查询结果 |
+| `RA:metadata-search` | 指标/字段/术语/数据集检索 + catalog | 关键词 + 类型 | JSON 检索结果 |
 | `RA:metadata-report` | 元数据报告：metadata report、注册说明、review gap | dataset YAML、discovery/sync 素材 | Markdown 元数据报告 |
+| `RA:reference-lookup` | 旧兼容入口：历史模板/框架/metadata 查询 | 关键词 | JSON 查询结果 |
 
 ---
 
@@ -246,14 +251,17 @@ flowchart LR
     end
 
     subgraph Aux["辅助"]
-        RL["RA:reference-lookup"]
+        RL["RA:analysis-reference"]
+        MS["RA:metadata-search"]
         AF["RA:artifact-fusion"]
         MR["RA:metadata-report"]
         REF["RA:metadata-refine"]
     end
 
-    RL -.->|查框架/模板/指标| AP
-    RL -.->|查术语/模板| RPT
+    RL -.->|查框架/模板| AP
+    RL -.->|查模板| RPT
+    MS -.->|搜指标/字段| AP
+    MS -.->|搜术语| RPT
     AF -.->|多源合并后送画像| DP
     MR -.->|元数据审阅| M["RA:metadata"]
     Analysis -.->|只记录问题线索| REF
@@ -270,7 +278,8 @@ flowchart LR
 | **data-profile** | | | | `profile.json` 字段语义 | `manifest.json` + `profile.json` | |
 | **Phase 3 分析** | | | | | 分析结论 | `analysis.json` |
 | **report** | | | | | | 报告 Markdown |
-| **reference-lookup** | 框架/维度定义 | | | | 模板/术语 | |
+| **analysis-reference** | 框架定义 | | | | 模板 | |
+| **metadata-search** | 字段/指标定义 | | | | 术语 | |
 | **metadata** | context pack | registry source | | | | |
 
 ---
@@ -302,8 +311,11 @@ Agent 内部会依次调用 `analysis-plan` → `data-export` → `data-profile`
 # 只验证已有报告
 /skill RA:report-verify
 
-# 查运行时配置
-/skill RA:reference-lookup
+# 查模板/框架配置
+/skill RA:analysis-reference
+
+# 搜指标/字段/术语
+/skill RA:metadata-search
 ```
 
 > **注意**：`RA:analysis-plan` 依赖 `normalized_request.json`。如果不是从 `RA:analysis-run` 进入，plan skill 会向用户追问必填信息后自行生成该文件。
@@ -399,14 +411,21 @@ runtime/
 | `skills/data-profile/scripts/run.py` | 推荐：自动从 export_summary 推导 CSV |
 | `skills/data-profile/scripts/profile.py` | 底层：手动指定 CSV + 输出目录 |
 
-### reference-lookup
+### analysis-reference
 
 ```bash
-python3 skills/reference-lookup/scripts/query_config.py --template <关键词>
-python3 skills/reference-lookup/scripts/query_config.py --metric <关键词>
-python3 skills/reference-lookup/scripts/query_config.py --glossary <关键词>
-python3 skills/reference-lookup/scripts/query_config.py --framework <框架名>
-python3 skills/reference-lookup/scripts/query_config.py --dimension <关键词>
+python3 skills/analysis-reference/scripts/query_config.py --template <关键词>
+python3 skills/analysis-reference/scripts/query_config.py --framework <框架名>
+```
+
+### metadata-search
+
+```bash
+python3 skills/metadata-search/scripts/search.py --type metric --query <关键词>
+python3 skills/metadata-search/scripts/search.py --type field --query <关键词>
+python3 skills/metadata-search/scripts/search.py --type term --query <关键词>
+python3 skills/metadata-search/scripts/search.py --type all --query <关键词>
+python3 skills/metadata-search/scripts/catalog.py
 ```
 
 ### metadata audit
@@ -489,7 +508,7 @@ skills/<skill-name>/
 
 ## 开发约定
 
-- **不要把 runtime YAML 复制到 skills/ 下**。运行时配置以 `runtime/` 为唯一权威来源，用 `RA:reference-lookup` 按需查询。
+- **不要把 runtime YAML 复制到 skills/ 下**。运行时配置以 `runtime/` 为唯一权威来源，用 `RA:analysis-reference`（template/framework）或 `RA:metadata-search`（metric/field/term）按需查询。
 - **SKILL.md 是执行规则的 single source of truth**。细节契约放 `references/`，入口文件保持精简。
 - **产物路径不能硬编码猜测**。必须从 `export_summary.json` / `duckdb_export_summary.json` / `artifact_index.json` 读取实际路径。
 - **连续分析只追加不重写**。同一 job 内报告、analysis.json、日志都是 append-only。

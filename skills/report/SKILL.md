@@ -42,7 +42,7 @@ description: |
 - `skills/report/references/template-system-v2.md`
 - `skills/report/references/template-matrix.md`
 
-不要把 runtime 当业务配置仓库。如需检索术语或指标，优先使用 `RA:metadata search/context` 或 `RA:reference-lookup`。
+不要把 runtime 当业务配置仓库。如需检索术语或指标，优先使用 `RA:metadata-search`；如需查报告模板或分析框架，使用 `RA:analysis-reference`。
 
 **模板上下文使用方式**：
 - `template-system-v2.md` 用于理解“先分析模式、再交付方式、最后具体模板”的分层逻辑

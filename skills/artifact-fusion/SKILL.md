@@ -16,7 +16,7 @@ description: |
 | 场景 | 说明 |
 |------|------|
 | 多 source 同 schema 合并 | 多个 Tableau 视图或 DuckDB 表结构相同，需要纵向拼接（`union`） |
-| 补充维表 join | 主表需要关联参考维度表的字段（`join`）；**注意：当前 join 是按索引拼列，非键 join** |
+| 补充维表 join | 主表需要关联参考维度表的字段（`join`）；优先使用 `--join-key` 按业务键关联 |
 | 单 source 通行 | 只有一个输入但需要统一 manifest 格式（`passthrough`） |
 
 ### 前置条件
@@ -70,21 +70,22 @@ dataset_b: [col1, col2, col3] 200 rows
 
 ### join - 水平合并（列拼接）
 
-| 条件 | 多数据集，有共同键 |
-|------|-------------------|
-| 操作 | 基于共同键进行 left join |
-| 默认 | left join（保留左表所有行） |
+| 模式 | 条件 | 操作 |
+|---|---|---|
+| **键 join（推荐）** | 传入 `--join-key <列名>` | `pd.merge(on=key, how='left')`，按业务键关联 |
+| 索引 join | 不传 `--join-key` | `pd.concat(axis=1)`，按行号拼列，仅限同源同序数据 |
 
-**共同键识别规则**：
+```bash
+# 键 join（推荐）
+python3 {baseDir}/skills/artifact-fusion/scripts/fusion.py join <output> <ds_a> <ds_b> --join-key "产品"
 
-1. 优先使用名称完全匹配的列
-2. 其次使用业务键（如：产品、代理人、日期）
-3. 如无法识别，报错退出
+# 索引 join（仅限同源同序，谨慎使用）
+python3 {baseDir}/skills/artifact-fusion/scripts/fusion.py join <output> <ds_a> <ds_b>
+```
 
-**列名冲突处理**：
+**列名冲突处理**：同名非键列自动加后缀 `_left` / `_right`。
 
-- 同名列自动添加后缀：`_left`, `_right`
-- 例如：`客单价` → `客单价_left`, `客单价_right`
+详细策略说明和人工校验步骤见 `{baseDir}/skills/artifact-fusion/references/strategy-guide.md`。
 
 ## 输出文件
 
@@ -121,8 +122,8 @@ dataset_b: [col1, col2, col3] 200 rows
 ## 示例
 
 ```bash
-# 多数据集 join
-python3 {baseDir}/skills/artifact-fusion/scripts/fusion.py join {baseDir}/jobs/job_001/merged {baseDir}/jobs/job_001/ds_a {baseDir}/jobs/job_001/ds_b
+# 多数据集键 join
+python3 {baseDir}/skills/artifact-fusion/scripts/fusion.py join {baseDir}/jobs/job_001/merged {baseDir}/jobs/job_001/ds_a {baseDir}/jobs/job_001/ds_b --join-key "产品"
 ```
 
 ---
@@ -138,7 +139,8 @@ python3 {baseDir}/skills/artifact-fusion/scripts/fusion.py join {baseDir}/jobs/j
 | 策略 | 实现 | 说明 |
 |------|------|------|
 | `union` | `pd.concat(ignore_index=True)` | concat 行，列并集，缺失填 NaN |
-| `join` | `pd.concat(axis=1)` | **按索引（行号）拼列，非键 join** |
+| `join --join-key <列名>` | `pd.merge(on=key, how='left')` | 按业务键关联，推荐 |
+| `join` | `pd.concat(axis=1)` | 不传 `--join-key` 时按索引拼列，仅限同源同序数据 |
 | `passthrough` | 返回第一个文件 | 直接返回，不融合 |
 
 ### 人工校验步骤
@@ -150,7 +152,8 @@ wc -l data1.csv data2.csv data_merged.csv
 
 # 预期：
 # union: merged 行数 ≈ data1 + data2（忽略表头重复）
-# join: merged 行数取决于索引对齐
+# key join: merged 行数通常等于主表行数
+# index join: merged 行数取决于索引对齐
 # passthrough: merged 行数 = data1
 ```
 

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 
-def fusion(input_paths: list[str], output_path: str, strategy: str) -> dict[str, Any]:
+def fusion(input_paths: list[str], output_path: str, strategy: str, join_key: str | None = None) -> dict[str, Any]:
     # 智能处理：支持输出目录或直接输出 CSV 文件路径
     out_p = Path(output_path)
     if out_p.suffix.lower() == ".csv":
@@ -78,12 +78,19 @@ def fusion(input_paths: list[str], output_path: str, strategy: str) -> dict[str,
             log_msg(f"[Fusion] UNION: 合并 {len(datasets)} 个数据集")
 
         elif strategy == "join":
-            # 简单水平合并（基于索引或尝试寻找 ID）
-            result_df = datasets[0]["df"]
-            for i, ds in enumerate(datasets[1:], 1):
-                result_df = pd.concat([result_df, ds["df"]], axis=1)
+            if join_key:
+                # 键 join：按业务键 left merge（推荐）
+                result_df = datasets[0]["df"]
+                for ds in datasets[1:]:
+                    result_df = pd.merge(result_df, ds["df"], on=join_key, how="left", suffixes=("_left", "_right"))
+                log_msg(f"[Fusion] JOIN (key={join_key}): 合并 {len(datasets)} 个数据集")
+            else:
+                # 索引 join：按行号拼列（仅限同源同序数据）
+                result_df = datasets[0]["df"]
+                for ds in datasets[1:]:
+                    result_df = pd.concat([result_df, ds["df"]], axis=1)
+                log_msg(f"[Fusion] JOIN (index/axis=1): 合并 {len(datasets)} 个数据集 — 警告：仅适用于同源同序数据")
             base_manifest = datasets[0]["manifest"].copy()
-            log_msg(f"[Fusion] JOIN (Concat axis=1): 合并 {len(datasets)} 个数据集")
 
         else:
             log_msg(f"[Error] 未知策略: {strategy}")
@@ -132,6 +139,7 @@ def main():
     parser.add_argument("--strategy", dest="s_flag", help="Fusion strategy")
     parser.add_argument("--output", dest="o_flag", help="Output directory/file")
     parser.add_argument("--datasets", nargs="*", help="Input datasets")
+    parser.add_argument("--join-key", dest="join_key", default=None, help="Key column for join strategy (uses pd.merge). Omit for index-based join.")
     parser.add_argument("--lineage", help="Ignored")
 
     args = parser.parse_args()
@@ -144,7 +152,7 @@ def main():
         print("Usage: python fusion.py <strategy> <output> <input1> [input2] ...")
         sys.exit(1)
 
-    result = fusion(input_paths, output_path, strategy)
+    result = fusion(input_paths, output_path, strategy, join_key=args.join_key)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     if not result["success"]:
         sys.exit(1)
