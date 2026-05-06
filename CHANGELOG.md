@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.13 - 2026-05-06
+
+- Isolated metadata audit records from report-facing business definitions.
+- Added a normalized metadata report context shared by DuckDB and Tableau renderers.
+- Tightened metadata reports so missing definitions become explicit YAML补齐项 instead of generated advice or placeholder text.
+- Updated the metadata report output contract and tests around definition locations, filters, manifest boundaries, and audit-layer handling.
+
 ## 0.3.12 - 2026-05-06
 
 - Restored the Tableau metadata report renderer to the business-first 10-section structure.
