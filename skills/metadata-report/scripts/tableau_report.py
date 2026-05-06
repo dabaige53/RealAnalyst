@@ -144,13 +144,103 @@ def _evidence_cell(item: dict[str, Any]) -> str:
     return "<br>".join(sources) if sources else "未配置"
 
 
+def _source_label(source: str) -> str:
+    if source.startswith("metadata/sources/refine/"):
+        return "样本画像"
+    if "raw_20260430" in source or "指标卡" in source or "术语" in source:
+        return "业务字典"
+    if "配置定义抽取" in source:
+        return "配置定义抽取"
+    if "tableau" in source.lower():
+        return "Tableau 素材"
+    if source.startswith("duckdb.") or source.startswith("tableau."):
+        return "mapping"
+    return Path(source).name or source
+
+
+def _review_source_text(item: dict[str, Any]) -> str:
+    definition = _definition(item)
+    evidence = _safe_list_dicts(definition.get("source_evidence"))
+    labels: list[str] = []
+    for record in evidence:
+        source = str(record.get("source") or "").strip()
+        if not source:
+            continue
+        label = _source_label(source)
+        if label and label not in labels:
+            labels.append(label)
+    return "、".join(labels[:3]) if labels else "来源未配置"
+
+
 def _review_text(item: dict[str, Any]) -> str:
     definition = _definition(item)
-    confidence = definition.get("confidence")
-    confidence_text = f"（置信度 {confidence}）" if confidence is not None else ""
+    source_text = _review_source_text(item)
     if _is_pending_definition(item):
-        return f"待确认{confidence_text}"
-    return f"已通过{confidence_text}" if definition else "未配置"
+        return f"待确认：{source_text}；需补业务定义"
+    return f"已确认：{source_text}" if definition else "未配置"
+
+
+def _append_column_notes(lines: list[str], notes: list[tuple[str, str]]) -> None:
+    lines.append("表头说明：")
+    lines.append("")
+    lines.append("| 表头 | 含义 |")
+    lines.append("| --- | --- |")
+    for name, meaning in notes:
+        lines.append(f"| `{name}` | {meaning} |")
+    lines.append("")
+
+
+FIELD_COLUMN_NOTES = [
+    ("展示名", "报告中给业务用户看的字段名称。"),
+    ("Tableau 字段", "Tableau 视图里暴露的真实字段名。"),
+    ("Tableau 类型", "Tableau discovery 或 spec 中记录的字段类型。"),
+    ("metadata 类型", "metadata 归一后的类型，用于分析上下文。"),
+    ("角色", "字段在分析中的用途，例如维度、时间字段或指标候选。"),
+    ("业务定义", "已确认的业务口径；没有真实定义时只写业务定义待确认。"),
+    ("定义来源", "定义来自字典、映射覆盖或 pending 待确认状态。"),
+    ("示例/规则", "字段样例值或格式规则；不是完整枚举。"),
+    ("证据", "支撑该字段说明的真实 YAML、source 或 Tableau 素材。"),
+    ("Review", "是否可作为确认口径，以及对应真实来源。"),
+]
+
+
+METRIC_COLUMN_NOTES = [
+    ("指标", "报告中给业务用户看的指标名称。"),
+    ("Tableau 字段", "指标对应的 Tableau 字段名。"),
+    ("表达式", "metadata 记录的指标取数字段或计算表达式。"),
+    ("聚合方式", "默认汇总方式，例如 sum、avg 或 weighted_avg。"),
+    ("单位", "指标单位；没有事实时显示未配置。"),
+    ("业务定义", "已确认的业务口径；没有真实定义时只写业务定义待确认。"),
+    ("定义来源", "定义来自字典、映射覆盖或 pending 待确认状态。"),
+    ("证据", "支撑该指标说明的真实 YAML、source 或 Tableau 素材。"),
+    ("Review", "是否可作为确认口径，以及对应真实来源。"),
+]
+
+
+FILTER_COLUMN_NOTES = [
+    ("字段", "Tableau 视图暴露的筛选字段。"),
+    ("当前类型", "Tableau spec 中记录的筛选类型。"),
+    ("传参方式", "后续导出时使用 `--vf` 传入。"),
+    ("示例值/规则", "当前采集到的示例值或格式规则，不代表完整枚举。"),
+    ("说明", "该筛选字段的使用边界。"),
+]
+
+
+PARAMETER_COLUMN_NOTES = [
+    ("参数", "Tableau 参数名。"),
+    ("推荐格式", "建议传入的数据格式。"),
+    ("示例", "后续导出时使用 `--vp` 的写法。"),
+    ("用途", "该参数控制的查询含义。"),
+]
+
+
+MAPPING_COLUMN_NOTES = [
+    ("源字段", "数据源中的真实字段名。"),
+    ("类型", "该映射对应 metric、dimension 或 field。"),
+    ("标准 ID", "映射到公共语义字典的 ID；source_specific 表示没有公共标准。"),
+    ("字段 ID/覆盖", "源字段本地 ID 或覆盖字段名，不等同于公共标准。"),
+    ("说明", "来自 mapping 的人工说明；无真实定义时只提示待补充。"),
+]
 
 
 def _field_source_name(field: dict[str, Any]) -> str:
@@ -547,6 +637,7 @@ def render_sync_report(
     lines.append("")
     dimension_rows = _dimension_rows(spec, context)
     metric_rows = _metric_rows(spec, context)
+    _append_column_notes(lines, FIELD_COLUMN_NOTES)
     lines.append("| 展示名 | Tableau 字段 | Tableau 类型 | metadata 类型 | 角色 | 业务定义 | 定义来源 | 示例/规则 | 证据 | Review |")
     lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
     if yaml_fields:
@@ -588,6 +679,7 @@ def render_sync_report(
     lines.append("## 6. 指标明细")
     lines.append("")
     if yaml_metrics:
+        _append_column_notes(lines, METRIC_COLUMN_NOTES)
         lines.append("| 指标 | Tableau 字段 | 表达式 | 聚合方式 | 单位 | 业务定义 | 定义来源 | 证据 | Review |")
         lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
         for metric in yaml_metrics:
@@ -609,6 +701,7 @@ def render_sync_report(
                 + " |"
             )
     elif metric_rows:
+        _append_column_notes(lines, METRIC_COLUMN_NOTES)
         lines.append("| 指标 | Tableau 字段 | 标准指标ID | 标准名称 | 单位 | 业务定义 | 定义来源 | 证据 | Review |")
         lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
         for row in metric_rows.values():
@@ -628,6 +721,7 @@ def render_sync_report(
         lines.append("")
         lines.append("- 本次未采集到筛选器样例值，不能把本节当作完整枚举清单。")
     lines.append("")
+    _append_column_notes(lines, FILTER_COLUMN_NOTES)
     lines.append("| 字段 | 当前类型 | 传参方式 | 示例值/规则 | 说明 |")
     lines.append("| --- | --- | --- | --- | --- |")
     for item in filters:
@@ -646,6 +740,7 @@ def render_sync_report(
     lines.append("Tableau 参数必须使用 `--vp`，不要把日期参数误传成 `--vf`。")
     lines.append("")
     if params:
+        _append_column_notes(lines, PARAMETER_COLUMN_NOTES)
         lines.append("| 参数 | 推荐格式 | 示例 | 用途 |")
         lines.append("| --- | --- | --- | --- |")
         for item in params:
@@ -694,6 +789,7 @@ def render_sync_report(
     lines.append("### 9.1 已注册映射")
     lines.append("")
     if mapping_rows:
+        _append_column_notes(lines, MAPPING_COLUMN_NOTES)
         lines.append("| 源字段 | 类型 | 标准 ID | 字段 ID/覆盖 | 说明 |")
         lines.append("| --- | --- | --- | --- | --- |")
         for row in mapping_rows:

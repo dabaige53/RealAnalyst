@@ -252,10 +252,11 @@ def _definition_source(item: dict[str, Any]) -> str:
 
 def _review_text(item: dict[str, Any]) -> str:
     definition = _definition(item)
+    source_text = _review_source_text(item)
     if definition.get("needs_review") is True:
-        return f"待确认（置信度 {_display(definition.get('confidence'))}）"
+        return f"待确认：{source_text}；需补业务定义"
     if definition.get("needs_review") is False:
-        return f"已确认（置信度 {_display(definition.get('confidence'))}）"
+        return f"已确认：{source_text}"
     return "未配置"
 
 
@@ -280,6 +281,84 @@ def _evidence_sources(item: dict[str, Any]) -> list[str]:
 def _evidence_cell(item: dict[str, Any]) -> str:
     sources = _evidence_sources(item)
     return _cell("；".join(sources)) if sources else "未配置"
+
+
+def _source_label(source: str) -> str:
+    if source.startswith("metadata/sources/refine/"):
+        return "样本画像"
+    if "raw_20260430" in source or "指标卡" in source or "术语" in source:
+        return "业务字典"
+    if "配置定义抽取" in source:
+        return "配置定义抽取"
+    if "duckdb_ho_schema_snapshot" in source:
+        return "DuckDB schema"
+    if source.startswith("duckdb.") or source.startswith("tableau."):
+        return "mapping"
+    return Path(source).name or source
+
+
+def _review_source_text(item: dict[str, Any]) -> str:
+    labels: list[str] = []
+    for source in _evidence_sources(item):
+        label = _source_label(source)
+        if label and label not in labels:
+            labels.append(label)
+    return "、".join(labels[:3]) if labels else "来源未配置"
+
+
+def _append_column_notes(lines: list[str], notes: list[tuple[str, str]]) -> None:
+    lines.append("表头说明：")
+    lines.append("")
+    lines.append("| 表头 | 含义 |")
+    lines.append("| --- | --- |")
+    for name, meaning in notes:
+        lines.append(f"| `{name}` | {meaning} |")
+    lines.append("")
+
+
+FIELD_COLUMN_NOTES = [
+    ("展示名", "报告中给业务用户看的字段名称。"),
+    ("源字段", "DuckDB 对象里的真实列名。"),
+    ("DuckDB 类型", "DuckDB schema 中记录的原始字段类型。"),
+    ("metadata 类型", "metadata 归一后的类型，用于分析上下文。"),
+    ("角色", "字段在分析中的用途，例如维度、时间字段或指标候选。"),
+    ("业务定义", "已确认的业务口径；没有真实定义时只写业务定义待确认。"),
+    ("定义来源", "定义来自字典、映射覆盖或 pending 待确认状态。"),
+    ("示例/规则", "筛选候选字段的样例值或格式规则；不是完整枚举。"),
+    ("证据", "支撑该字段说明的真实 YAML、source 或采样材料。"),
+    ("Review", "是否可作为确认口径，以及对应真实来源。"),
+]
+
+
+METRIC_COLUMN_NOTES = [
+    ("指标", "报告中给业务用户看的指标名称。"),
+    ("源字段", "指标对应的 DuckDB 原始列名。"),
+    ("表达式", "metadata 记录的指标取数字段或计算表达式。"),
+    ("聚合方式", "默认汇总方式，例如 sum、avg 或 weighted_avg。"),
+    ("单位", "指标单位；没有事实时显示未配置。"),
+    ("业务定义", "已确认的业务口径；没有真实定义时只写业务定义待确认。"),
+    ("定义来源", "定义来自字典、映射覆盖或 pending 待确认状态。"),
+    ("证据", "支撑该指标说明的真实 YAML、source 或采样材料。"),
+    ("Review", "是否可作为确认口径，以及对应真实来源。"),
+]
+
+
+FILTER_COLUMN_NOTES = [
+    ("字段", "可用于 DuckDB 筛选的真实列名。"),
+    ("显示名", "报告中给业务用户看的字段名称。"),
+    ("应用方式", "后续取数时使用的筛选参数或 SQL 表达方式。"),
+    ("可选值/示例/规则", "当前只读采样得到的示例值或格式规则，不代表完整枚举。"),
+    ("说明", "该筛选字段的使用边界。"),
+]
+
+
+MAPPING_COLUMN_NOTES = [
+    ("源字段", "数据源中的真实字段名。"),
+    ("类型", "该映射对应 metric、dimension 或 field。"),
+    ("标准 ID", "映射到公共语义字典的 ID；source_specific 表示没有公共标准。"),
+    ("字段 ID/覆盖", "源字段本地 ID 或覆盖字段名，不等同于公共标准。"),
+    ("说明", "来自 mapping 的人工说明；无真实定义时只提示待补充。"),
+]
 
 
 def _field_source_name(field: dict[str, Any]) -> str:
@@ -688,6 +767,7 @@ def render_yaml_metadata_report(
     lines.append("## 5. 字段明细")
     lines.append("")
     if fields:
+        _append_column_notes(lines, FIELD_COLUMN_NOTES)
         lines.append("| 展示名 | 源字段 | DuckDB 类型 | metadata 类型 | 角色 | 业务定义 | 定义来源 | 示例/规则 | 证据 | Review |")
         lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
         for field in fields:
@@ -718,6 +798,7 @@ def render_yaml_metadata_report(
     lines.append("## 6. 指标明细")
     lines.append("")
     if metrics:
+        _append_column_notes(lines, METRIC_COLUMN_NOTES)
         lines.append("| 指标 | 源字段 | 表达式 | 聚合方式 | 单位 | 业务定义 | 定义来源 | 证据 | Review |")
         lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
         for metric in metrics:
@@ -750,6 +831,7 @@ def render_yaml_metadata_report(
     lines.append("")
     filterable_fields = [field for field in fields if field.get("role") in {"dimension", "time_dimension"}]
     if filterable_fields:
+        _append_column_notes(lines, FILTER_COLUMN_NOTES)
         lines.append("| 字段 | 显示名 | 应用方式 | 可选值/示例/规则 | 说明 |")
         lines.append("| --- | --- | --- | --- | --- |")
         for field in filterable_fields:
@@ -765,6 +847,7 @@ def render_yaml_metadata_report(
     lines.append("### 8.1 已注册映射")
     lines.append("")
     if mapping_rows:
+        _append_column_notes(lines, MAPPING_COLUMN_NOTES)
         lines.append("| 源字段 | 类型 | 标准 ID | 字段 ID/覆盖 | 说明 |")
         lines.append("| --- | --- | --- | --- | --- |")
         for row in mapping_rows:

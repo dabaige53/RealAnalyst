@@ -138,7 +138,7 @@ python3 {baseDir}/skills/data-export/scripts/tableau/export_source.py \
 ## 使用规则
 
 1. `业务定义` 列只写已确认定义；未确认时统一写 `业务定义待确认`。
-2. `定义来源` 未确认时统一写 `pending`，Review 写 `待确认（置信度 x）`。
+2. `定义来源` 未确认时统一写 `pending`，Review 只写确认状态和真实来源，不展示置信度。
 3. Tableau 必须保留筛选器 `--vf` 和参数 `--vp` 的区别。
 4. DuckDB 必须保留 `db_path`、`schema`、`object_name`、`object_kind`，方便追溯真实对象。
 5. DuckDB 示例值必须来自只读采样；采样失败时写清原因。
