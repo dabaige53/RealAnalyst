@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.15 - 2026-05-07
+
+- Added dataset-first metadata reports through `RA:metadata-report` so users can generate reports with `--dataset-id` or `--all` without choosing a connector.
+- Added `metadata.py read` and shared metadata fact loading so reports read through the metadata search/read layer instead of duplicating report-local parsing.
+- Updated metadata report output to use Chinese headings and tables, default to `metadata/reports/<dataset_id>_metadata_report.md`, avoid JSON context sidecars, and render missing values as `未维护` / `未注册`.
+- Tightened tests and spec guidance so metadata reports do not read job profiles, query DuckDB live, or treat numeric/date sample lists as enumerations.
+
 ## 0.3.14 - 2026-05-07
 
 - Converted legacy DuckDB and Tableau adapter `generate_sync_report.py` scripts into compatibility wrappers.
