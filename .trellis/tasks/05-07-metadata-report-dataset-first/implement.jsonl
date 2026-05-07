@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend spec index and pre-development checklist for RealAnalyst metadata/report changes."}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Clarifies skill, metadata, runtime, reports, and generated artifact responsibility boundaries."}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "Defines runtime registry and metadata index/search boundaries needed for report fact sourcing."}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Defines Markdown report and CLI output contracts."}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Guides CLI failure behavior for missing dataset, search failures, and registry gaps."}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Required quality and testing gates for metadata/report behavior changes."}
