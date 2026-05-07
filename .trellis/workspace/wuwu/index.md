@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 2
+- **Total Sessions**: 3
 - **Last Active**: 2026-05-07
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~73 | Active |
+| `journal-1.md` | ~108 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 3 | 2026-05-07 | Dataset-first metadata report release | `682b59a`, `d81811a`, `e4cf781` | `main` |
 | 2 | 2026-05-07 | Refine RealAnalyst skill routing | `9da2a56` | `main` |
 | 1 | 2026-05-07 | Release RealAnalyst 0.3.14 | `eae1dae` | `main` |
 <!-- @@@/auto:session-history -->
