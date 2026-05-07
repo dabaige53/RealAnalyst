@@ -759,6 +759,199 @@ class MetadataProductFixTests(unittest.TestCase):
             self.assertIn("审计层隔离，不作为业务定义真源", content)
             self.assertNotIn("industry_draft", content)
 
+    def test_metadata_read_returns_dataset_facts_without_registry_requirement(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            write_dataset(workspace, metric_field_count=1, metric_count=1)
+
+            proc = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "read", "--dataset-id", "test.dataset"])
+
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            payload = json.loads(proc.stdout)
+            result = payload["results"][0]
+            self.assertEqual(result["dataset_id"], "test.dataset")
+            self.assertTrue(result["status"]["metadata_yaml"])
+            self.assertFalse(result["status"]["runtime_registry"])
+            self.assertEqual(result["registry"]["status"], "未注册")
+
+    def test_metadata_read_missing_dataset_returns_structured_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+
+            proc = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "read", "--dataset-id", "missing.dataset"])
+
+            self.assertEqual(proc.returncode, 1)
+            payload = json.loads(proc.stdout)
+            self.assertFalse(payload["success"])
+            self.assertEqual(payload["error_code"], "METADATA_READ_FAILED")
+
+    def test_dataset_first_metadata_report_cli_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            write_dataset(workspace, metric_field_count=1, metric_count=1)
+            (workspace / "jobs" / "session-1" / "profile").mkdir(parents=True)
+            (workspace / "jobs" / "session-1" / "profile" / "profile.json").write_text(
+                json.dumps({"sample_values": ["SHOULD_NOT_APPEAR"]}),
+                encoding="utf-8",
+            )
+
+            proc = self.run_cmd([sys.executable, str(METADATA_REPORTER), "--workspace", str(workspace), "--dataset-id", "test.dataset"])
+
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            report_path = workspace / "metadata" / "reports" / "test.dataset_metadata_report.md"
+            self.assertTrue(report_path.exists())
+            self.assertFalse((workspace / "metadata" / "reports" / "test.dataset_metadata_context.json").exists())
+            content = report_path.read_text(encoding="utf-8")
+            for heading in [
+                "## 1. 元数据事实摘要",
+                "## 2. 数据集信息",
+                "## 3. 字段信息",
+                "## 4. 指标信息",
+                "## 5. 筛选、参数与取值信息",
+                "## 7. 未维护项",
+                "## 8. 运行与注册状态",
+                "## 9. 报告生成信息",
+            ]:
+                self.assertIn(heading, content)
+            self.assertIn("| 名称 | 系统标识 | 物理字段 | 角色 | 类型 | 业务定义 | 定义来源 | 状态 | 来源 |", content)
+            self.assertIn("未维护", content)
+            self.assertIn("未注册", content)
+            self.assertIn("runtime/registry", content)
+            self.assertNotIn("SHOULD_NOT_APPEAR", content)
+            self.assertNotIn("metadata_context", content)
+            self.assertNotIn("常见用途", content)
+            self.assertNotIn("使用建议", content)
+
+            report_path.write_text("old report", encoding="utf-8")
+            rerun = self.run_cmd([sys.executable, str(METADATA_REPORTER), "--workspace", str(workspace), "--dataset-id", "test.dataset"])
+            self.assertEqual(rerun.returncode, 0, rerun.stdout + rerun.stderr)
+            self.assertNotEqual(report_path.read_text(encoding="utf-8"), "old report")
+
+    def test_dataset_first_metadata_report_uses_registry_ranges_not_sample_values(self) -> None:
+        module = load_script(SQLITE_STORE, "sqlite_store_dataset_report_values_test")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            write_dataset(workspace, metric_field_count=1, metric_count=1)
+            dataset_path = workspace / "metadata" / "datasets" / "test.dataset.yaml"
+            dataset = yaml.safe_load(dataset_path.read_text(encoding="utf-8"))
+            dataset["fields"].extend(
+                [
+                    {
+                        "name": "order_date",
+                        "display_name": "order_date",
+                        "role": "time_dimension",
+                        "type": "date",
+                        "description": "order date",
+                        "business_definition": definition("order date definition"),
+                    },
+                    {
+                        "name": "region",
+                        "display_name": "region",
+                        "role": "dimension",
+                        "type": "string",
+                        "description": "region",
+                        "business_definition": definition("region definition"),
+                    },
+                    {
+                        "name": "order_code",
+                        "display_name": "order_code",
+                        "role": "identifier",
+                        "type": "string",
+                        "description": "order code",
+                        "business_definition": definition("order code definition"),
+                    },
+                ]
+            )
+            dataset_path.write_text(yaml.safe_dump(dataset, allow_unicode=True), encoding="utf-8")
+            old_db_path = module._DB_PATH
+            module._DB_PATH = workspace / "runtime" / "registry.db"
+            try:
+                module.save_entry(
+                    {
+                        "key": "test.dataset",
+                        "source_id": "test.dataset",
+                        "type": "duckdb_table",
+                        "source_backend": "duckdb",
+                        "status": "active",
+                        "category": "test",
+                        "display_name": "Test Dataset",
+                    }
+                )
+                module.save_spec(
+                    {
+                        "entry_key": "test.dataset",
+                        "display_name": "Test Dataset",
+                        "filters": [
+                            {
+                                "key": "year",
+                                "display_name": "year",
+                                "apply_via": "sql_where",
+                                "allowed_values": [2021, 2022],
+                                "sample_values": ["SHOULD_NOT_APPEAR"],
+                                "validation": {"min": 2020, "max": 2026},
+                            },
+                            {
+                                "key": "order_date",
+                                "display_name": "order_date",
+                                "apply_via": "sql_where",
+                                "allowed_values": ["2020-02-02"],
+                                "validation": {"min_date": "2020-01-01", "max_date": "2026-12-31"},
+                            },
+                            {
+                                "key": "region",
+                                "display_name": "region",
+                                "apply_via": "sql_where",
+                                "allowed_values": ["East", "West"],
+                            },
+                            {
+                                "key": "order_code",
+                                "display_name": "order_code",
+                                "apply_via": "sql_where",
+                                "validation": {"pattern": "^ORD-[0-9]+$", "example": "ORD-001"},
+                            }
+                        ],
+                    }
+                )
+            finally:
+                module._DB_PATH = old_db_path
+
+            proc = self.run_cmd([sys.executable, str(METADATA_REPORTER), "--workspace", str(workspace), "--dataset-id", "test.dataset"])
+
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            content = (workspace / "metadata" / "reports" / "test.dataset_metadata_report.md").read_text(encoding="utf-8")
+            self.assertIn("2020 至 2026", content)
+            self.assertIn("2020-01-01 至 2026-12-31", content)
+            self.assertIn("East、West", content)
+            self.assertNotIn("2021、2022", content)
+            self.assertNotIn("2020-02-02", content)
+            self.assertNotIn("SHOULD_NOT_APPEAR", content)
+            self.assertNotIn("格式：", content)
+            self.assertNotIn("ORD-001", content)
+
+    def test_dataset_first_metadata_report_output_dir_and_all(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            write_dataset(workspace, metric_field_count=1, metric_count=0)
+            output_dir = workspace / "custom_reports"
+
+            proc = self.run_cmd(
+                [
+                    sys.executable,
+                    str(METADATA_REPORTER),
+                    "--workspace",
+                    str(workspace),
+                    "--all",
+                    "--output-dir",
+                    str(output_dir),
+                ]
+            )
+
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            report_path = output_dir / "test.dataset_metadata_report.md"
+            self.assertTrue(report_path.exists())
+            self.assertIn("[OK] report ->", proc.stdout)
+
     def test_metadata_report_renderer_modules_are_internal_only(self) -> None:
         for path, connector in [(DUCKDB_REPORTER, "duckdb"), (TABLEAU_REPORTER, "tableau")]:
             proc = self.run_cmd([sys.executable, str(path), "--help"])

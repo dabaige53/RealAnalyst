@@ -5,12 +5,15 @@ import argparse
 from pathlib import Path
 
 from _bootstrap import bootstrap_workspace_path
-import duckdb_report
-import tableau_report
-from runtime.tableau import sqlite_store
 
 
 WORKSPACE_DIR = bootstrap_workspace_path()
+
+import dataset_report  # noqa: E402
+import duckdb_report  # noqa: E402
+import tableau_report  # noqa: E402
+from skills.metadata.lib.metadata_io import MetadataError  # noqa: E402
+from runtime.tableau import sqlite_store  # noqa: E402
 
 
 def _connector_from_dataset_id(dataset_id: str | None) -> str | None:
@@ -34,6 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--all", action="store_true", help="Generate reports for all active entries of the connector")
     parser.add_argument("--all-yaml", action="store_true", help="Generate reports for all YAML datasets of the connector")
     parser.add_argument("--report-dir", help="Output directory for Markdown reports")
+    parser.add_argument("--output-dir", help="Dataset-first output directory for Markdown reports")
     parser.add_argument("--with-samples", action="store_true", help="Indicate Tableau sync included sample values")
     parser.add_argument("--sync-mode", choices=["live", "dry-run", "metadata-yaml"], default="metadata-yaml")
     parser.add_argument("--register-step-status", choices=["success", "failed", "skipped"], default="success")
@@ -151,6 +155,26 @@ def _generate_tableau(args: argparse.Namespace, workspace: Path, report_dir: Pat
 def main() -> None:
     args = build_parser().parse_args()
     workspace = Path(args.workspace).expanduser().resolve() if args.workspace else WORKSPACE_DIR
+    if not args.connector:
+        if args.all_yaml:
+            print("[Error] --all-yaml is a connector compatibility option. Use --all for dataset-first reports.")
+            raise SystemExit(2)
+        if not args.dataset_id and not args.all:
+            print("[Error] Specify --dataset-id or --all")
+            raise SystemExit(2)
+        output_dir = Path(args.output_dir).expanduser().resolve() if args.output_dir else dataset_report.default_output_dir(workspace)
+        try:
+            facts_list = dataset_report.read_facts(workspace, dataset_id=args.dataset_id, all_datasets=args.all)
+        except MetadataError as exc:
+            print(f"[Error] metadata read failed: {exc}")
+            raise SystemExit(1) from exc
+        for facts in facts_list:
+            path = dataset_report.write_dataset_report(facts, output_dir=output_dir)
+            print(f"[OK] report -> {path}")
+        return
+
+    if args.output_dir and not args.report_dir:
+        args.report_dir = args.output_dir
     connector = args.connector or _connector_from_dataset_id(args.dataset_id)
     if not connector:
         print("[Error] Specify --connector or use a dataset id starting with duckdb. / tableau.")

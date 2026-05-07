@@ -122,6 +122,81 @@ Sample values 只可用于识别值域或格式，不是完整枚举，也不是
 
 ---
 
+## Dataset-first metadata report 契约
+
+### 1. Scope / Trigger
+
+当修改 `RA:metadata-report`、`metadata.py read`、metadata search/read helper 或 runtime registry 事实展示时，必须按本契约检查。这个路径面向“准备使用数据做分析的人”，报告只呈现已维护事实，不生成业务推断、不改写 metadata 原文、不产生第二套 context。
+
+### 2. Signatures
+
+推荐入口：
+
+```bash
+python3 skills/metadata-report/scripts/generate_report.py --dataset-id <dataset_id>
+python3 skills/metadata-report/scripts/generate_report.py --all
+python3 skills/metadata-report/scripts/generate_report.py --dataset-id <dataset_id> --output-dir <dir>
+python3 skills/metadata/scripts/metadata.py read --dataset-id <dataset_id>
+python3 skills/metadata/scripts/metadata.py read --all
+```
+
+兼容入口可以保留 `--connector`，但 README、SKILL 和模板应优先推荐 dataset-first 命令。
+
+### 3. Contracts
+
+- `metadata.py read` stdout 是 JSON-only，成功时包含 `success: true` 和 `results[]`。
+- `generate_report.py` dataset-first stdout 是 human status，成功时输出 `[OK] report -> <path>`。
+- 默认报告路径是 `metadata/reports/<dataset_id>_metadata_report.md`，重复生成覆盖最新版。
+- Dataset-first report 不生成 `*_metadata_context.json` 或其它 machine context sidecar。
+- 报告事实通过 metadata read/search/status helper 进入 renderer；report 层只做展示编排。
+- 报告不得读取 `jobs/*/profile/*`、不得调用 `RA:data-profile`、不得现场查 DuckDB 或采样。
+- 标题、表头、状态标签使用中文；metadata 原始值保持原样。
+- 数值字段只展示已维护范围，日期字段只展示已维护起止，文本/分类字段才展示已维护取值列表。缺失时写 `未维护`；registry 缺失时写 `未注册`。
+
+### 4. Validation & Error Matrix
+
+| 条件 | 行为 |
+| --- | --- |
+| dataset 不存在或 metadata read 失败 | `metadata.py read` 返回 `success: false`、稳定 `error_code`，report 命令失败 |
+| index JSONL / search payload 损坏 | 转成可见 metadata read failure，不静默生成 partial report |
+| registry 不存在或 dataset 未注册 | report 继续生成，对应状态写 `未注册` |
+| 字段/指标定义缺失 | report 继续生成，单元格写 `未维护` |
+| 整个 section 无真实内容 | 不输出空 section，把缺口汇总到“未维护项” |
+| 用户误用 connector-only 参数但未指定 connector | 返回 CLI misuse，不把兼容模式当 dataset-first 执行 |
+
+### 5. Good/Base/Bad Cases
+
+- Good: dataset 有 YAML、index、runtime registry 和取值范围，报告输出中文章节、来源列和已维护范围。
+- Base: dataset 只有 YAML，没有 registry，报告仍输出字段/指标事实，并把运行状态写为 `未注册`。
+- Bad: dataset 不存在，命令返回结构化失败，不能生成占位 Markdown。
+
+### 6. Tests Required
+
+修改 dataset-first report 或 `metadata.py read` 时，至少覆盖：
+
+- `metadata.py read --dataset-id` 成功和 dataset missing 失败。
+- `generate_report.py --dataset-id` 默认输出路径、覆盖行为、无 JSON sidecar。
+- `generate_report.py --all --output-dir`。
+- job profile 内容不会泄漏到 metadata report。
+- 数值/日期字段不展示枚举列表，缺范围时 `未维护`。
+- 文本/分类字段保留已维护取值列表。
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```text
+字段 role=dimension，所以报告写“适合按该字段做经营分析”；数值字段有 sample_values，所以列出 2021、2022。
+```
+
+#### Correct
+
+```text
+报告只列 metadata / registry 已维护事实。没有用途原文就不写用途；数值字段没有 min/max 范围就写“未维护”。
+```
+
+---
+
 ## 常见错误
 
 - JSON 前打印 debug 行，导致 `json.loads(proc.stdout)` 测试失败。

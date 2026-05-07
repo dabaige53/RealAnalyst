@@ -1,196 +1,83 @@
 # 元数据报告模板
 
-本模板是 `RA:metadata-report` 的输出契约，用于人工审阅和检查脚本输出是否易读。正式生成入口是 `skills/metadata-report/scripts/generate_report.py`。
+本模板是 `RA:metadata-report` 的 dataset-first 输出契约，用于人工审阅和检查脚本输出是否易读。正式生成入口是 `skills/metadata-report/scripts/generate_report.py`。
 
-## 统一结构
+## Dataset-first 统一结构
 
 `````markdown
 # {数据源名称} 元数据报告
 
-## 1. 数据源结论
+## 1. 元数据事实摘要
+
+| 项目 | 内容 | 来源 |
+| --- | --- | --- |
+| 数据集 | {数据源名称} | metadata/datasets |
+| 系统标识 | {dataset_id} | metadata/datasets |
+| 连接器 | {connector} | metadata/datasets |
+| 字段数 | {field_count} | metadata/datasets |
+| 指标数 | {metric_count} | metadata/datasets |
+| 注册状态 | {已注册 / 未注册} | runtime/registry |
+
+## 2. 数据集信息
+
+| 项目 | 内容 | 来源 |
+| --- | --- | --- |
+| 展示名称 | {display_name} | metadata/datasets |
+| 业务说明 | {description / 未维护} | metadata/datasets |
+| 业务域 | {domain / 未维护} | metadata/datasets |
+| 分析粒度 | {grain / 未维护} | metadata/datasets |
+| 主键 | {primary_key / 未维护} | metadata/datasets |
+| 时间字段 | {time_fields / 未维护} | metadata/datasets |
+| 适用场景 | {suitable_for / 未维护} | metadata/datasets |
+| 不适用场景 | {not_suitable_for / 未维护} | metadata/datasets |
+
+## 3. 字段信息
+
+| 名称 | 系统标识 | 物理字段 | 角色 | 类型 | 业务定义 | 定义来源 | 状态 | 来源 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| {字段展示名} | {field.name} | {source_field} | {role} | {type} | {business_definition.text / 未维护} | {ref/source_type / 未维护} | {已维护 / 待补齐 / 未维护} | metadata/datasets/{dataset_id}.yaml::fields[name={字段名}].business_definition |
+
+## 4. 指标信息
+
+| 指标 | 系统标识 | 表达式 | 聚合方式 | 单位 | 适用粒度 | 业务定义 | 定义来源 | 状态 | 来源 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| {指标名称} | {metric.name} | {expression} | {aggregation / 未维护} | {unit / 未维护} | {valid_grains / 未维护} | {business_definition.text / 未维护} | {ref/source_type / 未维护} | {已维护 / 待补齐 / 未维护} | metadata/datasets/{dataset_id}.yaml::metrics[name={指标名}].business_definition |
+
+## 5. 筛选、参数与取值信息
+
+| 名称 | 类型 | 取值类型 | 已维护取值或范围 | 使用方式 | 来源 |
+| --- | --- | --- | --- | --- | --- |
+| {筛选入口名称} | {时间字段/筛选字段/参数} | {取值列表/数值范围/日期范围} | {values/range/未维护} | {sql_where / --vf / --vp} | runtime/registry |
+
+## 6. 映射与来源追溯
+
+| 来源文件 | 源字段 | 类型 | 标准语义 | 本地字段 | 说明 |
+| --- | --- | --- | --- | --- | --- |
+| metadata/mappings/{mapping}.yaml | {view_field} | {type} | {standard_id} | {field_id_or_override} | {notes / 未维护} |
+
+## 7. 未维护项
+
+| 对象 | 类型 | 缺口 | 位置 |
+| --- | --- | --- | --- |
+| {字段/指标/筛选/数据集} | {字段/指标/注册状态} | {business_definition 未维护 / 取值或范围未维护 / 未注册} | {metadata path / runtime registry path} |
+
+## 8. 运行与注册状态
+
+| 项目 | 状态 | 来源 |
+| --- | --- | --- |
+| metadata YAML | 已维护 | metadata/datasets/{dataset_id}.yaml |
+| metadata index | {已维护 / 未维护} | metadata/index |
+| runtime registry | {已注册 / 未注册} | runtime/registry.db |
+| runtime spec | {已维护 / 未维护} | runtime/registry.db |
+
+## 9. 报告生成信息
 
 | 项目 | 内容 |
 | --- | --- |
-| 数据源 | {数据源名称} |
-| 数据类型 | {连接器类型} / {对象类型} |
-| 当前状态 | {可用 / 可用但有待补齐 / 暂不建议用于正式分析} |
-| 数据规模 | {行数或导出范围}，{字段数} 个字段，{指标数} 个指标，{筛选入口数} 个筛选入口 |
-| 主要用途 | {适用场景摘要} |
-| 不能用于 | {不适用场景摘要} |
-| 最大风险 | {主要风险} |
-| 待补齐项 | {待补齐项数量摘要} |
-
-本报告说明这份数据源的元数据设计、可用字段、指标口径、筛选方式和待补齐项。它不输出经营分析结论。
-
-## 2. 适用场景
-
-### 2.1 可以直接支持
-
-| 场景 | 元数据位置 |
-| --- | --- |
-| {适用场景} | metadata/datasets/{dataset_id}.yaml::business.suitable_for |
-
-### 2.2 不建议用于
-
-| 场景 | 元数据位置 |
-| --- | --- |
-| {不适用场景} | metadata/datasets/{dataset_id}.yaml::business.not_suitable_for |
-
-## 3. 核心字段与指标
-
-### 3.1 核心字段
-
-| 名称 | 类型 | 业务含义 | 口径状态 | 定义位置 |
-| --- | --- | --- | --- | --- |
-| {字段展示名} | {时间/维度/指标来源/标识/属性} | {业务定义} | {已确认/待补齐/仅结构可用} | metadata/datasets/{dataset_id}.yaml::fields[name={字段名}].business_definition |
-
-### 3.2 核心指标
-
-| 指标 | 业务含义 | 计算或聚合方式 | 单位 | 适用粒度 | 口径状态 | 定义位置 |
-| --- | --- | --- | --- | --- | --- | --- |
-| {指标名称} | {业务定义} | {表达式或聚合方式} | {单位} | {适用粒度} | {已确认/待补齐} | metadata/datasets/{dataset_id}.yaml::metrics[name={指标名}].business_definition |
-
-## 4. 筛选方式与常用入口
-
-| 筛选入口 | 类型 | 示例值/规则 | 使用方式 | 使用边界 |
-| --- | --- | --- | --- | --- |
-| {筛选入口名称} | {时间字段/维度字段/筛选器/参数} | {示例值或格式规则} | {sql_where / --vf / --vp} | {具体使用边界} |
-
-说明：
-
-- 示例值只用于帮助识别字段值域，不代表完整枚举。
-- Tableau 报告必须区分筛选器 `--vf` 和参数 `--vp`。
-- DuckDB 报告正文只写业务筛选入口；具体 `sql_where` 写法放到第 8 章。
-
-## 5. 元数据补齐清单
-
-| 优先级 | 主题 | 影响 | 当前缺口 | 补齐位置 | 补齐后用途 |
-| --- | --- | --- | --- | --- | --- |
-| 高 | {字段或指标名称} | {影响范围} | {缺口说明} | {YAML 路径} | {补齐后用途} |
-
-写作要求：
-
-- 不按固定业务字段名写特例；按真实 metadata 中的字段、指标、映射和待补齐项组织。
-- 能说明影响范围时，写清会影响哪些分析场景。
-- 不能确认的字段或指标，不写成确定业务口径。
-- 不根据 role/status 自动生成“常见用途”或“使用建议”；没有显式元数据说明时，删除这些列。
-- 不把 `source_evidence.type`、`source_type` 或 `metadata/audit` 记录写成字段/指标定义位置；定义位置只指向当前 dataset YAML 的字段或指标定义节点。
-
-## 6. 数据边界与风险
-
-| 边界/风险 | 说明 | 对使用者的影响 |
-| --- | --- | --- |
-| {边界名称} | {边界说明} | {对分析师的影响} |
-
-必须覆盖：
-
-- 数据是实际完成值、计划值、预算值、还是 Tableau 已发布视图口径。
-- 样本值、筛选值和导出字段是否来自真实采样或导出验证。
-- 未确认字段、未确认指标、校验失败项对正式分析的限制。
-- 当前报告能证明什么，不能证明什么。
-
-## 7. 完整字段与指标明细
-
-### 7.1 字段明细
-
-| 名称 | 源字段 | 元数据类型 | 角色 | 业务定义 | 示例/规则 | 口径状态 | 定义位置 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| {字段展示名} | {源字段} | {元数据类型} | {角色} | {业务定义} | {示例或规则} | {已确认/待补齐/仅结构可用} | metadata/datasets/{dataset_id}.yaml::fields[name={字段名}].business_definition |
-
-### 7.2 指标明细
-
-| 指标 | 源字段/表达式 | 计算或聚合方式 | 单位 | 业务定义 | 适用粒度 | 口径状态 | 定义位置 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| {指标名称} | {源字段或表达式} | {表达式或聚合方式} | {单位} | {业务定义} | {适用粒度} | {已确认/待补齐} | metadata/datasets/{dataset_id}.yaml::metrics[name={指标名}].business_definition |
-
-### 7.3 筛选入口明细
-
-| 名称 | 类型 | 使用方式 | 示例值/规则 | 来源 |
-| --- | --- | --- | --- | --- |
-| {筛选入口名称} | {时间字段/维度字段/筛选器/参数} | {sql_where / --vf / --vp} | {示例值或格式规则} | {字段 role、Tableau spec.filters 或 Tableau spec.parameters} |
-
-如果字段或指标数量过多，正文可以只保留核心字段/指标速查，本章仍必须保留完整明细。
-
-## 8. 数据源使用说明
-
-### 8.1 DuckDB 使用说明
-
-仅 DuckDB 报告在有真实内容时输出本节。
-
-| 项目 | 值 |
-| --- | --- |
-| DuckDB 文件 | `{DuckDB 文件路径}` |
-| Schema | `{Schema}` |
-| 对象 | `{对象名}` |
-| 对象类型 | `{对象类型}` |
-| 查询边界 | {只读采样或查询边界} |
-
-常用筛选写法：
-
-| 业务筛选 | DuckDB 条件示例 | 注意事项 |
-| --- | --- | --- |
-| {筛选入口名称} | `{sql_where}` | {注意事项} |
-
-### 8.2 Tableau 使用说明
-
-仅 Tableau 报告在有真实内容时输出本节。
-
-| 项目 | 值 |
-| --- | --- |
-| Workbook | `{Workbook 名称}` |
-| View | `{View 名称}` |
-| View LUID | `{View LUID}` |
-| Content URL | `{Content URL}` |
-| 导出验证 | {导出验证状态} |
-
-筛选器必须使用 `--vf`，参数必须使用 `--vp`。
-
-| 类型 | 名称 | 示例 | 用途 |
-| --- | --- | --- | --- |
-| 筛选器 | {筛选器名称} | `--vf "{筛选器名称}={值}"` | {用途} |
-| 参数 | {参数名称} | `--vp "{参数名称}={值}"` | {用途} |
-
-## 9. 技术维护附录
-
-### 9.1 注册与生成信息
-
-| 项目 | 值 |
-| --- | --- |
-| `source_id` / `dataset_id` | `{source_id}` |
-| `key` | `{key}` |
-| `type` | `{type}` |
-| `status` | `{status}` |
-| 报告生成时间 | `{generated_at}` |
-| 默认报告目录 | `metadata/sync/{connector}/reports/` |
-| 执行链路 | `{metadata_yaml / validate / generate_report / sync_registry / export_validate}` |
-| 步骤状态 | `{step_status}` |
-
-### 9.1 输入与维护层边界
-
-| 层级 | 用途 | 报告处理 |
-| --- | --- | --- |
-| `metadata/datasets/*.yaml` | 数据集、字段、指标、粒度和适用边界 | 作为报告元数据事实读取 |
-| `metadata/mappings/*.yaml` | 源字段到标准语义的映射 | 只作为映射读取，不替代字段/指标定义 |
-| `metadata/dictionaries/*.yaml` | 公共指标、维度和术语定义 | 只通过 `business_definition.ref` 追溯，不展开复制 |
-| `metadata/audit/*` | 维护日志、ref 关联和 refine diff | 审计层隔离，不作为业务定义真源 |
-| runtime registry / export manifest | 运行时可用性或导出验证 | 只说明运行状态、导出结构或筛选值域 |
-
-### 9.3 映射明细
-
-| 源字段 | 类型 | 标准语义 | 本地字段 | 说明 |
-| --- | --- | --- | --- | --- |
-| {源字段} | {metric/dimension/field} | {标准语义} | {本地字段} | {说明} |
-
-### 9.4 校验结果
-
-| 校验项 | 结果 | 说明 |
-| --- | --- | --- |
-| {validation_item} | {pass/fail/skipped} | {detail} |
-
-## 10. 结论
-
-- 这份 {连接器类型} 元数据当前状态：{当前状态}。
-- 可以优先用于：{主要适用场景}。
-- 暂不应用于：{主要不适用场景}。
-- 下一步需要补齐：{优先补齐项}。
+| 生成时间 | {generated_at} |
+| 生成入口 | skills/metadata-report/scripts/generate_report.py |
+| 读取入口 | skills/metadata/lib/metadata_facts.py |
+| 默认输出目录 | metadata/reports |
 `````
+
+报告不生成 JSON context sidecar；agent 结构化读取统一使用 `metadata.py read/search/status`。

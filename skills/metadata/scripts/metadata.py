@@ -17,6 +17,7 @@ COMMANDS = (
     "validate",
     "index",
     "search",
+    "read",
     "context",
     "catalog",
     "reconcile",
@@ -130,6 +131,11 @@ def build_parser() -> argparse.ArgumentParser:
     search.add_argument("--type", default="all", choices=("all", "dataset", "field", "metric", "mapping", "term", "glossary"))
     search.add_argument("--query", required=True)
     search.add_argument("--limit", type=int, default=10)
+
+    read = subparsers.add_parser("read", help="Read exact dataset metadata facts.")
+    read_scope = read.add_mutually_exclusive_group(required=True)
+    read_scope.add_argument("--dataset-id")
+    read_scope.add_argument("--all", action="store_true")
 
     context = subparsers.add_parser("context", help="Build an analysis context pack.")
     context.add_argument("--dataset-id", action="append", required=True, help="Metadata dataset id (repeatable for multi-dataset context)")
@@ -275,6 +281,14 @@ def main(argv: list[str] | None = None) -> int:
             metadata_script("search_metadata.py"),
             [*workspace_args(workspace), "--type", record_type, "--query", args.query, "--limit", str(args.limit)],
         )
+
+    if args.command == "read":
+        forwarded = workspace_args(workspace)
+        if args.all:
+            forwarded.append("--all")
+        else:
+            forwarded.extend(["--dataset-id", args.dataset_id])
+        return run_python_script(workspace, metadata_script("read_metadata.py"), forwarded)
 
     if args.command == "context":
         forwarded = list(workspace_args(workspace))
