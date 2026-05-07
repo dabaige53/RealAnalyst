@@ -36,7 +36,7 @@ RealAnalyst 围绕 Codex skills 和 Python scripts 组织：
 | 报告验证 | `RA:report-verify` | `skills/report-verify/scripts/verify.py` |
 | 多源 artifact 融合 | `RA:artifact-fusion` | `skills/artifact-fusion/scripts/fusion.py` |
 
-例如 Tableau/DuckDB connector adapter 可以生成初始化材料和 sync report，但不能变成业务定义真源，也不能接管最终 metadata report。`skills/metadata/references/connector-adapters.md` 已把报告生成交给 `RA:metadata-report`。
+例如 Tableau/DuckDB connector adapter 可以生成初始化材料和同步状态提示，但不能变成业务定义真源，也不能接管 Markdown metadata report。历史兼容的 adapter `generate_sync_report.py` 路径只能转发到 `RA:metadata-report` 的统一入口，不得保留 standalone renderer。`skills/metadata/references/connector-adapters.md` 已把报告生成交给 `RA:metadata-report`。
 
 ---
 

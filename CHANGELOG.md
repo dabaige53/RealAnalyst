@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.14 - 2026-05-07
+
+- Converted legacy DuckDB and Tableau adapter `generate_sync_report.py` scripts into compatibility wrappers.
+- Routed legacy adapter report commands through the unified `RA:metadata-report` generator so old paths follow the metadata/audit isolation contract.
+- Added tests to prevent adapter-level report scripts from reintroducing standalone Markdown renderers.
+
 ## 0.3.13 - 2026-05-06
 
 - Isolated metadata audit records from report-facing business definitions.

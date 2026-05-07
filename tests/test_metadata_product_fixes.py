@@ -19,6 +19,8 @@ DUCKDB_EXPORTER = REPO / "skills" / "data-export" / "scripts" / "duckdb" / "expo
 METADATA_REPORTER = REPO / "skills" / "metadata-report" / "scripts" / "generate_report.py"
 DUCKDB_REPORTER = REPO / "skills" / "metadata-report" / "scripts" / "duckdb_report.py"
 TABLEAU_REPORTER = REPO / "skills" / "metadata-report" / "scripts" / "tableau_report.py"
+DUCKDB_LEGACY_REPORTER = REPO / "skills" / "metadata" / "adapters" / "duckdb" / "scripts" / "generate_sync_report.py"
+TABLEAU_LEGACY_REPORTER = REPO / "skills" / "metadata" / "adapters" / "tableau" / "scripts" / "generate_sync_report.py"
 TABLEAU_BOOTSTRAP = REPO / "skills" / "metadata" / "adapters" / "tableau" / "scripts" / "_bootstrap.py"
 SYNC_REGISTRY = REPO / "skills" / "metadata" / "scripts" / "sync_registry.py"
 SQLITE_STORE = REPO / "runtime" / "tableau" / "sqlite_store.py"
@@ -34,6 +36,20 @@ def load_script(path: Path, module_name: str):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def load_adapter_wrapper(path: Path, module_name: str):
+    old_path = list(sys.path)
+    old_bootstrap = sys.modules.pop("_bootstrap", None)
+    try:
+        sys.path.insert(0, str(path.parent))
+        return load_script(path, module_name)
+    finally:
+        sys.path[:] = old_path
+        if old_bootstrap is not None:
+            sys.modules["_bootstrap"] = old_bootstrap
+        else:
+            sys.modules.pop("_bootstrap", None)
 
 
 def definition(text: str = "已确认业务定义") -> dict:
@@ -759,6 +775,76 @@ class MetadataProductFixTests(unittest.TestCase):
             content = path.read_text(encoding="utf-8")
             self.assertNotIn("generate_sync_report.py", content)
             self.assertIn("metadata-report", content)
+
+    def test_adapter_generate_sync_report_scripts_are_wrappers_only(self) -> None:
+        for path, connector in [
+            (DUCKDB_LEGACY_REPORTER, "duckdb"),
+            (TABLEAU_LEGACY_REPORTER, "tableau"),
+        ]:
+            content = path.read_text(encoding="utf-8")
+            self.assertIn("RA:metadata-report", content)
+            self.assertIn("generate_report.py", content)
+            self.assertIn(f'"{connector}"', content)
+            self.assertNotIn("def render_sync_report", content)
+            self.assertNotIn("write_text", content)
+            self.assertNotIn("Sync Report", content)
+            self.assertNotIn("建议补充的业务描述", content)
+            self.assertNotIn("使用建议", content)
+
+    def test_adapter_generate_sync_report_main_delegates_to_metadata_report(self) -> None:
+        cases = [
+            (DUCKDB_LEGACY_REPORTER, "duckdb", ["--key", "legacy.duckdb"], "legacy.duckdb.source"),
+            (
+                TABLEAU_LEGACY_REPORTER,
+                "tableau",
+                [
+                    "--key",
+                    "legacy.tableau",
+                    "--with-samples",
+                    "--export-summary",
+                    "summary.json",
+                    "--manifest",
+                    "manifest.json",
+                ],
+                "legacy.tableau",
+            ),
+        ]
+        for path, connector, argv, expected_dataset_id in cases:
+            module = load_adapter_wrapper(path, f"{connector}_legacy_report_wrapper_test")
+            module._report_script = lambda: METADATA_REPORTER
+            if connector == "duckdb":
+                module._source_id_for_key = lambda key: f"{key}.source"
+
+            calls: list[list[str]] = []
+
+            class Completed:
+                returncode = 7
+
+            def fake_run(command: list[str]) -> Completed:
+                calls.append(command)
+                return Completed()
+
+            old_argv = sys.argv
+            old_run = module.subprocess.run
+            module.subprocess.run = fake_run
+            try:
+                sys.argv = [str(path), *argv]
+                with self.assertRaises(SystemExit) as raised:
+                    module.main()
+            finally:
+                sys.argv = old_argv
+                module.subprocess.run = old_run
+
+            self.assertEqual(raised.exception.code, 7)
+            self.assertEqual(len(calls), 1)
+            command = calls[0]
+            self.assertEqual(Path(command[1]), METADATA_REPORTER)
+            self.assertEqual(command[command.index("--connector") + 1], connector)
+            self.assertEqual(command[command.index("--dataset-id") + 1], expected_dataset_id)
+            if connector == "tableau":
+                self.assertIn("--with-samples", command)
+                self.assertEqual(command[command.index("--export-summary") + 1], "summary.json")
+                self.assertEqual(command[command.index("--manifest") + 1], "manifest.json")
 
     def test_sqlite_store_save_entry_replaces_existing_source_id(self) -> None:
         module = load_script(SQLITE_STORE, "sqlite_store_upsert_test")
