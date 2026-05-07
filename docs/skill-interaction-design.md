@@ -1,6 +1,6 @@
 # RealAnalyst Skills 交互与产物详细设计
 
-本文档描述 RealAnalyst 中 12 个 skill 之间的调用关系、数据传递契约、产物规范和运行时序。
+本文档描述 RealAnalyst 中 14 个 skill 之间的调用关系、数据传递契约、产物规范和运行时序。用户第一层入口只有 `RA:getting-started`、`RA:metadata`、`RA:analysis-run`；其它 skill 是补充入口、流程内能力、高级工具或 legacy compatibility entrypoint。
 
 ---
 
@@ -22,7 +22,8 @@
 
 | 原则 | 说明 |
 | --- | --- |
-| **总控编排** | `RA:analysis-run` 是唯一的编排器，按 Phase 0–5 调度其他 skill |
+| **三核边界** | Metadata 管“含义”，Runtime Registry 管“能不能取”，Job 管“这次实际用了什么” |
+| **正式分析入口** | `RA:analysis-run` 是正式分析入口，按 Phase 0–5 调度流程内 skill，但不自动吞掉 metadata 注册流程 |
 | **单 Session 单 Job** | 同一会话内只允许一个 `jobs/{SESSION_ID}/` 目录 |
 | **Append-only** | 报告和 `analysis.json` 在连续分析中只追加不重写 |
 | **产物路径从索引读取** | 禁止猜测文件名，必须从 `export_summary` / `artifact_index` 获取实际路径 |
@@ -33,7 +34,23 @@
 
 ## Skill 分类
 
-### 主链路（按执行顺序）
+### 用户第一层入口
+
+| Skill | 定位 |
+| --- | --- |
+| `RA:getting-started` | 轻量向导 + skill router + minimal status check |
+| `RA:metadata` | 注册/维护数据源、字段、指标、口径；未注册但想分析时先走这里 |
+| `RA:analysis-run` | 数据已准备好后的正式完整分析入口 |
+
+### 常见补充入口
+
+| Skill | 定位 |
+| --- | --- |
+| `RA:metadata-report` | 查看数据集长期口径说明 |
+| `RA:metadata-refine` | 分析结束后归档口径问题和真实数据探查材料 |
+| `RA:report-verify` | 检查已有报告是否可交付 |
+
+### 流程内主链路（按执行顺序）
 
 ```
 getting-started → metadata → analysis-run
@@ -45,14 +62,18 @@ getting-started → metadata → analysis-run
                                 └── report-verify   (Phase 5)
 ```
 
-### 辅助
+### 流程内 / 辅助 / 高级 / 兼容
 
 | Skill | 角色 | 触发时机 |
 | --- | --- | --- |
-| `analysis-reference` | 内部工具 | analysis-plan 选框架/模板时 |
-| `metadata-search` | 内部工具 | analysis-plan 查指标/字段时；report 查术语时 |
-| `artifact-fusion` | 可选步骤 | source group 内多源合并，在 data-export 后、data-profile 前 |
-| `metadata-report` | 独立功能 | 用户需要生成元数据审阅报告时 |
+| `analysis-plan` | 流程内 | `RA:analysis-run` 规划阶段 |
+| `data-export` | 流程内 | `RA:analysis-run` 取数阶段 |
+| `data-profile` | 流程内 | `RA:analysis-run` 画像阶段 |
+| `report` | 流程内 | `RA:analysis-run` 报告阶段 |
+| `metadata-search` | 辅助 | 只想查字段/指标/术语/dataset 是否已维护 |
+| `artifact-fusion` | 高级 | source group 内多源合并，在 data-export 后、data-profile 前 |
+| `analysis-reference` | 高级/流程内 | analysis-plan 选框架/模板时 |
+| `reference-lookup` | 兼容 | legacy compatibility entrypoint |
 
 ---
 
@@ -162,10 +183,12 @@ sequenceDiagram
 | 项目 | 说明 |
 | --- | --- |
 | **触发条件** | 首次使用、不知道准备什么、想确认数据源类型 |
-| **输入** | 用户口述的数据源描述 |
-| **输出** | 准备清单（字段、指标、筛选器、证据、待确认项） |
-| **下游** | `RA:metadata`（注册）或 `RA:analysis-run`（直接分析） |
+| **输入** | 用户目标、当前项目 metadata / registry / dataset 状态、数据源描述 |
+| **输出** | 最小状态检查结果、一条可复制的下一步 `/skill` 指令 |
+| **下游** | `RA:metadata`、`RA:analysis-run`、`RA:metadata-report`、`RA:metadata-refine`、`RA:report-verify` |
 | **脚本** | 无（纯对话引导） |
+
+边界：不创建正式 analysis job，不取数，不生成业务报告，不自动注册正式 metadata。用户想分析但数据未注册时，推荐先走 `RA:metadata` 做最小可分析注册。
 
 ### RA:metadata
 
@@ -231,10 +254,12 @@ sequenceDiagram
 
 | 项目 | 说明 |
 | --- | --- |
-| **触发条件** | 完整分析任务（大多数用户入口） |
-| **输入** | 用户问题 + 已注册 metadata |
+| **触发条件** | 数据已准备好的完整分析任务 |
+| **输入** | 用户问题 + 已注册 metadata / registry |
 | **输出** | 完整 job 目录 |
-| **角色** | **总控编排器** — 自身不做取数/画像/报告，而是调度其他 skill |
+| **角色** | **正式分析入口** — 自身不做取数/画像/报告，而是调度流程内 skill |
+
+边界：如果缺少最小可分析 metadata 或 runtime registry readiness，先交给 `RA:metadata`；分析中发现口径问题只记录 job feedback，不直接改正式 YAML。
 
 **Phase 分解**：
 

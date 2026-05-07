@@ -24,27 +24,36 @@
 
 ## 系统架构
 
-RealAnalyst 由两条主线组成：**注册元数据线**（把数据源事实沉淀为可审查的 metadata）和**实施分析线**（基于 metadata 完成 plan → export → profile → analysis → report → verify）。
+RealAnalyst 是平台无关的 metadata-first 分析执行系统。Codex skills 是当前第一套 adapter / entrypoint；底层能力按三个 core 分层，未来可以被 CLI、MCP、其他 LLM 产品、企业 agent workflow 或 BI workflow 复用。
 
-`RA:analysis-run` 是总控编排器，大多数用户只需调用它。
+| Core | 职责 |
+| --- | --- |
+| Metadata Core | 管业务含义：YAML schema、definition state、evidence relation、index/context builder |
+| Runtime Registry Core | 管数据源能不能取：source registry、Tableau / DuckDB / CSV connector metadata、filter / parameter / source group |
+| Job Core | 管本次实际用了什么：analysis job 状态、artifact index、feedback、verification artifacts |
+
+核心边界：Metadata 管“含义”，Registry 管“能不能取”，Job 管“这次实际用了什么”。LLM 负责组织、推断、解释和编排；事实状态由三核承接。
 
 ```mermaid
 flowchart TB
-    subgraph MetadataLine["注册元数据线"]
+    subgraph MetadataCore["Metadata Core"]
         direction LR
-        GS["RA:getting-started<br/>确认数据源类型"] --> Sync["Connector Sync<br/>Tableau / DuckDB"]
-        Sync --> Sources["metadata/sources<br/>原始证据"]
-        Sources --> YAML["metadata YAML<br/>dictionaries / mappings / datasets"]
+        Sources["metadata/sources<br/>原始证据"] --> YAML["metadata YAML<br/>dictionaries / mappings / datasets"]
         YAML --> Validate["metadata validate"]
         Validate --> Index["metadata index<br/>JSONL + FTS5"]
         Index --> Context["metadata context pack<br/>单或多数据集上下文"]
     end
 
-    subgraph AnalysisLine["实施分析线"]
+    subgraph RegistryCore["Runtime Registry Core"]
         direction LR
-        Request["业务问题"] --> AR["RA:analysis-run<br/>总控编排"]
+        Registry["runtime/registry.db<br/>source / filters / parameters"] --> Export["RA:data-export<br/>流程内取数"]
+    end
+
+    subgraph JobCore["Job Core"]
+        direction LR
+        Request["业务问题"] --> AR["RA:analysis-run<br/>正式分析入口"]
         AR --> Plan["RA:analysis-plan<br/>规划"]
-        AR --> Export["RA:data-export<br/>受控取数"]
+        AR --> Export
         AR --> Profile["RA:data-profile<br/>画像"]
         AR --> Analysis["Phase 3: 分析<br/>→ analysis.json"]
         AR --> Report["RA:report<br/>报告"]
@@ -52,21 +61,19 @@ flowchart TB
         Verify --> Delivery["可复核交付物"]
     end
 
-    subgraph Support["辅助 Skills"]
+    subgraph Entry["入口层"]
         direction LR
-        Ref["RA:analysis-reference<br/>模板/框架查询"]
-        MSrch["RA:metadata-search<br/>指标/字段/术语检索"]
-        Fusion["RA:artifact-fusion<br/>数据融合"]
-        MR["RA:metadata-report<br/>元数据报告"]
+        GS["RA:getting-started<br/>轻量向导 + skill router"]
+        M["RA:metadata<br/>最小可分析注册"]
+        MR["RA:metadata-report<br/>长期口径说明"]
         Refine["RA:metadata-refine<br/>修正材料"]
     end
 
+    GS --> M
+    M --> YAML
     Context --> AR
-    Ref -.-> Plan
-    Ref -.-> Report
-    Fusion -.-> Profile
     Analysis -.-> Refine
-    Refine -.-> YAML
+    Refine -.-> M
 ```
 
 ### 分层设计
@@ -75,7 +82,7 @@ flowchart TB
 ┌─────────────────────────────────────────────────────┐
 │  用户层          Codex 对话 / /skill 命令            │
 ├─────────────────────────────────────────────────────┤
-│  编排层          RA:analysis-run（总控）              │
+│  编排层          RA:analysis-run（正式分析入口）       │
 │                  ├── Phase 0: 需求理解 + 规划         │
 │                  ├── Phase 1: 受控取数                │
 │                  ├── Phase 2: 数据画像                │
@@ -85,17 +92,18 @@ flowchart TB
 ├─────────────────────────────────────────────────────┤
 │  能力层          14 个独立 skill                      │
 │                  getting-started · metadata ·         │
-│                  analysis-plan · data-export ·        │
+│                  analysis-run · analysis-plan ·        │
+│                  data-export ·                        │
 │                  data-profile · report ·              │
 │                  report-verify · artifact-fusion ·    │
 │                  analysis-reference · metadata-search · │
 │                  metadata-report ·                      │
 │                  metadata-refine · reference-lookup   │
 ├─────────────────────────────────────────────────────┤
-│  数据层          metadata/   元数据 YAML + 索引       │
-│                  runtime/    运行时配置 + registry     │
-│                  schemas/    JSON Schema 契约          │
-│                  jobs/       会话级工作目录             │
+│  Core 层         metadata/   含义                       │
+│                  runtime/    能不能取                   │
+│                  jobs/       本次实际用了什么           │
+│                  schemas/    JSON Schema 契约           │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -103,74 +111,71 @@ flowchart TB
 
 ## 快速开始
 
-### 1. 第一次使用
+### 1. 不知道从哪里开始
 
 ```text
 /skill RA:getting-started
-帮我确认数据源类型，并列出抽取元数据前需要准备的信息。
+帮我做最小状态检查，判断应该先注册 metadata、进入正式分析，还是查看已有口径说明。
 ```
 
-### 2. 已有 metadata，做一次完整分析
-
-```text
-/skill RA:analysis-run
-基于现有 metadata context，帮我生成分析计划，确认后再执行取数、画像、分析和报告。
-```
-
-### 3. 只想维护数据源和口径
+### 2. 注册或维护 metadata
 
 ```text
 /skill RA:metadata
 帮我注册一个数据集，并维护字段、指标、筛选器和业务口径。
 ```
 
+### 3. 已有 metadata，做一次完整分析
+
+```text
+/skill RA:analysis-run
+基于现有 metadata context，帮我生成分析计划，确认后再执行取数、画像、分析和报告。
+```
+
+### 常见补充入口
+
+| 需求 | 入口 |
+| --- | --- |
+| 查看数据集长期口径说明 | `/skill RA:metadata-report` |
+| 分析结束后归档口径问题 | `/skill RA:metadata-refine` |
+| 检查已有报告是否可交付 | `/skill RA:report-verify` |
+
 ### 不知道用哪个 skill？
 
-```mermaid
-flowchart TD
-    Q[你现在想做什么?]
-    Q -->|第一次使用| GS["RA:getting-started"]
-    Q -->|注册/查口径| M["RA:metadata"]
-    Q -->|生成取数前计划| AP["RA:analysis-plan"]
-    Q -->|完整分析任务| AR["RA:analysis-run"]
-    Q -->|正式取数| EX["RA:data-export"]
-    Q -->|检查数据质量| DP["RA:data-profile"]
-    Q -->|写报告| R["RA:report"]
-    Q -->|交付前校验| RV["RA:report-verify"]
-    Q -->|合并多个数据| AF["RA:artifact-fusion"]
-    Q -->|查模板/框架| RL["RA:analysis-reference"]
-    Q -->|搜指标/字段/术语| MS["RA:metadata-search"]
-    Q -->|元数据报告| MR["RA:metadata-report"]
-    Q -->|整理元数据修正材料| REF["RA:metadata-refine"]
-```
+先调用 `RA:getting-started`。它只做 lightweight guide + skill router + minimal status check，不创建正式 job、不取数、不生成业务报告、不自动注册正式 metadata。
 
 ---
 
 ## Skill 清单
 
-### 主链路 Skills
+### 主入口
 
 | Skill | 职责 | 主要输入 | 主要输出 |
 | --- | --- | --- | --- |
-| `RA:getting-started` | 初始引导：确认数据源类型，列出准备清单 | 用户描述 | 准备清单、下一步路径 |
-| `RA:metadata` | 元数据管理：注册、校验、索引、搜索、context、catalog、reconcile | layered YAML、dataset id、关键词 | validate / index (FTS5) / catalog / search / context pack / reconcile |
-| `RA:metadata-refine` | 元数据修正材料：整理 job 反馈、profile、真实数据探查和证据归档 | job feedback、profile、CSV | `metadata/sources/refine/{refine_id}/` 参考材料，含 `refine_followup.md` |
-| `RA:analysis-plan` | 分析规划：假设驱动的 10 章计划 | `normalized_request.json` + metadata context | `.meta/analysis_plan.md` |
-| `RA:analysis-run` | **总控编排**：串联全部分析流程 | 用户问题 + 已注册 metadata | job 目录（数据、画像、analysis.json、报告、verification） |
-| `RA:data-export` | 受控取数：Tableau / DuckDB | registry source id + filters | `data/*.csv` + `export_summary.json` + acquisition log |
-| `RA:data-profile` | 数据画像：schema、质量、信号、统计 | 正式 CSV | `profile/manifest.json` + `profile/profile.json` |
-| `RA:report` | 报告撰写：追加写作、模板锁定 | plan + profile + analysis + artifact_index | `报告_{主题}_{时间}.md` |
+| `RA:getting-started` | 轻量向导 + skill router + 最小状态检查 | 用户目标、当前项目状态 | 一条可复制下一步 `/skill` 指令 |
+| `RA:metadata` | 元数据管理：注册、维护、validate、index、sync-registry、status | source 素材、layered YAML、dataset id | 最小可分析注册、本次口径快照、context / registry readiness |
+| `RA:analysis-run` | 正式分析入口：串联 plan、export、profile、analysis、report、verify | 用户问题 + 已注册 metadata / registry | job 目录（数据、画像、analysis.json、报告、verification） |
+
+### 常见补充入口
+
+| Skill | 职责 | 主要输入 | 主要输出 |
+| --- | --- | --- | --- |
+| `RA:metadata-report` | 元数据报告：metadata report、注册说明、review gap | dataset YAML、discovery/sync 素材 | Markdown 元数据报告 |
+| `RA:metadata-refine` | 元数据修正材料：整理 job 反馈、profile、真实数据探查和证据归档 | job feedback、profile、CSV | `metadata/sources/refine/{refine_id}/` 参考材料 |
 | `RA:report-verify` | 交付门禁：证据链、排名、趋势、数字追溯 | `data.csv` + `analysis.json` + `report.md` | `verification.json` |
 
-### 辅助 Skills
+### 流程内 / 辅助 / 高级 / 兼容
 
-| Skill | 职责 | 主要输入 | 主要输出 |
-| --- | --- | --- | --- |
-| `RA:artifact-fusion` | 数据融合：source group 内 union / join / passthrough | 多个 dataset pack | 合并 CSV + lineage manifest |
-| `RA:analysis-reference` | 模板/框架查询 | 关键词 | JSON 查询结果 |
-| `RA:metadata-search` | 指标/字段/术语/数据集检索 + catalog | 关键词 + 类型 | JSON 检索结果 |
-| `RA:metadata-report` | 元数据报告：metadata report、注册说明、review gap | dataset YAML、discovery/sync 素材 | Markdown 元数据报告 |
-| `RA:reference-lookup` | 旧兼容入口：历史模板/框架/metadata 查询 | 关键词 | JSON 查询结果 |
+| Skill | 层级 | 职责 |
+| --- | --- | --- |
+| `RA:analysis-plan` | 流程内 | `RA:analysis-run` 的规划阶段；独立调用仅用于高级手工编排 |
+| `RA:data-export` | 流程内 | `RA:analysis-run` 的受控取数阶段；普通用户不直接从这里开始 |
+| `RA:data-profile` | 流程内 | `RA:analysis-run` 的数据画像阶段 |
+| `RA:report` | 流程内 | `RA:analysis-run` 的报告写作阶段 |
+| `RA:metadata-search` | 辅助 | 只想查字段/指标/术语/dataset 是否已维护时使用 |
+| `RA:artifact-fusion` | 高级 | 多源 union / join / passthrough |
+| `RA:analysis-reference` | 高级/流程内 | 查询报告模板和分析框架 |
+| `RA:reference-lookup` | 兼容 | legacy compatibility entrypoint，保留给旧调用 |
 
 ---
 
@@ -286,20 +291,20 @@ flowchart LR
 
 ## 两种使用模式
 
-### 模式一：总控编排（推荐）
+### 模式一：正式分析入口（推荐）
 
-直接调用 `RA:analysis-run`，它按 Phase 0 → 5 自动编排所有 skill：
+当 metadata / registry 已准备好时，直接调用 `RA:analysis-run`，它按 Phase 0 → 5 编排流程内 skill：
 
 ```text
 /skill RA:analysis-run
 帮我分析上个月的收入变化，已有元数据注册好了。
 ```
 
-Agent 内部会依次调用 `analysis-plan` → `data-export` → `data-profile` → 分析 → `report` → `report-verify`，中间在关键节点暂停等用户确认。
+Agent 内部会依次调用 `analysis-plan` → `data-export` → `data-profile` → 分析 → `report` → `report-verify`，中间在关键节点暂停等用户确认。若数据源未注册，应先回到 `RA:metadata` 做最小可分析注册。
 
 ### 模式二：单 Skill 调用
 
-当你只需要执行某个阶段时，可以直接调用单个 skill：
+当你只需要执行某个阶段或做高级排障时，可以直接调用单个 skill：
 
 ```bash
 # 只注册元数据
@@ -496,9 +501,9 @@ skills/<skill-name>/
 
 | 卡点 | 处理 |
 | --- | --- |
-| 不知道从哪个 skill 开始 | 直接用 `RA:getting-started`（第一次）或 `RA:analysis-run`（已有 metadata） |
-| skill 太多看不懂 | 只记一条：`RA:analysis-run` 会自动编排所有主链路 skill |
-| 想直接 SQL 分析 | 正式报告用 `RA:data-export`；临时检查可直接用 DuckDB CLI |
+| 不知道从哪个 skill 开始 | 直接用 `RA:getting-started` 做 skill routing |
+| skill 太多看不懂 | 普通用户先记 3 个：`RA:getting-started`、`RA:metadata`、`RA:analysis-run` |
+| 想直接 SQL 分析 | 正式分析先用 `RA:analysis-run`；高级手工取数才直接用 `RA:data-export` |
 | 想融合多个数据源 | 先确认用户同意，再用 `RA:artifact-fusion`（通常由 analysis-run 引导） |
 | 报告没证据 | 回到 `RA:report-verify`，检查 `analysis.json` 中的 evidence |
 | analysis-plan 独立调用时找不到 normalized_request | Plan skill 会向你追问 5 项必填信息后自行生成 |

@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/05-07-ra-skill-routing-guide/prd.md", "reason": "检查实现是否满足本任务 PRD 的入口层级、三核架构和 completion guidance"}
+{"file": ".trellis/spec/backend/index.md", "reason": "检查规范索引和适用规范"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "检查 skill、metadata、runtime、jobs 职责边界"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "检查 Metadata / Registry / Job 边界是否清楚"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "检查错误处理和 validation 相关表述不矛盾"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "检查输出、汇报和 Markdown contract"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "检查文档同步、禁止模式和验收项"}

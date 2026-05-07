@@ -1,22 +1,22 @@
 # 目录结构
 
-> RealAnalyst 是本地 Python CLI + Codex skill 工作台，没有 route/service/controller 这种 Web API 分层。目录结构的核心是职责独立：每个 skill、脚本、metadata 层和 runtime 文件只承担自己的职责。
+> RealAnalyst 是平台无关的 metadata-first 分析执行系统，当前第一套 adapter 是本地 Python CLI + Codex skill 工作台；没有 route/service/controller 这种 Web API 分层。目录结构的核心是职责独立：每个 skill、脚本、metadata 层、runtime 文件和 job artifact 只承担自己的职责。
 
 ---
 
 ## 系统形态
 
-RealAnalyst 围绕 Codex skills 和 Python scripts 组织：
+RealAnalyst 围绕三核和 adapter entrypoints 组织。核心边界是：Metadata 管“含义”，Runtime Registry 管“能不能取”，Job 管“这次实际用了什么”。Codex skills 是当前用户入口，不是产品边界。
 
 - `skills/<skill-name>/SKILL.md` 是 agent 执行契约。
 - `skills/<skill-name>/README.md` 是用户和维护者文档。
 - `skills/<skill-name>/scripts/` 放可执行 Python CLI 入口。
 - `skills/<skill-name>/references/` 放 skill 需要加载的细分契约。
 - `skills/<skill-name>/agents/` 放可选子代理配置。
-- `runtime/` 放运行态支持和 SQLite registry。
-- `metadata/` 放语义元数据真源、证据层和生成层。
+- `runtime/` 放运行态支持和 SQLite registry，承接 source、field、filter、parameter 和 source group 等可执行能力。
+- `metadata/` 放语义元数据真源、证据层和生成层，承接字段、指标、术语、定义状态和 evidence relation。
 - `schemas/` 放结构化 artifact 的 JSON Schema。
-- `jobs/{SESSION_ID}/` 是单次分析作业目录。
+- `jobs/{SESSION_ID}/` 是单次分析作业目录，保存本次 plan、export、profile、analysis、report、verification、feedback 和 artifact index；不承担长期任务管理。
 
 根 [README.md](/Users/w/Documents/GitHub/RealAnalyst/README.md) 把产品流程定义为：先注册/维护元数据，再做分析规划、取数、画像、报告和验证。代码结构也按这条链路组织，不按传统后端服务分层组织。
 
@@ -25,6 +25,15 @@ RealAnalyst 围绕 Codex skills 和 Python scripts 组织：
 ## 职责边界（skill）
 
 每个 skill 只拥有一个主职责。一个 skill 的脚本不要顺手完成另一个 skill 的主职责；需要交接时，输出下游 owner 需要的 artifact、命令或报告路径。
+
+用户入口必须保持分层：
+
+- 普通用户主入口只放 `RA:getting-started`、`RA:metadata`、`RA:analysis-run`。
+- 常见补充入口是 `RA:metadata-report`、`RA:metadata-refine`、`RA:report-verify`。
+- `RA:analysis-plan`、`RA:data-export`、`RA:data-profile`、`RA:report` 是流程内工具，通常由 `RA:analysis-run` 编排。
+- `RA:metadata-search`、`RA:artifact-fusion`、`RA:analysis-reference` 是辅助/高级工具；`RA:reference-lookup` 是 legacy compatibility entrypoint。
+- `RA:getting-started` 是 lightweight guide + skill router + minimal status check，不创建正式 job、不取数、不写报告、不自动注册 metadata。
+- 每个 `skills/*/SKILL.md` 只能有一个 `## Completion Summary`，并按“完成情况 / 下一步建议 / 边界提醒”给出短小、可执行的交接提示。
 
 | 区域 | Owner | 真实示例 |
 | --- | --- | --- |

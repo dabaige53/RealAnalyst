@@ -135,9 +135,20 @@ python3 {baseDir}/skills/report-verify/scripts/verify.py \
 
 ## Completion Summary
 
-验证完成后，向用户汇报：
+验证完成后，用下面结构向用户汇报，并按本次结果动态裁剪：
 
-1. `verification.json` 已生成，总检查数 / 通过 / 失败 / 警告。
-2. 列出失败项和警告项的摘要。
-3. 如果全部通过：下一步建议是交付报告给用户。
-4. 如果有失败项：下一步建议是回到 `/skill RA:report` 修正对应问题后重新验证。
+```text
+完成情况：
+- 已生成 `verification.json`。
+- 检查结果：<总检查数 / 通过 / 失败 / 警告>
+- 失败项和警告项摘要：<按实际列出>
+
+下一步建议：
+- 最推荐下一步：交付报告给用户（全部通过时）
+- 可选下一步：/skill RA:report ...（报告内容需修正时）
+- 可选下一步：/skill RA:metadata-refine ...（验证暴露口径缺口、review gap 或 metadata 问题时）
+
+边界提醒：
+- 本 skill 只做交付前门禁检查，没有修改报告、数据或正式 metadata。
+- 未通过项需要回到对应 owner skill 修正后重新验证。
+```

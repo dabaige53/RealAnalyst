@@ -11,6 +11,8 @@ description: |
 
 最终报告的写作入口，保留现有严格质量门槛。主文档只保留工作流与硬规则；模板矩阵、输出契约、附录模板统一下沉到 `references/`。
 
+本 skill 是 `RA:analysis-run` 的流程内报告写作阶段，不作为普通用户第一层入口。用户需要完整分析时优先进入 `RA:analysis-run`；用户只想检查已有报告时进入 `RA:report-verify`。
+
 ## 执行前必读依赖
 
 撰写报告前，必须先读取以下文件，不得猜测或补写：
@@ -185,10 +187,20 @@ ls -1 jobs/{SESSION_ID}/*.csv jobs/{SESSION_ID}/*.md 2>/dev/null
 
 ## Completion Summary
 
-报告撰写完成后，向用户汇报：
+报告撰写完成后，用下面结构向用户汇报，并按本次结果动态裁剪：
 
-1. 报告已写入 `jobs/{SESSION_ID}/报告_{主题}_{时间}.md`。
-2. 本次生成/追加了哪些章节。
-3. 口径说明附录是否已补齐。
-4. 输出文件清单是否已更新。
-5. 下一步建议：进入 `/skill RA:report-verify` 做交付前门禁检查。
+```text
+完成情况：
+- 报告已写入：`jobs/{SESSION_ID}/报告_{主题}_{时间}.md`
+- 已生成/追加章节：<章节清单>
+- 已更新：<口径说明附录、输出文件清单、artifact index，按实际保留>
+
+下一步建议：
+- 最推荐下一步：/skill RA:report-verify ...（做交付前门禁检查）
+- 可选下一步：/skill RA:metadata-refine ...（报告写作发现口径缺口或 review gap）
+- 可选下一步：/skill RA:analysis-run ...（继续同一 job 的追加分析）
+
+边界提醒：
+- 本 skill 是流程内报告写作阶段，没有执行取数、画像或验证。
+- 报告中的 metadata 问题只记录为线索；正式 YAML 写回需用户主动走 /skill RA:metadata-refine 和 /skill RA:metadata。
+```

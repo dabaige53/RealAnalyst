@@ -95,9 +95,20 @@ metadata/sources/refine/{refine_id}/
 
 ## Completion Summary
 
-完成后向用户汇报：
+完成后用下面结构向用户汇报，并按本次结果动态裁剪：
 
-- 使用了哪个 job、profile、CSV 和 feedback。
-- 生成了哪些参考文件，尤其是 `refine_followup.md` 中“做了什么”和“后续建议”。
-- 是否已归档到 `metadata/sources/refine/{refine_id}/`。
-- 下一步：使用 `RA:metadata` 基于参考材料修正 YAML，再运行 validate/index/sync-registry。
+```text
+完成情况：
+- 已读取来源：<job、profile、CSV、feedback、用户反馈>
+- 已生成 refine pack：`metadata/sources/refine/{refine_id}/`
+- 已生成参考文件：<evidence_manifest.json、metadata_update_reference.md、refine_followup.md>
+
+下一步建议：
+- 最推荐下一步：/skill RA:metadata ...（基于 refine pack 修正正式 YAML）
+- 可选下一步：/skill RA:metadata-report ...（修正后生成长期口径说明）
+- 可选下一步：/skill RA:analysis-run ...（下一次分析复用更好的 metadata）
+
+边界提醒：
+- 本 skill 只整理和归档参考材料，没有直接修改正式 YAML。
+- 正式写回必须由用户主动进入 /skill RA:metadata，并运行 validate / index / sync-registry。
+```

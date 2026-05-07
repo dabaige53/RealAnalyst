@@ -10,6 +10,8 @@ description: |
 
 按需查询 metadata index、registry lookup tables 和报告模板参考文件。
 
+本 skill 是 legacy compatibility entrypoint，不放普通用户第一层入口。新调用优先使用 `RA:metadata-search` 或 `RA:analysis-reference`；仅在旧流程仍依赖本入口时保留。
+
 - `metric` / `dimension` / `glossary`：优先读取 metadata index；运行层只服务取数。
 - `template` / `framework`：读取 skill references，不把 runtime 当业务配置仓库。
 
@@ -57,8 +59,20 @@ python3 {baseDir}/skills/reference-lookup/scripts/query_config.py --help
 
 ## Completion Summary
 
-查询完成后，向用户汇报：
+查询完成后，用下面结构向用户汇报，并按本次结果动态裁剪：
 
-1. 查询了什么类型（template / metric / glossary / dimension / framework）。
-2. 返回了多少条匹配结果。
-3. 下一步建议：将查询结果用于当前进行中的 skill（通常是 `RA:analysis-plan` 或 `RA:report`）。
+```text
+完成情况：
+- 已查询类型：<template / metric / glossary / dimension / framework>
+- 命中数量：<count>
+- 已返回结果：<JSON 摘要或路径>
+
+下一步建议：
+- 最推荐下一步：/skill RA:metadata-search ...（后续字段/指标/术语/dataset 查询）
+- 可选下一步：/skill RA:analysis-reference ...（后续模板/框架查询）
+- 可选下一步：/skill RA:analysis-run ...（回到正式分析流程）
+
+边界提醒：
+- 本 skill 是 legacy compatibility entrypoint；新流程不要把它当普通用户主入口。
+- 本 skill 只查询参考信息，没有维护 metadata、同步 registry、取数、写报告或验证。
+```

@@ -1,6 +1,6 @@
 # 后端开发规范
 
-> RealAnalyst 的“后端”不是 Web API，而是一组 Codex skill、Python CLI、metadata 分层文件、runtime registry 和分析作业脚本。后续 coding agent 必须按这些真实约定开发。
+> RealAnalyst 的“后端”不是 Web API，而是一套平台无关的 metadata-first 分析执行核心，加上 Codex skill、Python CLI、metadata 分层文件、runtime registry 和分析作业脚本等 adapter / entrypoint。后续 coding agent 必须按这些真实约定开发。
 
 ---
 
@@ -32,7 +32,7 @@
 
 开发前先读与改动相关的规范文件。尤其注意：
 
-- metadata YAML、mapping、dictionary、runtime registry、search index、sync report 和 analysis report 不得互相替代。
+- 三核边界必须清楚：Metadata 管含义，Runtime Registry 管能不能取，Job 管本次实际用了什么；metadata YAML、mapping、dictionary、runtime registry、search index、sync report 和 analysis report 不得互相替代。
 - 修改 metadata 行为时，优先跑 `metadata validate`、`metadata index`，需要 export-ready 时再跑 `metadata sync-registry` / `metadata status`。
 - 修改 skill、installer、metadata-report、runtime registry 时，必须同时检查 README、skill contract、script、tests 是否需要同步。
 - 代码示例必须来自真实文件路径，不使用占位内容。

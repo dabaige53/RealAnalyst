@@ -9,6 +9,8 @@
 - 改动要小而准，只触碰用户请求相关文件。
 - 优先使用已有 helper、script 和 skill contract，不新增旁路入口。
 - 修改 metadata 语义、runtime registry、report 生成、installer 或 skill 目录时，同步检查 README、SKILL.md、脚本入口和测试。
+- 修改 skill routing、installer 或 public docs 时，必须检查普通用户入口仍是 3 个主入口 + 3 个常见补充入口，流程内/高级/兼容 skill 不得重新平铺到第一层。
+- 修改 `skills/*/SKILL.md` 时，必须保持唯一 `## Completion Summary`，并包含“完成情况 / 下一步建议 / 边界提醒”三段轻量交接。
 - 不为了修一个输出问题 hard-code 某个业务字段名、指标名或固定中文列名；报告逻辑必须按 metadata 结构、role、definition、expression、mapping、evidence 等通用规则处理。
 - 没有真实数据、真实 metadata、真实 connector 输出或真实 evidence 时，不生成占位内容撑版面。
 
@@ -60,6 +62,8 @@ CI 里已有 `.github/workflows/ci.yml` 运行 `python skills/metadata/scripts/m
 - stdout 既输出 JSON 又夹杂 debug/progress 行。
 - 用 string 拼接 SQL filter value。
 - 修改 installer、skill list 或 public docs 时漏掉 mirrored README / INSTALL / plugin metadata。
+- 把 `RA:data-export`、`RA:data-profile`、`RA:report`、`RA:analysis-plan` 等流程内 skill 当作普通用户第一层入口推荐。
+- 让 `RA:getting-started` 创建正式 job、执行取数、生成报告或自动注册 metadata。
 - 运行 destructive git 命令或清理非本轮产生的用户改动。
 
 ---
@@ -67,6 +71,7 @@ CI 里已有 `.github/workflows/ci.yml` 运行 `python skills/metadata/scripts/m
 ## 必需模式
 
 - 写 metadata 前先确认归属层：dataset、mapping、dictionary、source、audit、runtime registry、index、report 各归其位。
+- 写入口文档前先确认三核归属：Metadata 管含义，Runtime Registry 管能不能取，Job 管本次实际用了什么；长期任务管理不属于 RealAnalyst job。
 - 从 YAML 到 runtime registry 只能走 `metadata validate` -> `metadata index` -> `metadata sync-registry`。
 - Export 必须先解析 runtime source entry 和 spec，再校验字段和 filter。
 - Report 只基于真实 metadata、connector 输出、export manifest、sample profile、mapping 或 dictionary evidence；没有可验证内容的 section 默认删除。
@@ -87,6 +92,8 @@ CI 里已有 `.github/workflows/ci.yml` 运行 `python skills/metadata/scripts/m
 - 安全性：SQL 是否参数化，路径是否限制在 workspace/job 目录。
 - 安装兼容：源码仓路径和 `.agents/skills` 安装路径是否都能工作。
 - 文档同步：`README.md`、`skills/README.md`、`SKILL.md`、adapter references 是否需要同步。
+- 用户入口：README、skills README、llm-next-steps、getting-started 是否一致表达 3 个主入口、3 个补充入口和流程内 skill 弱化。
+- Completion Summary：所有 `skills/*/SKILL.md` 是否都有统一结构，下一步建议是否按本次结果动态裁剪且不自动越权执行。
 - 测试：是否有覆盖当前行为的 focused test 或 smoke command。
 
 ---

@@ -10,6 +10,8 @@ description: |
 
 生成数据集的正式画像产物。画像可以读取 `runtime/registry.db` 中的运行时 source/spec 提示来辅助字段角色识别；业务定义、指标口径和 review 状态以 `RA:metadata` 生成的 YAML / context pack 为准：
 
+本 skill 是 `RA:analysis-run` 的流程内数据画像阶段，不作为普通用户第一层入口。用户需要完整分析时优先进入 `RA:analysis-run`。
+
 - `profile/manifest.json`：schema、lineage、profile_summary
 - `profile/profile.json`：signals、quality、statistics
 
@@ -130,9 +132,20 @@ Profiling 会自动识别以下语义类型（用于格式化）：
 
 ## Completion Summary
 
-画像完成后，向用户汇报：
+画像完成后，用下面结构向用户汇报，并按本次结果动态裁剪：
 
-1. 画像了哪个 CSV（文件路径和行列数）。
-2. `manifest.json` 和 `profile.json` 已生成到 `profile/` 目录。
-3. 关键质量信号：缺失率、异常字段、质量评分。
-4. 下一步建议：进入 `RA:analysis-run` Phase 3（LLM 分析），或如有质量问题先回到数据修正。
+```text
+完成情况：
+- 已画像 CSV：<文件路径、行数、列数>
+- 已生成产物：`profile/manifest.json`、`profile/profile.json`
+- 已记录质量信号：<缺失率、异常字段、质量评分、字段类型问题>
+
+下一步建议：
+- 最推荐下一步：/skill RA:analysis-run ...（回到正式分析 Phase 3）
+- 可选下一步：/skill RA:metadata-refine ...（画像暴露字段/指标/质量口径问题）
+- 可选下一步：/skill RA:metadata ...（需要补正式 metadata）
+
+边界提醒：
+- 本 skill 是流程内画像阶段，没有生成业务结论、报告或正式 metadata patch。
+- 画像结果只能支持识别值域/格式/质量问题，不能替代业务定义。
+```

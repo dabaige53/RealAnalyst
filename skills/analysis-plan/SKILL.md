@@ -10,6 +10,8 @@ description: |
 
 分析场景识别、框架选择、假设驱动规划与目标拆解。
 
+本 skill 是 `RA:analysis-run` 的流程内规划阶段，不作为普通用户第一层入口。独立调用只适合高级手工编排或排障；如果用户只是想开始一次分析，优先回到 `RA:getting-started` 或 `RA:analysis-run`。
+
 **⚠️ 核心理念：假设驱动分析（Hypothesis-Driven），而非数据驱动分析。**
 
 **⚠️ 另一个核心原则：先确认用户要的是什么报告，再展开分析规划。**
@@ -466,10 +468,19 @@ goal 的 `artifact` / `filename` / `params` 使用规则见 `{baseDir}/skills/an
 
 ## Completion Summary
 
-分析计划完成后，向用户汇报：
+分析计划完成后，用下面结构向用户汇报，并按本次结果动态裁剪：
 
-1. 已生成 `.meta/analysis_plan.md`（10 章）。
-2. 锁定了哪些数据源、指标、维度和报告模板。
-3. 如有 source group 推荐，说明推荐了什么以及原因。
-4. 列出需要用户确认的待定项（假设、口径、权限限制）。
-5. 下一步建议：确认 plan 后进入 `/skill RA:analysis-run` 的 Phase 1（受控取数）。
+```text
+完成情况：
+- 已生成 `.meta/analysis_plan.md`（10 章）。
+- 已锁定数据源、指标、维度、筛选条件、报告模板和待确认项。
+- 已记录 source group 推荐和口径风险（如有）。
+
+下一步建议：
+- 最推荐下一步：/skill RA:analysis-run ...（确认 plan 后进入正式分析后续 Phase）
+- 可选下一步：/skill RA:metadata ...（若 plan 暴露字段/指标/口径缺口）
+
+边界提醒：
+- 本 skill 是流程内规划阶段，没有执行取数、画像、报告或验证。
+- 本 skill 没有自动注册 metadata；metadata 缺口需回到 /skill RA:metadata。
+```

@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/05-07-ra-skill-routing-guide/prd.md", "reason": "本任务的产品决策、三核架构、skill routing 和 completion guidance 需求"}
+{"file": ".trellis/spec/backend/index.md", "reason": "后端规范索引和开发前检查入口"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "RealAnalyst skill、metadata、runtime、jobs 的职责边界"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "Metadata、runtime registry、job 相关数据层边界"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "validation、CLI 和失败输出契约"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Markdown、JSON、审计输出和用户汇报约定"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "质量门禁、文档同步和审查清单"}

@@ -1,18 +1,20 @@
 # RealAnalyst LLM Next Steps
 
-这份文档给安装后的 LLM 读取。目标是引导用户抽取和整理元数据，而不是在安装后立刻创建目录。
+这份文档给安装后的 LLM 读取。目标是先用 `RA:getting-started` 做轻量 guide + skill router + minimal status check，再按用户目标进入 metadata 注册、正式分析或口径说明；不要在安装后立刻创建目录。
 
 ## 先对用户这样说
 
 ```text
-RealAnalyst 已经装好，并且只在当前项目启用。当前项目只新增了插件入口、skills 和 runtime support；没有创建 metadata、jobs、logs、真实 registry 或 demo 数据。下一步我们先确认你要从哪里抽取元数据，再决定是否需要保存到项目里。
+RealAnalyst 已经装好，并且只在当前项目启用。当前项目只新增了插件入口、skills 和 runtime support；没有创建 metadata、jobs、logs、真实 registry 或 demo 数据。下一步先从 RA:getting-started 开始，我会做最小状态检查，再判断应该进入 metadata 注册、正式分析、口径说明或报告验证。
 ```
 
 然后让用户选择：
 
 1. 已经有 Tableau 报表 / workbook。
 2. 已经有 DuckDB / 数据库 / CSV / Excel。
-3. 暂时没有数据源，只想先整理字段、指标和术语。
+3. 已经有注册好的 metadata / registry，想做正式分析。
+4. 暂时没有数据源，只想先整理字段、指标和术语。
+5. 想查看已有数据集口径说明、归档分析后的口径问题，或验证已有报告。
 
 ## 不要做什么
 
@@ -51,12 +53,14 @@ TABLEAU_PAT_SECRET=your-personal-access-token-secret
 
 ## Skills 快速入口
 
-### 先开始
+### 默认入口
 
 ```text
 /skill RA:getting-started
-帮我确认数据源类型，并列出抽取元数据前需要准备的信息。
+帮我做最小状态检查，判断应该先注册 metadata、进入正式分析、查看口径说明、归档口径问题，还是验证已有报告。
 ```
+
+`RA:getting-started` 是默认 skill router。它只检查当前项目是否已有 metadata / registry / dataset，识别用户给的是 Tableau、DuckDB、CSV、文档还是口径说明，并输出一条可复制的下一步 `/skill` 调用指令。它不创建正式 analysis job，不执行取数，不生成业务报告，不自动注册正式 metadata。
 
 ### 整理元数据
 
@@ -100,19 +104,28 @@ TABLEAU_PAT_SECRET=your-personal-access-token-secret
 请读取当前 job 的 metadata feedback、profile 和必要的真实数据样本，生成可归档到 metadata/sources/refine/ 的修正参考材料，并在 refine_followup.md 里写清本次做了什么、后续建议和待确认问题。不要直接修改正式 YAML。
 ```
 
-### 生成分析计划
-
-```text
-/skill RA:analysis-plan
-基于已经整理好的 metadata，帮我生成分析计划。先列出需要确认的数据源、指标、维度、筛选条件和风险。
-```
-
 ### 执行完整分析
 
 ```text
 /skill RA:analysis-run
-基于已确认的 metadata 和分析计划，帮我执行取数、画像、分析和报告。每一步都保留证据和产物路径。
+基于已确认的 metadata 和 registry，帮我执行正式完整分析。先生成计划并等我确认，再执行取数、画像、分析、报告和验证。
 ```
+
+### 查看数据集长期口径说明
+
+```text
+/skill RA:metadata-report
+帮我生成这个 dataset 的长期口径说明，列出字段、指标、筛选入口、使用边界和待补齐项。
+```
+
+### 检查已有报告
+
+```text
+/skill RA:report-verify
+帮我验证这份报告是否可交付，重点检查数据来源、口径状态、结论证据和待复核项。
+```
+
+流程内 skill 不作为普通用户第一层入口：`RA:analysis-plan`、`RA:data-export`、`RA:data-profile`、`RA:report` 通常由 `RA:analysis-run` 编排。`RA:metadata-search` 只在用户明确想查字段/指标/术语/dataset 是否已维护时使用；`RA:artifact-fusion`、`RA:analysis-reference` 是高级/流程内工具；`RA:reference-lookup` 仅作 legacy compatibility entrypoint。
 
 ## 安装检查
 
@@ -125,5 +138,5 @@ TABLEAU_PAT_SECRET=your-personal-access-token-secret
 ## 给用户的下一句
 
 ```text
-你现在是想从 Tableau、DuckDB、CSV/Excel 里抽取元数据，还是先手工整理字段、指标和术语？我会先确认数据源和范围，再决定是否需要写入项目文件。
+你现在是想先注册 metadata、基于已有数据做正式分析、查看数据集口径说明，还是验证已有报告？我会先做最小状态检查，再给你一条可直接执行的下一步 /skill 指令。
 ```

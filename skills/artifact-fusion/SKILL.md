@@ -11,6 +11,8 @@ description: |
 
 将多个 Dataset Pack 合并为单一数据集，并生成统一 manifest。
 
+本 skill 是高级多源融合工具，不放普通用户第一层入口。通常由 `RA:analysis-run` 在用户确认多源需求后触发，或由高级用户手工调用。
+
 ## 什么时候该用？
 
 | 场景 | 说明 |
@@ -234,10 +236,20 @@ echo "空行数: $empty_lines"
 
 ## Completion Summary
 
-融合完成后，向用户汇报：
+融合完成后，用下面结构向用户汇报，并按本次结果动态裁剪：
 
-1. 使用了哪种策略（union / join / passthrough）。
-2. 合并了哪些输入（路径和行数）。
-3. 输出 `data.csv` 行数和列数。
-4. `manifest.json` 已生成，包含 lineage 信息。
-5. 下一步建议：进入 `/skill RA:data-profile` 对合并后数据做画像。
+```text
+完成情况：
+- 已使用策略：<union / join / passthrough>
+- 已合并输入：<路径、行数、join key 或 schema 说明>
+- 已生成输出：<data.csv 行数/列数、manifest.json、lineage 信息>
+
+下一步建议：
+- 最推荐下一步：/skill RA:data-profile ...（对合并后正式数据做画像，通常由 RA:analysis-run 继续编排）
+- 可选下一步：/skill RA:analysis-run ...（回到正式分析 job 后续 Phase）
+- 可选下一步：/skill RA:metadata-refine ...（融合暴露字段映射或口径问题）
+
+边界提醒：
+- 本 skill 只做数据产物融合，不创建新 source 注册、不修改正式 metadata。
+- 多源融合必须基于已完成的受控导出产物和用户确认，不做静默拼接。
+```

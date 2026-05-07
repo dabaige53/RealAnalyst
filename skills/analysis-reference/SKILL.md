@@ -11,6 +11,8 @@ description: |
 
 按需查询报告模板和分析框架配置。本 skill 只覆盖 **template** 和 **framework** 两类查询。
 
+本 skill 是高级/流程内查询工具，不放普通用户第一层入口。通常由 `RA:analysis-plan` 或 `RA:report` 调用。
+
 - **metric / field / term / dataset** 查询：使用 `RA:metadata-search`
 - **datasource** 查询：使用 `runtime/tableau/query_registry.py`
 
@@ -46,8 +48,20 @@ python3 {baseDir}/skills/analysis-reference/scripts/query_config.py --help
 
 ## Completion Summary
 
-查询完成后，向用户汇报：
+查询完成后，用下面结构向用户汇报，并按本次结果动态裁剪：
 
-1. 查询了什么类型（template / framework）。
-2. 返回了多少条匹配结果。
-3. 下一步建议：将查询结果用于当前进行中的 skill（通常是 `RA:analysis-plan`）。
+```text
+完成情况：
+- 已查询类型：<template / framework>
+- 命中数量：<count>
+- 已返回 machine-readable 结果：<JSON 路径或摘要>
+
+下一步建议：
+- 最推荐下一步：/skill RA:analysis-run ...（回到正式分析流程）
+- 可选下一步：/skill RA:analysis-plan ...（仅在高级手工规划时）
+- 可选下一步：/skill RA:report ...（仅在手工报告写作阶段）
+
+边界提醒：
+- 本 skill 只查模板和分析框架，不查字段/指标/术语/dataset。
+- 本 skill 没有维护 metadata、执行取数、生成报告或验证交付物。
+```
