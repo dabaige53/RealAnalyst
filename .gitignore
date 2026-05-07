@@ -55,3 +55,9 @@ doc/
 docs/superpowers/
 diagrams/drawio/
 realanalyst_readme_package/
+.gitnexus
+.claude/
+CLAUDE.md
+.agents/
+.codex/
+skills-lock.json

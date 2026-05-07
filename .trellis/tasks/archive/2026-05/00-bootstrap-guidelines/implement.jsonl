@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "后端规范索引和文档语言契约"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "RealAnalyst 目录结构和 skill 职责边界约定"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "runtime registry、metadata index 和 DuckDB export 约定"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "CLI、validation、JSON error、export 和 report 错误处理约定"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "JSON stdout、状态行、审计日志和 report 输出约定"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "测试、校验、禁止模式和审查清单"}

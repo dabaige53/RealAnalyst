@@ -40,3 +40,32 @@
 - 元数据报告输出前应检查：每个保留的 table row 都有真实来源；每个 note 都能解释具体使用边界；没有证据的内容要么删除，要么标记为明确的元数据待补齐项。
 - 未来字段和指标是多样化的，报告逻辑、测试和修复都必须按 metadata 结构、role、definition、expression、mapping、evidence 等通用规则处理；禁止按某个具体业务字段名、指标名或固定中文列名写特例补丁。
 - 不得根据 role/status 自动生成字段或指标的“使用建议”“常见用途”句子；如果元数据没有显式维护对应说明，就删除该列。role 只用于分类、筛选入口识别和待补齐影响判断。
+<!-- TRELLIS:START -->
+# Trellis Instructions
+
+These instructions are for AI assistants working in this project.
+
+This project is managed by Trellis. The working knowledge you need lives under `.trellis/`:
+
+- `.trellis/workflow.md` — development phases, when to create tasks, skill routing
+- `.trellis/spec/` — package- and layer-scoped coding guidelines (read before writing code in a given layer)
+- `.trellis/workspace/` — per-developer journals and session traces
+- `.trellis/tasks/` — active and archived tasks (PRDs, research, jsonl context)
+
+If a Trellis command is available on your platform (e.g. `/trellis:finish-work`, `/trellis:continue`), prefer it over manual steps. Not every platform exposes every command.
+
+If you're using Codex or another agent-capable tool, additional project-scoped helpers may live in:
+- `.agents/skills/` — reusable Trellis skills
+- `.codex/agents/` — optional custom subagents
+
+## Subagents
+
+- ALWAYS wait for all subagents to complete before yielding.
+- Spawn subagents automatically when:
+  - Parallelizable work (e.g., install + verify, npm test + typecheck, multiple tasks from plan)
+  - Long-running or blocking tasks where a worker can run independently.
+  - Isolation for risky changes or checks
+
+Managed by Trellis. Edits outside this block are preserved; edits inside may be overwritten by a future `trellis update`.
+
+<!-- TRELLIS:END -->
