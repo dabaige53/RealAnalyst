@@ -29,6 +29,8 @@
 | **产物路径从索引读取** | 禁止猜测文件名，必须从 `export_summary` / `artifact_index` 获取实际路径 |
 | **用户确认先于执行** | Plan 确认、新增数据源确认、报告交付确认 — 至少保留一次停顿 |
 | **Schema 驱动** | 所有结构化产物有 JSON Schema，skill 间通过 schema 约定数据格式 |
+| **环境先固定** | 正式任务先由 `RA:getting-started` doctor 输出 Python、skill base、registry path 和 readiness；后续 skill 使用该摘要，不自由猜环境 |
+| **展示不改 identity** | CSV/header/display name 需求留在 export/report 层；`metadata/datasets/*.yaml` 的 `fields[].name` 只由 `RA:metadata` 在维护任务中修改 |
 
 ---
 
@@ -190,6 +192,14 @@ sequenceDiagram
 
 边界：不创建正式 analysis job，不取数，不生成业务报告，不自动注册正式 metadata。用户想分析但数据未注册时，推荐先走 `RA:metadata` 做最小可分析注册。
 
+只读环境检查：
+
+```bash
+python3 skills/getting-started/scripts/doctor.py --intent start
+```
+
+doctor 输出固定 JSON 摘要：`python_command`、`skill_base_dir`、`registry_path`、`duckdb_path`、依赖状态、metadata / registry / export readiness 和 `recommended_next_skill`。它不写任何项目文件。
+
 ### RA:metadata
 
 | 项目 | 说明 |
@@ -261,6 +271,8 @@ sequenceDiagram
 
 边界：如果缺少最小可分析 metadata 或 runtime registry readiness，先交给 `RA:metadata`；分析中发现口径问题只记录 job feedback，不直接改正式 YAML。
 
+分析入口不得把字段展示问题升级成 metadata 维护：CSV 表头中文化、报告显示名调整、导出列名翻译交给 `RA:data-export` / `RA:report`，不改 dataset `fields[].name`。
+
 **Phase 分解**：
 
 | Phase | 动作 | 调用 Skill | 产出 |
@@ -288,6 +300,8 @@ sequenceDiagram
 | **输出** | 见下表 |
 | **上游** | analysis-run Phase 1、metadata（registry） |
 | **下游** | data-profile（via export_summary → CSV 路径） |
+
+边界：本 skill 解决 CSV/header/display name 输出问题，但不修改 `metadata/datasets/*.yaml`。如果发现 metadata 定义确实缺失，只写 job/refine feedback 或提示用户进入 `RA:metadata-refine` / `RA:metadata`。
 
 **Tableau vs DuckDB 产物对比**：
 

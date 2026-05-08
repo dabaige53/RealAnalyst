@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +56,7 @@ DATASET_FORBIDDEN_EVIDENCE_KEYS = {
 }
 DATASET_WARN_LINES = 1000
 DATASET_MAX_LINES = 1500
+SEMANTIC_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
 
 
 def require(mapping: dict[str, Any], key: str, errors: list[str], prefix: str) -> None:
@@ -76,6 +78,16 @@ def _walk(value: Any, prefix: str) -> list[tuple[str, Any]]:
         for index, child in enumerate(value):
             items.extend(_walk(child, f"{prefix}[{index}]"))
     return items
+
+
+def validate_semantic_name(value: Any, errors: list[str], prefix: str, *, label: str) -> None:
+    if not isinstance(value, str) or not value.strip():
+        return
+    if not SEMANTIC_NAME_RE.match(value.strip()):
+        errors.append(
+            f"{prefix}: {label} must be a stable semantic id using ASCII letters, digits, '_' or '.'; "
+            "put user-facing names in display_name and physical source columns in physical_name/source_field"
+        )
 
 
 def validate_dataset_responsibility(data: dict[str, Any], errors: list[str], *, path: Path) -> None:
@@ -186,6 +198,7 @@ def validate_dataset(data: dict[str, Any], *, path: Path) -> list[str]:
             require(field, key, errors, prefix)
         name = field.get("name")
         if isinstance(name, str):
+            validate_semantic_name(name, errors, f"{prefix}.name", label="field name")
             if name in field_names:
                 errors.append(f"{prefix}.name duplicates field {name}")
             field_names.add(name)
@@ -221,6 +234,7 @@ def validate_dataset(data: dict[str, Any], *, path: Path) -> list[str]:
             require(metric, key, errors, prefix)
         name = metric.get("name")
         if isinstance(name, str):
+            validate_semantic_name(name, errors, f"{prefix}.name", label="metric name")
             if name in metric_names:
                 errors.append(f"{prefix}.name duplicates metric {name}")
             metric_names.add(name)

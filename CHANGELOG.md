@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.16 - 2026-05-08
+
+- Added a read-only `RA:getting-started` doctor script that fixes project Python, skill base, registry path, DuckDB path, dependency readiness, and recommended next skill before formal work begins.
+- Tightened `RA:analysis-run`, `RA:data-export`, `RA:metadata`, and `RA:metadata-refine` boundaries so CSV/header/display-name requests stay in the export layer and do not rewrite dataset YAML identities.
+- Standardized dataset YAML field identity rules: `name` remains a stable semantic id, `display_name` holds user-facing names, and `physical_name` / `source_field` hold source columns.
+- Extended metadata validation and tests to reject display-name pollution in `fields[].name` / `metrics[].name` while preserving existing dataset responsibility checks.
+
 ## 0.3.15 - 2026-05-07
 
 - Added dataset-first metadata reports through `RA:metadata-report` so users can generate reports with `--dataset-id` or `--all` without choosing a connector.

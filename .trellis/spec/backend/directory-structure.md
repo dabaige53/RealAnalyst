@@ -33,6 +33,7 @@ RealAnalyst 围绕三核和 adapter entrypoints 组织。核心边界是：Metad
 - `RA:analysis-plan`、`RA:data-export`、`RA:data-profile`、`RA:report` 是流程内工具，通常由 `RA:analysis-run` 编排。
 - `RA:metadata-search`、`RA:artifact-fusion`、`RA:analysis-reference` 是辅助/高级工具；`RA:reference-lookup` 是 legacy compatibility entrypoint。
 - `RA:getting-started` 是 lightweight guide + skill router + minimal status check，不创建正式 job、不取数、不写报告、不自动注册 metadata。
+- `RA:getting-started` 的 `skills/getting-started/scripts/doctor.py` 是正式任务前的只读环境摘要入口，负责固定 Python 命令、skill base、registry path、DuckDB path、依赖状态和下一 skill 建议；其它 skill 复用该摘要，不自行寻找环境或绕过受控路径。
 - 每个 `skills/*/SKILL.md` 只能有一个 `## Completion Summary`，并按“完成情况 / 下一步建议 / 边界提醒”给出短小、可执行的交接提示。
 
 | 区域 | Owner | 真实示例 |
@@ -69,6 +70,7 @@ metadata/
 必须遵守：
 
 - `metadata/datasets/*.yaml` 保持轻量，只放语义身份、字段、指标、业务边界和引用关系。
+- dataset 的 `fields[].name` / `metrics[].name` 是稳定语义 ID，面向用户的中文名写 `display_name`，物理源字段写 `physical_name` / `source_field`；CSV/header 中文化属于 export/display layer，不得改 dataset identity。
 - 不把 `sample_profile`、`sample_values`、`top_values`、`enum_values`、`source_mapping`、`duckdb_type`、`nullable`、registry snapshot 或 report 内容塞进 dataset YAML。
 - `metadata/index/` 和 `metadata/osi/` 是生成层，禁止人工编辑。
 - `metadata/sync/reports/` 是同步审计输出，不是业务定义真源。

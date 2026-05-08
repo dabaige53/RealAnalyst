@@ -35,9 +35,12 @@ flowchart LR
 ## 快速示例
 
 ```bash
+python3 skills/getting-started/scripts/doctor.py --intent start
 python3 skills/metadata/scripts/metadata.py init
 python3 skills/metadata/scripts/metadata.py validate
 ```
+
+`doctor.py` 只读输出项目环境摘要：Python 命令、skill base、registry path、DuckDB path、依赖状态和推荐下一 skill。它不创建目录、不取数、不写 metadata 或 registry。
 
 ---
 

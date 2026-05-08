@@ -9,6 +9,14 @@ RealAnalyst 从抽取和确认 metadata 开始，不从 SQL 或报告开始。
 
 本 skill 是 lightweight guide + skill router + minimal status check。它只识别用户目标、检查当前项目是否已有 metadata / registry / dataset，并输出一条可复制的下一步 `/skill` 指令。
 
+执行前先固定项目环境，不让 agent 自己到处猜：
+
+```bash
+python3 {baseDir}/skills/getting-started/scripts/doctor.py --intent start
+```
+
+doctor 是只读检查，只输出 JSON：Python 命令、skill base、registry path、DuckDB path、依赖状态、metadata / registry / export readiness 和推荐下一 skill。它不创建目录、不安装依赖、不取数、不写 metadata、不写 `runtime/registry.db`。
+
 禁止在本 skill 中：
 
 - 创建正式 analysis job。
@@ -31,10 +39,13 @@ RealAnalyst 从抽取和确认 metadata 开始，不从 SQL 或报告开始。
 
 做最小状态检查：
 
+- 先运行 `skills/getting-started/scripts/doctor.py`，以输出中的 `python_command`、`skill_base_dir`、`registry_path` 为本轮固定环境。
 - 是否存在 `metadata/datasets/`。
 - 是否存在 `runtime/registry.db`。
 - 用户是否已经给出 dataset id、source id、Tableau workbook/view、DuckDB path/table、CSV/Excel path/sheet 或业务文档。
 - 是否已有本次分析需要的字段、指标和筛选条件。
+
+如果 doctor 报告 `scripts_py_exists=false`、关键依赖缺失或 registry path 不一致，先让用户按本项目初始化命令修环境；不要切到自由 `which/find/python3 -c/import duckdb` 探测，也不要用 DuckDB CLI 或 `sqlite3` 绕过受控入口。
 
 然后告诉用户需要准备哪些信息：
 
@@ -96,6 +107,13 @@ RealAnalyst 从抽取和确认 metadata 开始，不从 SQL 或报告开始。
 ```
 
 ## Handoff
+
+环境检查入口：
+
+```bash
+python3 {baseDir}/skills/getting-started/scripts/doctor.py --intent analyze
+python3 {baseDir}/skills/getting-started/scripts/doctor.py --intent metadata
+```
 
 元数据抽取并落盘后，再进入 metadata 校验和检索：
 

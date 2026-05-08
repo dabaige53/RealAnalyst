@@ -196,6 +196,31 @@ Datasets may reference dictionaries and mappings. They should not duplicate full
 
 Dataset YAML is a semantic entry, not a profile store, enum store, mapping file, or registry snapshot.
 
+Field identity rules:
+
+- `fields[].name` is the stable semantic identifier. Prefer snake_case or dotted ASCII identifiers.
+- User-facing Chinese names belong in `display_name`.
+- Physical source columns belong in `physical_name` or `source_field`.
+- Export-only CSV header translation must be handled by `RA:data-export`; it must not rewrite dataset field identities.
+
+Example:
+
+```yaml
+fields:
+  - name: flight_type
+    physical_name: FlightType
+    display_name: 航班性质
+    role: dimension
+    type: string
+    description: 航班性质分类字段。
+    business_definition:
+      text: 航班在业务统计中的性质分类。
+      source_type: mapping_override
+      ref: mapping:duckdb.ho.flight_results.mapping:FlightType
+      confidence: 0.8
+      needs_review: false
+```
+
 Do not write these keys anywhere in `metadata/datasets/*.yaml`:
 
 - `sample_profile`

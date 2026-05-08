@@ -7,6 +7,8 @@ description: Use when analysis jobs, user feedback, profile outputs, or real-dat
 
 `RA:metadata-refine` 只生成元数据修正参考材料。它读取分析 job、用户反馈、profile 和必要的数据探查结果，把问题整理成可审查文件；正式 YAML 仍由 `RA:metadata` 维护。
 
+执行前复用 `RA:getting-started` doctor 的项目环境摘要；本 skill 可以读取 job / CSV / profile 做参考包，但不自行寻找其它 Python、DuckDB CLI 或 registry 写入路径。
+
 ## When to Use
 
 使用本 skill：
@@ -15,6 +17,7 @@ description: Use when analysis jobs, user feedback, profile outputs, or real-dat
 - 分析 job 中记录了 metadata 相关问题，需要整理成修正材料。
 - 需要基于真实 CSV / profile 补充字段观察、样例值、枚举候选、空值率或类型信号。
 - 需要把临时 refine 材料归档到 `metadata/sources/refine/`，供 `RA:metadata` 引用。
+- 需要把分析阶段发现的 metadata 问题整理成后续 `RA:metadata` 的输入。
 
 不要使用本 skill：
 
@@ -88,6 +91,7 @@ metadata/sources/refine/{refine_id}/
 - `metadata/sources/refine/` 是归档证据区。
 - `evidence_manifest.json` 必须记录 `job_id`、输入 CSV、profile、feedback 和归档路径；正式 YAML 只能通过 `business_definition.ref` 引用关联记录，不复制 evidence。
 - 参考材料可以提出建议，但不得声明为已确认口径。
+- CSV/header/display name 问题只记录为 export/display 反馈；不得建议把 dataset `fields[].name` 改成中文展示名。
 - profile 输出只允许留在 `runtime/metadata-refine/` 草稿区或归档后的 `metadata/sources/refine/`；不得自动生成 dataset YAML patch。
 - 枚举候选、样本值、空值率和物理类型只能作为 registry upsert / data_probe 建议，不得写成 `enum_values`、`sample_profile`、`sample_values`、`top_values`、`duckdb_type` 或 `nullable` 字段。
 - 发现 source 字段映射时，只生成 `metadata/mappings/*.yaml` 维护建议，不在 dataset fields/metrics 内嵌 `source_mapping`。

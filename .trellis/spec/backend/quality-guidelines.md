@@ -10,6 +10,7 @@
 - 优先使用已有 helper、script 和 skill contract，不新增旁路入口。
 - 修改 metadata 语义、runtime registry、report 生成、installer 或 skill 目录时，同步检查 README、SKILL.md、脚本入口和测试。
 - 修改 skill routing、installer 或 public docs 时，必须检查普通用户入口仍是 3 个主入口 + 3 个常见补充入口，流程内/高级/兼容 skill 不得重新平铺到第一层。
+- 修改正式任务入口或流程内 skill 时，必须保持 `RA:getting-started` doctor 作为环境摘要入口；不要让下游 skill 通过自由 `which/find/python3/duckdb/sqlite3` 自行发现或绕过项目环境。
 - 修改 `skills/*/SKILL.md` 时，必须保持唯一 `## Completion Summary`，并包含“完成情况 / 下一步建议 / 边界提醒”三段轻量交接。
 - 不为了修一个输出问题 hard-code 某个业务字段名、指标名或固定中文列名；报告逻辑必须按 metadata 结构、role、definition、expression、mapping、evidence 等通用规则处理。
 - 没有真实数据、真实 metadata、真实 connector 输出或真实 evidence 时，不生成占位内容撑版面。
@@ -40,6 +41,7 @@ CI 里已有 `.github/workflows/ci.yml` 运行 `python skills/metadata/scripts/m
 当前测试集中在 `tests/test_metadata_product_fixes.py`。新增或修改以下行为时，优先补这个文件的 focused tests：
 
 - dataset responsibility boundary：禁止 `sample_profile`、`enum_values`、`source_mapping`、`source_evidence` 等泄漏进 dataset YAML。
+- dataset identity boundary：禁止把 CSV/header/display name 中文化写回 `fields[].name` 或 `metrics[].name`。
 - `description` 与 `business_definition.text` 重复检测。
 - pending definition 不得注册为 formal metric。
 - 大 YAML 行数 warning/fail gate。
@@ -73,6 +75,7 @@ CI 里已有 `.github/workflows/ci.yml` 运行 `python skills/metadata/scripts/m
 - 写 metadata 前先确认归属层：dataset、mapping、dictionary、source、audit、runtime registry、index、report 各归其位。
 - 写入口文档前先确认三核归属：Metadata 管含义，Runtime Registry 管能不能取，Job 管本次实际用了什么；长期任务管理不属于 RealAnalyst job。
 - 从 YAML 到 runtime registry 只能走 `metadata validate` -> `metadata index` -> `metadata sync-registry`。
+- 正式分析、取数、metadata 维护前先复用 doctor 输出的 `python_command`、`skill_base_dir` 和 `registry_path`。
 - Export 必须先解析 runtime source entry 和 spec，再校验字段和 filter。
 - Report 只基于真实 metadata、connector 输出、export manifest、sample profile、mapping 或 dictionary evidence；没有可验证内容的 section 默认删除。
 - CLI 面向 agent 时输出结构化 JSON，失败时包含可读错误和稳定 `error_code`。

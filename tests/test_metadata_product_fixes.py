@@ -14,6 +14,7 @@ import yaml
 
 REPO = Path(__file__).resolve().parents[1]
 METADATA = REPO / "skills" / "metadata" / "scripts" / "metadata.py"
+GETTING_STARTED_DOCTOR = REPO / "skills" / "getting-started" / "scripts" / "doctor.py"
 REFINE_BUILD = REPO / "skills" / "metadata-refine" / "scripts" / "build_reference_pack.py"
 DUCKDB_EXPORTER = REPO / "skills" / "data-export" / "scripts" / "duckdb" / "export_duckdb_source.py"
 METADATA_REPORTER = REPO / "skills" / "metadata-report" / "scripts" / "generate_report.py"
@@ -223,6 +224,39 @@ class MetadataProductFixTests(unittest.TestCase):
 
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn("pending definitions must not be registered as formal metrics", proc.stdout)
+
+    def test_validate_blocks_display_name_pollution_in_field_name(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            write_dataset(workspace, metric_field_count=1, metric_count=1)
+            path = workspace / "metadata" / "datasets" / "test.dataset.yaml"
+            dataset = yaml.safe_load(path.read_text(encoding="utf-8"))
+            dataset["fields"][0]["name"] = "航班性质"
+            dataset["fields"][0]["display_name"] = "航班性质"
+            dataset["fields"][0]["physical_name"] = "FlightType"
+            dataset["fields"][0]["business_definition"]["text"] = "航班在业务统计中的性质分类。"
+            path.write_text(yaml.safe_dump(dataset, allow_unicode=True), encoding="utf-8")
+
+            proc = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "validate"])
+
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("stable semantic id", proc.stdout)
+            self.assertIn("display_name", proc.stdout)
+
+    def test_getting_started_doctor_reports_fixed_environment_summary(self) -> None:
+        proc = self.run_cmd([sys.executable, str(GETTING_STARTED_DOCTOR), "--workspace", str(REPO), "--intent", "analyze"])
+
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["workspace"], str(REPO))
+        self.assertIn(payload["recommended_next_skill"], {"RA:analysis-run", "RA:metadata"})
+        self.assertIn("python_command", payload["environment"])
+        self.assertIn("skill_base_dir", payload["environment"])
+        self.assertIn("registry_path", payload["environment"])
+        self.assertEqual(
+            payload["readiness"]["registry_write_allowed_only_via"],
+            "skills/metadata/scripts/metadata.py sync-registry",
+        )
 
     def test_validate_warns_for_large_but_clean_dataset(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
