@@ -1,5 +1,7 @@
 # RealAnalyst
 
+Community: [linux.do — Linux & Open Source Community](https://linux.do/)
+
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 
