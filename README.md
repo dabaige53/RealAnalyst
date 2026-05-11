@@ -1,9 +1,8 @@
 # RealAnalyst
 
-Community: [linux.do — Linux & Open Source Community](https://linux.do/)
-
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+[![Community](https://img.shields.io/badge/Community-linux.do-00A67E?style=flat&logo=linux&logoColor=white)](https://linux.do/)
 
 **Metadata-first 分析执行系统。** 用 Metadata 管业务含义，用 Registry 管数据源可执行能力，用 Job 记录单次分析证据链——让 LLM 在可控边界内完成从问题到报告，并把口径缺口反哺回长期资产。
 
