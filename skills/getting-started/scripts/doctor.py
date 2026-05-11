@@ -93,14 +93,36 @@ def build_summary(workspace: Path, intent: str) -> dict[str, Any]:
     dependencies = python_probe["dependencies"]
 
     issues: list[str] = []
+    remediation: list[dict[str, str]] = []
     if not scripts_py.exists():
         issues.append("scripts/py missing; run project setup or use the reported python_executable for read-only checks only.")
+        remediation.append(
+            {
+                "code": "missing_scripts_py",
+                "command": "python3 scripts/install_codex_plugin.py --project <target-project>",
+                "note": "Refresh the project-local RealAnalyst runtime support before formal analysis.",
+            }
+        )
     if not metadata_py.exists():
         issues.append("metadata.py missing from resolved skill base; reinstall or refresh RealAnalyst skills.")
+        remediation.append(
+            {
+                "code": "missing_metadata_skill",
+                "command": "python3 scripts/install_codex_plugin.py --project <target-project> --force",
+                "note": "Refresh project-local skills; do not create business metadata during install.",
+            }
+        )
     if recommended_skill in {"RA:analysis-run", "RA:data-export"} and not has_registry:
         issues.append("runtime/registry.db missing; run RA:metadata validate/index/sync-registry before export or analysis.")
     if recommended_skill in {"RA:data-export", "RA:analysis-run"} and not dependencies["duckdb"]:
         issues.append("duckdb Python package missing for DuckDB-backed exports; run scripts/setup_venv.sh in this project.")
+        remediation.append(
+            {
+                "code": "missing_duckdb_python",
+                "command": "./scripts/setup_venv.sh",
+                "note": "Install project Python dependencies so ./scripts/py can run DuckDB-backed export wrappers.",
+            }
+        )
 
     return {
         "success": True,
@@ -133,6 +155,7 @@ def build_summary(workspace: Path, intent: str) -> dict[str, Any]:
         },
         "recommended_next_skill": recommended_skill,
         "issues": issues,
+        "remediation": remediation,
         "guardrails": [
             "Do not discover ad hoc Python or DuckDB fallbacks during formal work.",
             "Do not write runtime/registry.db directly with sqlite3.",

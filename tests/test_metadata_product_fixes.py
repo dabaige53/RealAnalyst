@@ -15,6 +15,8 @@ import yaml
 REPO = Path(__file__).resolve().parents[1]
 METADATA = REPO / "skills" / "metadata" / "scripts" / "metadata.py"
 GETTING_STARTED_DOCTOR = REPO / "skills" / "getting-started" / "scripts" / "doctor.py"
+SCRIPT_PY = REPO / "scripts" / "py"
+ANALYSIS_INIT_JOB = REPO / "skills" / "analysis-run" / "scripts" / "init_or_resume_job.py"
 REFINE_BUILD = REPO / "skills" / "metadata-refine" / "scripts" / "build_reference_pack.py"
 DUCKDB_EXPORTER = REPO / "skills" / "data-export" / "scripts" / "duckdb" / "export_duckdb_source.py"
 METADATA_REPORTER = REPO / "skills" / "metadata-report" / "scripts" / "generate_report.py"
@@ -257,6 +259,70 @@ class MetadataProductFixTests(unittest.TestCase):
             payload["readiness"]["registry_write_allowed_only_via"],
             "skills/metadata/scripts/metadata.py sync-registry",
         )
+
+    def test_scripts_py_maps_source_skill_path_to_installed_skill_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            (workspace / "scripts").mkdir()
+            wrapper = workspace / "scripts" / "py"
+            wrapper.write_text(SCRIPT_PY.read_text(encoding="utf-8"), encoding="utf-8")
+            wrapper.chmod(0o755)
+            probe = workspace / ".agents" / "skills" / "probe.py"
+            probe.parent.mkdir(parents=True)
+            probe.write_text("print('installed-skill-path')\n", encoding="utf-8")
+
+            proc = self.run_cmd([str(wrapper), "skills/probe.py"], cwd=workspace)
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertEqual(proc.stdout.strip(), "installed-skill-path")
+
+    def test_analysis_init_job_supports_installed_skill_workspace(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            (workspace / "runtime").mkdir()
+            script = workspace / ".agents" / "skills" / "analysis-run" / "scripts" / "init_or_resume_job.py"
+            script.parent.mkdir(parents=True)
+            script.write_text(ANALYSIS_INIT_JOB.read_text(encoding="utf-8"), encoding="utf-8")
+
+            proc = self.run_cmd([sys.executable, str(script), "--key", "channel:abc", "--prefix", "discord"], cwd=workspace)
+
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            session_id = proc.stdout.strip()
+            self.assertTrue(session_id.startswith("discord-"))
+            self.assertTrue((workspace / "jobs" / session_id / ".meta" / "artifact_index.json").exists())
+
+    def test_getting_started_doctor_reports_duckdb_remediation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            (workspace / "metadata" / "datasets").mkdir(parents=True)
+            (workspace / "metadata" / "datasets" / "test.yaml").write_text("id: test\n", encoding="utf-8")
+            (workspace / "runtime").mkdir()
+            (workspace / "runtime" / "registry.db").write_text("", encoding="utf-8")
+            (workspace / ".agents" / "skills" / "metadata" / "scripts").mkdir(parents=True)
+            (workspace / ".agents" / "skills" / "metadata" / "scripts" / "metadata.py").write_text("", encoding="utf-8")
+            (workspace / "scripts").mkdir()
+            scripts_py = workspace / "scripts" / "py"
+            scripts_py.write_text(
+                "#!/usr/bin/env bash\n"
+                "printf '%s\\n' '{\"python_executable\":\"/tmp/fake-python\",\"dependencies\":{\"yaml\":true,\"duckdb\":false,\"pandas\":true}}'\n",
+                encoding="utf-8",
+            )
+            scripts_py.chmod(0o755)
+
+            proc = self.run_cmd([sys.executable, str(GETTING_STARTED_DOCTOR), "--workspace", str(workspace), "--intent", "analyze"])
+
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            payload = json.loads(proc.stdout)
+            self.assertIn("duckdb Python package missing", " ".join(payload["issues"]))
+            expected_remediation = {
+                "code": "missing_duckdb_python",
+                "command": "./scripts/setup_venv.sh",
+                "note": "Install project Python dependencies so ./scripts/py can run DuckDB-backed export wrappers.",
+            }
+            self.assertIn(
+                expected_remediation,
+                payload["remediation"],
+            )
 
     def test_validate_warns_for_large_but_clean_dataset(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

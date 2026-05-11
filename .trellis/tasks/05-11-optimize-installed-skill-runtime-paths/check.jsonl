@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend spec index for verification."}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Verify installed layout and job responsibility boundaries."}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Verify actionable dependency remediation output."}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Verify required focused tests and smoke checks."}

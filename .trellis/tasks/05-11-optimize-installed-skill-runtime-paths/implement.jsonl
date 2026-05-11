@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend spec index for RealAnalyst skill/runtime changes."}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Workspace discovery and project-local .agents/skills layout requirements."}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Doctor and dependency remediation output expectations."}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Required tests for project-local installed layout compatibility."}

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.17 - 2026-05-11
+
+- Fixed project-local installed skill execution so `./scripts/py skills/...` resolves to `.agents/skills/...` when the source `skills/` tree is absent.
+- Updated continuous analysis job/export/profile/report wrappers to discover workspaces from either source `skills/` or installed `.agents/skills` layouts.
+- Added actionable doctor remediation output for missing runtime support, missing installed skills, and DuckDB Python dependency gaps.
+- Added regression tests for installed skill path mapping, analysis job initialization, and DuckDB dependency remediation.
+
 ## 0.3.16 - 2026-05-08
 
 - Added a read-only `RA:getting-started` doctor script that fixes project Python, skill base, registry path, DuckDB path, dependency readiness, and recommended next skill before formal work begins.

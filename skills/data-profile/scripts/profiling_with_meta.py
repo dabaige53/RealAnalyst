@@ -22,7 +22,8 @@ from typing import Any
 
 def _find_workspace_root(start: Path) -> Path:
     for candidate in (start, *start.parents):
-        if (candidate / "runtime").is_dir() and (candidate / "skills").is_dir():
+        has_skills = (candidate / "skills").is_dir() or (candidate / ".agents" / "skills").is_dir()
+        if (candidate / "runtime").is_dir() and has_skills:
             return candidate
     raise RuntimeError(f"Unable to locate workspace root from {start}")
 
