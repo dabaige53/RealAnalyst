@@ -16,7 +16,7 @@ AGENTS_DIR = WORKSPACE_DIR / ".agents"
 if (AGENTS_DIR / "skills").is_dir() and str(AGENTS_DIR) not in sys.path:
     sys.path.insert(0, str(AGENTS_DIR))
 
-from runtime.tableau.sqlite_store import list_entries, load_spec_by_entry_key  # noqa: E402
+from runtime.tableau.sqlite_store import list_entries  # noqa: E402
 from skills.metadata.lib.metadata_io import (  # noqa: E402
     MetadataError,
     iter_dataset_files,
@@ -27,7 +27,7 @@ from skills.metadata.lib.metadata_io import (  # noqa: E402
 )
 from skills.metadata.lib.value_patterns import clean_sample_values, infer_value_pattern  # noqa: E402
 from skills.metadata.scripts.validate_metadata import validate_dataset  # noqa: E402
-from report_context import build_report_context, render_markdown, write_context_json  # noqa: E402
+from report_context import build_report_context, render_markdown  # noqa: E402
 
 
 def default_report_dir(workspace: Path) -> Path:

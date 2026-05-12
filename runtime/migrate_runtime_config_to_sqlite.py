@@ -5,7 +5,10 @@ from __future__ import annotations
 
 import json
 
-from runtime_config_store import db_path, migrate_from_yaml
+try:
+    from runtime.runtime_config_store import db_path, migrate_from_yaml
+except ModuleNotFoundError:  # invoked with runtime/ on sys.path
+    from runtime_config_store import db_path, migrate_from_yaml  # type: ignore[no-redef]
 
 
 def main() -> int:

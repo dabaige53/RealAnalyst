@@ -41,7 +41,6 @@ from runtime.tableau.sqlite_store import (
     load_allowed_values,
     load_registry_document,
     load_spec_by_entry_key,
-    load_spec_by_ref,
     normalize_allowed_value,
 )
 

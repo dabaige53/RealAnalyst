@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+import duckdb
+
 
 def _object_role(name: str, table_type: str) -> str:
     upper = name.upper()
@@ -79,8 +81,6 @@ def _sample_values(con: duckdb.DuckDBPyConnection, relation: str, column: str, l
 
 
 def inventory_database(db_path: Path) -> dict[str, Any]:
-    import duckdb
-
     con = duckdb.connect(str(db_path), read_only=True)
     tables = con.execute(
         """

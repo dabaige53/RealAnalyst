@@ -16,8 +16,6 @@ import json
 
 from .git import run_git
 from .session_context import (
-    get_context_json,
-    get_context_text,
     get_context_record_json,
     get_context_text_record,
     output_json,

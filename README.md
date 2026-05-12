@@ -82,7 +82,30 @@ flowchart LR
 
 ## 安装
 
-详见 [INSTALL.md](INSTALL.md)。
+详见 [INSTALL.md](INSTALL.md)。完整安装后，建议先在 Codex 输入下面这条命令做最小状态检查：
+
+```text
+/skill RA:getting-started
+帮我做最小状态检查，判断应该先注册 metadata、进入正式分析，还是查看已有口径说明。
+```
+
+`RA:getting-started` 是只读 skill router：识别用户目标、检查项目是否已有 metadata / registry / dataset，并给出下一条 `/skill` 指令。它不会取数、不会建目录、不会写 metadata。
+
+LLM 引导文件：[docs/llm-next-steps.md](docs/llm-next-steps.md)。
+
+## 5 分钟 demo（可选）
+
+想先在源码仓里跑通 metadata 链路再决定是否接入业务项目：
+
+```bash
+python3 examples/build_demo_duckdb.py
+python3 skills/metadata/scripts/metadata.py validate
+python3 skills/metadata/scripts/metadata.py index
+python3 skills/metadata/scripts/metadata.py search --type all --query orders
+python3 skills/metadata/scripts/metadata.py context --dataset-id demo.retail.orders
+```
+
+第一条会用 `examples/data/*.csv` 生成 `examples/data/demo_retail.duckdb`，后续命令基于 `metadata/datasets/demo.retail.orders.yaml` 走 validate → index → search → context。
 
 ## Skill 能力一览
 
@@ -127,15 +150,19 @@ flowchart LR
 
 ## 项目里有哪些东西
 
-| 路径 | 给业务读者的解释 |
-| --- | --- |
-| `metadata/` | 数据集、字段、指标和业务口径说明 |
-| `runtime/` | 程序执行时需要的 source、registry 和示例配置 |
-| `skills/` | 可调用的分析能力（skills 驱动） |
-| `examples/` | 脱敏 demo 数据和本地跑通脚本 |
-| `schemas/` | 结构化产物的 JSON Schema 契约 |
-| `docs/` | 更详细的流程、目录和验证说明 |
-| `jobs/` | 每次分析运行的本地产物，默认不提交 |
+| 路径 | 给业务读者的解释 | 何时存在 |
+| --- | --- | --- |
+| `.agents/` | 插件入口、project-local skills | 安装器自动写入 |
+| `runtime/` | 程序执行时需要的 source 支持文件和示例配置 | 安装器自动写入 |
+| `skills/` | 可调用的分析能力（源码仓视图） | 源码仓自带 |
+| `examples/` | 脱敏 demo 数据和本地跑通脚本 | 源码仓自带 |
+| `schemas/` | 结构化产物的 JSON Schema 契约 | 源码仓自带 |
+| `docs/` | 更详细的流程、目录和验证说明 | 源码仓自带 |
+| `metadata/` | 数据集、字段、指标和业务口径说明 | 用户确认保存抽取结果后按需创建 |
+| `runtime/registry.db` | 运行时 source / filter / parameter / source group | 用户注册数据源后按需创建 |
+| `jobs/` | 每次分析运行的本地产物，默认不提交 | 进入 `RA:analysis-run` 后按需创建 |
+
+安装时不会自动生成 `metadata/`、`jobs/`、`logs/`、`runtime/registry.db` 或 demo 业务数据；目录缺失是预期行为，不代表安装失败。
 
 更多目录说明见 [docs/repository-layout.md](docs/repository-layout.md)。文档索引见 [docs/README.md](docs/README.md)。
 

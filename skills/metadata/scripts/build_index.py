@@ -17,7 +17,6 @@ from skills.metadata.lib.metadata_io import (
     iter_mapping_files,
     load_dataset_file,
     load_mapping_file,
-    load_yaml_file,
     normalize_dataset,
 )
 

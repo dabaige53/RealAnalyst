@@ -39,7 +39,7 @@ WORKSPACE_ROOT = _find_workspace_root(Path(__file__).resolve())
 for bootstrap_path in (WORKSPACE_ROOT / "lib", WORKSPACE_ROOT / "runtime"):
     if str(bootstrap_path) not in sys.path:
         sys.path.insert(0, str(bootstrap_path))
-from log_utils import get_log_file, log as base_log, reset_log, stage_logger  # type: ignore
+from log_utils import get_log_file, log as base_log, reset_log  # type: ignore
 from runtime_config_store import load_document  # type: ignore[import-not-found]
 
 
@@ -93,7 +93,7 @@ def _build_metrics_lookup(metrics_config: dict[str, Any]) -> dict[str, dict[str,
     lookup: dict[str, dict[str, Any]] = {}
 
     categories = metrics_config.get("categories", {})
-    for category_key, category_data in categories.items():
+    for _, category_data in categories.items():
         if not isinstance(category_data, dict):
             continue
         for group_key, group_data in category_data.items():

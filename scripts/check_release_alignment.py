@@ -42,18 +42,18 @@ def main() -> int:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0 if args.allow_network_failure else 1
 
-    latest_tag = str((tags[0] or {}).get("name") or "") if isinstance(tags, list) and tags else ""
+    tag_names = {str((t or {}).get("name") or "") for t in tags} if isinstance(tags, list) else set()
     latest_release_tag = str(latest_release.get("tag_name") or "") if isinstance(latest_release, dict) else ""
     errors = []
-    if latest_tag != expected_tag:
-        errors.append(f"latest tag {latest_tag!r} does not match plugin version tag {expected_tag!r}")
+    if expected_tag and expected_tag not in tag_names:
+        errors.append(f"expected tag {expected_tag!r} not found in repository tags (found {len(tag_names)} tags)")
     if latest_release_tag != expected_tag:
         errors.append(f"latest release {latest_release_tag!r} does not match plugin version tag {expected_tag!r}")
 
     payload.update(
         {
             "success": not errors,
-            "latest_tag": latest_tag,
+            "tag_count": len(tag_names),
             "latest_release_tag": latest_release_tag,
             "errors": errors,
         }

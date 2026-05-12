@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 # ruff: noqa: UP017
 # mypy: disable-error-code=import-untyped
-from __future__ import annotations
-
 """Registry 按需查询工具
 
 用法:
@@ -14,6 +12,8 @@ from __future__ import annotations
     python query_registry.py --search <keyword>        # 搜索数据源（名称/描述）
     python query_registry.py --save-group <group_id> --primary-source <source_id> --member-source <source_id>
 """
+
+from __future__ import annotations
 
 import argparse
 import datetime
@@ -31,7 +31,6 @@ from sqlite_store import (
     find_groups_by_source,
     list_source_groups,
     load_registry_document,
-    load_spec_by_entry_key,
     load_spec_for_entry,
     save_source_group,
 )

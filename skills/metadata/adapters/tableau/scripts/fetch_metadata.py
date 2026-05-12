@@ -7,7 +7,7 @@ from _bootstrap import bootstrap_tableau_scripts_path
 
 TABLEAU_SCRIPTS = bootstrap_tableau_scripts_path()
 
-from auth import TableauAuth, get_auth  # type: ignore[import-not-found]
+from auth import get_auth  # type: ignore[import-not-found]
 
 
 def fetch_metadata(view_luid: str):

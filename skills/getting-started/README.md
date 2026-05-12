@@ -34,11 +34,21 @@ flowchart LR
 
 ## 快速示例
 
+在源码仓里直接调用：
+
 ```bash
 python3 skills/getting-started/scripts/doctor.py --intent start
-python3 skills/metadata/scripts/metadata.py init
 python3 skills/metadata/scripts/metadata.py validate
 ```
+
+安装到业务项目后，skills 位于 `.agents/skills/`，对应的命令是：
+
+```bash
+python3 .agents/skills/getting-started/scripts/doctor.py --intent start
+python3 .agents/skills/metadata/scripts/metadata.py validate
+```
+
+SKILL.md 用 `{baseDir}` 变量自动指向当前生效的 skill 根目录，agent 调用时不需要手写以上路径。
 
 `doctor.py` 只读输出项目环境摘要：Python 命令、skill base、registry path、DuckDB path、依赖状态和推荐下一 skill。它不创建目录、不取数、不写 metadata 或 registry。
 

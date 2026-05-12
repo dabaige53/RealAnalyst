@@ -44,7 +44,7 @@ def fusion(input_paths: list[str], output_path: str, strategy: str, join_key: st
 
         try:
             df = pd.read_csv(csv_in, encoding="utf-8")
-        except Exception as e:
+        except Exception:
             # 尝试回退编码
             try:
                 df = pd.read_csv(csv_in, encoding="utf-8-sig")

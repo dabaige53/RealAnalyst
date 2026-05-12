@@ -16,9 +16,9 @@ if str(WORKSPACE_DIR) not in sys.path:
     sys.path.insert(0, str(WORKSPACE_DIR))
 
 try:
-    from sqlite_store import load_spec_by_entry_key, load_spec_by_ref, load_spec_for_entry
+    from sqlite_store import load_spec_for_entry
 except ModuleNotFoundError:  # pragma: no cover - package import path
-    from runtime.tableau.sqlite_store import load_spec_by_entry_key, load_spec_by_ref, load_spec_for_entry
+    from runtime.tableau.sqlite_store import load_spec_for_entry
 
 from runtime.runtime_config_store import db_path as runtime_db_path, ensure_store_ready as ensure_runtime_ready  # noqa: E402
 

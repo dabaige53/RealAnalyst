@@ -15,7 +15,6 @@ from runtime.tableau.sqlite_store import ensure_store_ready, list_entries, load_
 from skills.metadata.lib.value_patterns import compact_sample_values, validation_from_samples
 
 TABLEAU_SCRIPTS = bootstrap_tableau_scripts_path()
-import requests
 from auth import TableauAuth, get_auth  # noqa: E402  # type: ignore[import-not-found]
 
 SKIP_FIELDS = {

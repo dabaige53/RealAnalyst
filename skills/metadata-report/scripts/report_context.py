@@ -246,7 +246,6 @@ def build_report_context(
     maintenance = _map(dataset.get("maintenance"))
     semantics = _map(entry.get("semantics"))
     dataset_id = _text(dataset.get("id") or dataset.get("source_id") or entry.get("source_id") or entry.get("key") or "unknown")
-    source = _map(dataset.get("source"))
     summary = _map(dataset.get("source_summary"))
     object_kind = _text((duckdb_meta or {}).get("object_kind") or entry.get("type") or summary.get("type"))
     context = ReportContext(

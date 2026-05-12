@@ -43,7 +43,7 @@ def list_views(name_filter: str | None = None) -> list[dict[str, Any]]:
 
     try:
         views_url = f"{auth.api_base}/views?pageSize=1000"
-        print(f"[Tableau] 获取视图列表...")
+        print("[Tableau] 获取视图列表...")
 
         resp = requests.get(views_url, headers=auth.get_headers(), timeout=60)
         resp.raise_for_status()
@@ -85,7 +85,7 @@ def list_workbooks() -> list[dict[str, Any]]:
 
     try:
         workbooks_url = f"{auth.api_base}/workbooks?pageSize=1000"
-        print(f"[Tableau] 获取工作簿列表...")
+        print("[Tableau] 获取工作簿列表...")
 
         resp = requests.get(workbooks_url, headers=auth.get_headers(), timeout=60)
         resp.raise_for_status()

@@ -6,8 +6,9 @@ from __future__ import annotations
 import json
 import sqlite3
 import sys
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 _WORKSPACE_DIR = Path(__file__).resolve().parents[2]
 if str(_WORKSPACE_DIR) not in sys.path:
@@ -47,13 +48,17 @@ def _json_loads(value: str | None, default: Any) -> Any:
         return default
 
 
-def _connect() -> sqlite3.Connection:
+@contextmanager
+def _connect() -> Iterator[sqlite3.Connection]:
     _DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(_DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     _init_db(conn)
-    return conn
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def _init_db(conn: sqlite3.Connection) -> None:

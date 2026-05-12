@@ -2,6 +2,25 @@
 
 RealAnalyst 是 Codex plugin。默认安装为“当前项目启用”，不会在所有项目里自动启动。
 
+## TL;DR
+
+```bash
+# 1. 让 Codex 看得到 RealAnalyst（一次性）
+codex plugin marketplace add dabaige53/RealAnalyst --ref main
+
+# 2. 把 skills 和 runtime support 复制到当前项目
+curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 -
+```
+
+重启 Codex 后，在项目内输入：
+
+```text
+/skill RA:getting-started
+帮我做最小状态检查，判断应该先注册 metadata、进入正式分析，还是查看已有口径说明。
+```
+
+以下节点是详解、变体（指定项目 / 全局 / 手动安装）和 troubleshooting。
+
 ## Team Marketplace Install
 
 团队成员不需要手动 clone RealAnalyst。把本仓库作为 Codex marketplace 添加一次即可：
@@ -24,9 +43,11 @@ codex plugin marketplace upgrade realanalyst-marketplace
 
 这条路径适合团队统一分发；不需要发布到官方插件目录。
 
+Marketplace install 只让 Codex 能发现插件。要让某个具体项目能调用 `RA:*` skills，还需要跑一次下面的安装脚本，把 `.agents/skills/` 和 `runtime/` 支持文件写入项目。
+
 ## Enable In Current Project
 
-如果你还需要把 RealAnalyst 的 skills 和 runtime support 复制到当前业务项目，使用安装脚本：
+把 RealAnalyst 的 skills 和 runtime support 复制到当前业务项目：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/install_codex_plugin.py | python3 -
@@ -188,7 +209,7 @@ https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/llm-next-steps
 基于已确认的 metadata 和 registry，帮我生成分析计划，确认后再执行取数、画像、分析、报告和验证。
 ```
 
-如果用户想分析但数据源还没有注册，先用 `RA:metadata` 做最小可分析注册。`RA:analysis-run` 是正式分析入口，不负责偷偷吞掉 metadata 注册流程。
+如果用户想分析但数据源还没有注册，先用 `RA:metadata` 做最小可分析注册。`RA:analysis-run` 是正式分析入口；数据源未注册时不要跳过 metadata 注册直接进 `RA:analysis-run`。
 
 常见补充入口：
 

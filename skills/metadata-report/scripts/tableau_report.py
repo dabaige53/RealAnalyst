@@ -24,7 +24,6 @@ WORKSPACE_DIR = bootstrap_workspace_path()
 load_dotenv(find_dotenv(usecwd=True))
 load_dotenv(os.path.join(WORKSPACE_DIR, ".env"))
 
-from runtime.tableau.source_context import build_source_context  # noqa: E402
 from runtime.tableau.sqlite_store import list_entries, load_spec_by_entry_key  # noqa: E402
 from skills.metadata.lib.metadata_io import (  # noqa: E402
     MetadataError,
@@ -34,7 +33,7 @@ from skills.metadata.lib.metadata_io import (  # noqa: E402
     resolve_dataset_path,
 )
 from skills.metadata.lib.value_patterns import infer_value_pattern  # noqa: E402
-from report_context import build_report_context, render_markdown, write_context_json  # noqa: E402
+from report_context import build_report_context, render_markdown  # noqa: E402
 
 
 def default_report_dir() -> Path:
