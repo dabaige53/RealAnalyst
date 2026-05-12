@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -36,7 +37,12 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 
 
 def run_python_script(workspace: Path, script: Path, args: list[str]) -> int:
-    completed = subprocess.run([sys.executable, str(script), *args], cwd=workspace, check=False)
+    source_root = SCRIPT_DIR.parents[2]
+    pythonpath_parts = [str(source_root)]
+    if os.environ.get("PYTHONPATH"):
+        pythonpath_parts.append(os.environ["PYTHONPATH"])
+    env = {**os.environ, "ANALYST_WORKSPACE_DIR": str(workspace), "PYTHONPATH": os.pathsep.join(pythonpath_parts)}
+    completed = subprocess.run([sys.executable, str(script), *args], cwd=workspace, check=False, env=env)
     return completed.returncode
 
 
@@ -51,11 +57,25 @@ def adapter_plan(workspace: Path, *, backend: str, source_id: str, dry_run: bool
             "skills/metadata/adapters/tableau/scripts/sync_fields.py",
             "skills/metadata/adapters/tableau/scripts/sync_filters.py",
         ]
-    else:
+    elif backend == "duckdb":
         scripts = [
             "skills/metadata/adapters/duckdb/scripts/discover_catalog.py",
             "skills/metadata/adapters/duckdb/scripts/inspect_source.py",
         ]
+    elif backend == "mysql":
+        scripts = [
+            "skills/metadata/adapters/mysql/scripts/discover_catalog.py",
+            "skills/data-export/scripts/mysql/export_mysql_source.py",
+            "skills/data-export/scripts/mysql/mysql_export_with_meta.py",
+        ]
+    elif backend == "clickhouse":
+        scripts = [
+            "skills/metadata/adapters/clickhouse/scripts/discover_catalog.py",
+            "skills/data-export/scripts/clickhouse/export_clickhouse_source.py",
+            "skills/data-export/scripts/clickhouse/clickhouse_export_with_meta.py",
+        ]
+    else:
+        raise ValueError(f"Unsupported backend: {backend}")
     return {
         "success": True,
         "mode": "adapter-plan",
@@ -64,7 +84,8 @@ def adapter_plan(workspace: Path, *, backend: str, source_id: str, dry_run: bool
         "dry_run": dry_run,
         "workspace": str(workspace),
         "adapter_scripts": scripts,
-        "next_step": "Archive adapter output in metadata/sources/, maintain metadata/dictionaries/*.yaml, metadata/mappings/*.yaml, and metadata/datasets/*.yaml, then use RA:metadata-report to generate Markdown reports.",
+        "next_step": "Archive adapter output in metadata/sources/, maintain metadata/dictionaries/*.yaml, metadata/mappings/*.yaml, and metadata/datasets/*.yaml, then validate/index/sync-registry before RA:data-export or RA:metadata-report.",
+        "credential_boundary": "Use connection_ref, credential_ref, or env names only; do not write passwords, tokens, or DSNs into metadata YAML or reports.",
     }
 
 
@@ -123,7 +144,7 @@ def build_parser() -> argparse.ArgumentParser:
     status_scope.add_argument("--all", action="store_true")
 
     init_source = subparsers.add_parser("init-source", help="Build a connector adapter handoff plan.")
-    init_source.add_argument("--backend", required=True, choices=("tableau", "duckdb"))
+    init_source.add_argument("--backend", required=True, choices=("tableau", "duckdb", "mysql", "clickhouse"))
     init_source.add_argument("--source-id", required=True)
     init_source.add_argument("--dry-run", action="store_true")
 

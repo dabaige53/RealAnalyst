@@ -1,6 +1,6 @@
 # data-export
 
-`RA:data-export` 是 RealAnalyst 的统一正式取数 skill。Tableau 和 DuckDB 都从这里进入。
+`RA:data-export` 是 RealAnalyst 的统一正式取数 skill。Tableau、DuckDB、MySQL 和 ClickHouse 都从这里进入。
 
 它解决的问题是：让 Codex 在写报告前，只从已注册、可审计、可复核的数据源导出 CSV，而不是自由 SQL 或临时下载。
 
@@ -10,6 +10,8 @@
 | --- | --- | --- |
 | Tableau | `scripts/tableau/tableau_export_with_meta.py` | `scripts/tableau/export_source.py` |
 | DuckDB | `scripts/duckdb/duckdb_export_with_meta.py` | `scripts/duckdb/export_duckdb_source.py` |
+| MySQL | `scripts/mysql/mysql_export_with_meta.py` | `scripts/mysql/export_mysql_source.py` |
+| ClickHouse | `scripts/clickhouse/clickhouse_export_with_meta.py` | `scripts/clickhouse/export_clickhouse_source.py` |
 
 推荐优先用 wrapper，因为 wrapper 会自动写入：
 
@@ -37,10 +39,25 @@
   --output-name export.csv \
   --select "field_a,field_b" \
   --reason "analysis data acquisition"
+
+# 2C. MySQL / ClickHouse 正式导出
+./scripts/py skills/data-export/scripts/mysql/mysql_export_with_meta.py \
+  --source-id <mysql_source_id> \
+  --session-id $SESSION_ID \
+  --output-name export.csv \
+  --select "field_a,field_b" \
+  --reason "analysis data acquisition"
+
+./scripts/py skills/data-export/scripts/clickhouse/clickhouse_export_with_meta.py \
+  --source-id <clickhouse_source_id> \
+  --session-id $SESSION_ID \
+  --output-name export.csv \
+  --select "field_a,field_b" \
+  --reason "analysis data acquisition"
 ```
 
 ## 参考资料
 
 - Tableau 参考文档在 `references/tableau/`。
-- DuckDB 输出契约在 `references/duckdb/`。
+- DuckDB 输出契约在 `references/duckdb/`；MySQL / ClickHouse 使用同一 SQL export summary 契约。
 - 用户只需要记住一个正式取数入口：`RA:data-export`。

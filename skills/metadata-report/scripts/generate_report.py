@@ -11,6 +11,7 @@ WORKSPACE_DIR = bootstrap_workspace_path()
 
 import dataset_report  # noqa: E402
 import duckdb_report  # noqa: E402
+from report_context import build_report_context, render_markdown  # noqa: E402
 import tableau_report  # noqa: E402
 from skills.metadata.lib.metadata_io import MetadataError  # noqa: E402
 from runtime.tableau import sqlite_store  # noqa: E402
@@ -20,7 +21,7 @@ def _connector_from_dataset_id(dataset_id: str | None) -> str | None:
     if not dataset_id:
         return None
     prefix = dataset_id.split(".", 1)[0].lower()
-    if prefix in {"duckdb", "tableau"}:
+    if prefix in {"duckdb", "tableau", "mysql", "clickhouse"}:
         return prefix
     return None
 
@@ -32,7 +33,7 @@ def _default_report_dir(workspace: Path, connector: str) -> Path:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Generate RealAnalyst metadata Markdown reports")
     parser.add_argument("--workspace", help="Workspace root. Defaults to discovered RealAnalyst root.")
-    parser.add_argument("--connector", choices=["duckdb", "tableau"], help="Connector report type")
+    parser.add_argument("--connector", choices=["duckdb", "tableau", "mysql", "clickhouse"], help="Connector report type")
     parser.add_argument("--dataset-id", help="Metadata dataset id, e.g. duckdb.ho.orders or tableau.route.-ai")
     parser.add_argument("--all", action="store_true", help="Generate reports for all active entries of the connector")
     parser.add_argument("--all-yaml", action="store_true", help="Generate reports for all YAML datasets of the connector")
@@ -152,6 +153,58 @@ def _generate_tableau(args: argparse.Namespace, workspace: Path, report_dir: Pat
         print(f"[OK] report -> {report_path}")
 
 
+def _generate_sql_connector(args: argparse.Namespace, workspace: Path, report_dir: Path, connector: str) -> None:
+    generated_at = duckdb_report.datetime.now().astimezone()
+    step_results = {
+        "register": args.register_step_status,
+        "registry": "not_written" if (args.dataset_id or args.all_yaml) else args.registry_step_status,
+        "validate": args.validate_step_status,
+    }
+    if not (args.dataset_id or args.all_yaml):
+        print(f"[Error] {connector} reports require --dataset-id or --all-yaml")
+        raise SystemExit(2)
+    if args.dataset_id:
+        path = duckdb_report.resolve_dataset_path(workspace, args.dataset_id)
+        datasets = [duckdb_report.normalize_dataset(duckdb_report.load_dataset_file(path), path=path)]
+    else:
+        datasets = [
+            duckdb_report.normalize_dataset(duckdb_report.load_dataset_file(path), path=path)
+            for path in duckdb_report.iter_dataset_files(workspace)
+        ]
+    validation_errors = duckdb_report._validate_yaml_datasets(workspace, datasets)
+    if validation_errors:
+        print("[Error] metadata validate failed:")
+        for error in validation_errors:
+            print(f"- {error}")
+        raise SystemExit(1)
+    step_results["validate"] = "success"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    for dataset in datasets:
+        source = dataset.get("source") if isinstance(dataset.get("source"), dict) else {}
+        if source.get("connector") != connector:
+            continue
+        dataset_id = str(dataset.get("id") or "unknown")
+        mapping = duckdb_report._load_dataset_mapping(workspace, dataset)
+        context = build_report_context(
+            connector=connector,
+            dataset=dataset,
+            mapping=mapping,
+            entry=None,
+            spec=None,
+            source_context=None,
+            sample_values=None,
+            duckdb_meta=source.get(connector) if isinstance(source.get(connector), dict) else {},
+            export_summary=None,
+            manifest=None,
+            step_results=step_results,
+            generated_at=generated_at,
+            report_dir=report_dir,
+        )
+        report_path = report_dir / duckdb_report.build_report_filename(dataset_id, generated_at=generated_at)
+        report_path.write_text(render_markdown(context), encoding="utf-8")
+        print(f"[OK] report -> {report_path}")
+
+
 def main() -> None:
     args = build_parser().parse_args()
     workspace = Path(args.workspace).expanduser().resolve() if args.workspace else WORKSPACE_DIR
@@ -177,20 +230,22 @@ def main() -> None:
         args.report_dir = args.output_dir
     connector = args.connector or _connector_from_dataset_id(args.dataset_id)
     if not connector:
-        print("[Error] Specify --connector or use a dataset id starting with duckdb. / tableau.")
+        print("[Error] Specify --connector or use a dataset id starting with duckdb. / tableau. / mysql. / clickhouse.")
         raise SystemExit(2)
     if not args.dataset_id and not args.all and not args.all_yaml:
         print("[Error] Specify --dataset-id, --all, or --all-yaml")
         raise SystemExit(2)
     if args.all_yaml and connector == "tableau":
-        print("[Error] --all-yaml is only supported for DuckDB reports")
+        print("[Error] --all-yaml is only supported for DuckDB/MySQL/ClickHouse reports")
         raise SystemExit(2)
 
     report_dir = Path(args.report_dir).expanduser().resolve() if args.report_dir else _default_report_dir(workspace, connector)
     if connector == "duckdb":
         _generate_duckdb(args, workspace, report_dir)
-    else:
+    elif connector == "tableau":
         _generate_tableau(args, workspace, report_dir)
+    else:
+        _generate_sql_connector(args, workspace, report_dir, connector)
 
 
 if __name__ == "__main__":

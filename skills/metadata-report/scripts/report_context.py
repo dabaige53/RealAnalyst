@@ -35,6 +35,14 @@ def _text(value: Any) -> str:
     return str(value or "").strip()
 
 
+def _connection_ref_text(value: Any) -> str:
+    text = _text(value)
+    lowered = text.lower()
+    if "://" in text or "@" in text or "password" in lowered or "token" in lowered or "\n" in text:
+        return "[redacted]"
+    return text
+
+
 def _cell(value: Any) -> str:
     return _text(value).replace("|", "\\|").replace("\n", " ")
 
@@ -206,7 +214,7 @@ class ReportContext:
             "字段": self.fields,
             "指标": self.metrics,
             "筛选入口": self.filters,
-            "Tableau参数": self.parameters,
+            "参数": self.parameters,
             "字段映射": self.mappings,
             "待补齐项": self.gaps,
             "边界与风险": self.boundaries,
@@ -243,11 +251,13 @@ def build_report_context(
     spec = spec or {}
     source_context = source_context or {}
     business = _map(dataset.get("business"))
+    source = _map(dataset.get("source"))
     maintenance = _map(dataset.get("maintenance"))
     semantics = _map(entry.get("semantics"))
     dataset_id = _text(dataset.get("id") or dataset.get("source_id") or entry.get("source_id") or entry.get("key") or "unknown")
     summary = _map(dataset.get("source_summary"))
-    object_kind = _text((duckdb_meta or {}).get("object_kind") or entry.get("type") or summary.get("type"))
+    connector_meta = _map(duckdb_meta) or _map(entry.get(connector)) or _map(source.get(connector))
+    object_kind = _text(connector_meta.get("object_kind") or entry.get("type") or summary.get("type"))
     context = ReportContext(
         dataset_id=dataset_id,
         display_name=_text(dataset.get("display_name") or entry.get("display_name") or dataset_id),
@@ -362,7 +372,7 @@ def build_report_context(
                 }
             )
 
-    if connector == "duckdb":
+    if connector in {"duckdb", "mysql", "clickhouse"}:
         for field_row in context.fields:
             if field_row["类型"] not in {"时间", "维度"}:
                 continue
@@ -459,18 +469,33 @@ def build_report_context(
     if connector == "duckdb":
         context.boundaries.append({"边界/风险": "样本值边界", "说明": "示例值来自只读采样", "对使用者的影响": "不能当作完整枚举清单。"})
         context.boundaries.append({"边界/风险": "registry 边界", "说明": "YAML 模式不反写 runtime registry", "对使用者的影响": "registry.db 不能作为业务口径来源。"})
+    elif connector in {"mysql", "clickhouse"}:
+        context.boundaries.append({"边界/风险": "registry 边界", "说明": "YAML 模式不反写 runtime registry", "对使用者的影响": "registry.db 不能作为业务口径来源。"})
+        context.boundaries.append({"边界/风险": "凭据边界", "说明": "报告只展示 connection_ref、credential_ref 或 env 名称", "对使用者的影响": "真实密码、token、DSN 不进入 metadata 或报告。"})
     else:
         if not manifest:
             context.boundaries.append({"边界/风险": "导出字段边界", "说明": "未提供 manifest", "对使用者的影响": "无法证明实际 CSV 物理列。"})
         context.boundaries.append({"边界/风险": "Tableau 参数边界", "说明": "筛选器和参数使用不同接口", "对使用者的影响": "筛选器用 --vf，参数用 --vp。"})
 
-    if duckdb_meta:
+    if connector_meta and connector == "duckdb":
         context.technical_rows.extend(
             [
-                ("DuckDB 文件", _text(duckdb_meta.get("path") or duckdb_meta.get("db_path"))),
-                ("Schema", _text(duckdb_meta.get("schema"))),
-                ("对象", _text(duckdb_meta.get("object_name"))),
-                ("对象类型", _text(duckdb_meta.get("object_kind"))),
+                ("DuckDB 文件", _text(connector_meta.get("path") or connector_meta.get("db_path"))),
+                ("Schema", _text(connector_meta.get("schema"))),
+                ("对象", _text(connector_meta.get("object_name"))),
+                ("对象类型", _text(connector_meta.get("object_kind"))),
+            ]
+        )
+    if connector_meta and connector in {"mysql", "clickhouse"}:
+        context.technical_rows.extend(
+            [
+                ("Database", _text(connector_meta.get("database"))),
+                ("Schema", _text(connector_meta.get("schema"))),
+                ("对象", _text(connector_meta.get("object_name") or connector_meta.get("table"))),
+                ("对象类型", _text(connector_meta.get("object_kind"))),
+                ("connection_ref", _connection_ref_text(connector_meta.get("connection_ref"))),
+                ("credential_ref", _connection_ref_text(connector_meta.get("credential_ref"))),
+                ("dsn_env", _connection_ref_text(connector_meta.get("dsn_env"))),
             ]
         )
     tableau = _map(entry.get("tableau"))
@@ -535,6 +560,8 @@ def _primary_risk(context: ReportContext) -> str:
         return "未提供 manifest，无法证明实际导出物理列。"
     if context.connector == "duckdb":
         return "示例值来自只读采样，不代表完整枚举。"
+    if context.connector in {"mysql", "clickhouse"}:
+        return "正式取数必须从 runtime registry entry/spec 进入，并只允许已注册字段。"
     return "未发现显式待补齐项。"
 
 
@@ -561,7 +588,7 @@ def _scale_text(context: ReportContext) -> str:
 def render_markdown(context: ReportContext) -> str:
     lines: list[str] = [f"# {_cell(context.display_name)} 元数据报告", ""]
     lines.extend(["## 1. 数据源结论", "", "| 项目 | 内容 |", "| --- | --- |"])
-    connector_label = {"duckdb": "DuckDB", "tableau": "Tableau"}.get(context.connector, context.connector)
+    connector_label = {"duckdb": "DuckDB", "tableau": "Tableau", "mysql": "MySQL", "clickhouse": "ClickHouse"}.get(context.connector, context.connector)
     data_type = connector_label if not context.object_kind else f"{connector_label} / {context.object_kind}"
     conclusion_rows = [
         ("数据源", context.display_name),
@@ -669,8 +696,8 @@ def render_markdown(context: ReportContext) -> str:
             if value:
                 lines.append(f"| {_cell(key)} | {_code(value)} |")
         lines.append("")
-    if context.connector == "duckdb" and context.filters:
-        lines.extend(["| 业务筛选 | DuckDB 条件示例 | 注意事项 |", "| --- | --- | --- |"])
+    if context.connector in {"duckdb", "mysql", "clickhouse"} and context.filters:
+        lines.extend(["| 业务筛选 | SQL 条件示例 | 注意事项 |", "| --- | --- | --- |"])
         for row in context.filters[:20]:
             source = next((field["源字段"] for field in context.fields if field["名称"] == row["筛选入口"]), "")
             condition = f'"{source}" = \'<value>\'' if source else "<field> = '<value>'"

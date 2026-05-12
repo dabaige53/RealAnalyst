@@ -150,6 +150,132 @@ rows = cur.fetchall()
 
 ---
 
+## Scenario: Registry-managed SQL connectors
+
+### 1. Scope / Trigger
+
+新增 MySQL、ClickHouse 或其它 SQL connector 时，必须按 code-spec 深度处理。触发原因是它横跨 metadata YAML、runtime registry、data-export、job artifact、dependency readiness 和 report 脱敏边界。
+
+SQL connector 不是新 registry，也不是任意 SQL 执行入口。它只能作为 `dataset.source.connector` 进入现有 `runtime/registry.db`。
+
+### 2. Signatures
+
+Metadata registration:
+
+```bash
+python3 skills/metadata/scripts/metadata.py init-source --backend mysql --source-id <dataset_id> --dry-run
+python3 skills/metadata/scripts/metadata.py init-source --backend clickhouse --source-id <dataset_id> --dry-run
+python3 skills/metadata/scripts/metadata.py sync-registry --dataset-id <dataset_id> --dry-run
+python3 skills/metadata/scripts/metadata.py status --dataset-id <dataset_id>
+```
+
+Controlled export:
+
+```bash
+python3 skills/data-export/scripts/mysql/export_mysql_source.py \
+  --source-id <dataset_id> --session-id <SESSION_ID> --output-name <file>.csv \
+  --select "field_a,field_b" --filter "field_a=value"
+
+python3 skills/data-export/scripts/clickhouse/export_clickhouse_source.py \
+  --source-id <dataset_id> --session-id <SESSION_ID> --output-name <file>.csv \
+  --group-by "field_a" --aggregate "amount:sum:total_amount"
+```
+
+Wrapper entrypoints must have the same export arguments plus:
+
+```bash
+--reason "<why>" [--confirmed] [--is-new-source]
+```
+
+### 3. Contracts
+
+Dataset source contract:
+
+```yaml
+source:
+  connector: mysql  # or clickhouse
+  object: analytics.orders
+  mysql:
+    database: analytics
+    schema: public
+    table: orders
+    object_kind: table
+    connection_ref: MYSQL_ANALYTICS_JSON
+```
+
+Runtime entry/spec contract:
+
+- `entry["source_backend"]` equals `mysql` or `clickhouse`.
+- `entry[connector]` stores non-secret location fields such as `database`, `schema`, `table`, `object_name`, `object_kind`, `connection_ref`, `credential_ref`, or `dsn_env`.
+- `spec["fields"]`, `spec["dimensions"]`, `spec["measures"]`, `spec["filters"]`, and `spec["metrics"]` remain the only export whitelist.
+- Connection values are loaded at runtime from env/config refs. Do not write passwords, tokens, raw DSNs, or connection JSON into YAML, reports, examples, summary files, or tests.
+
+Job artifact contract:
+
+- CSV output stays under `jobs/{SESSION_ID}/data/`.
+- SQL connector summaries use `<connector>_export_summary_<output>_<timestamp>.json`, `<connector>_export_summary.json`, and connector-neutral `data_export_summary.json`.
+- Wrapper updates `jobs/{SESSION_ID}/.meta/acquisition_log.jsonl` and `jobs/{SESSION_ID}/.meta/artifact_index.json`.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+| --- | --- |
+| `source_id` missing from registry | fail before building SQL |
+| `entry["source_backend"]` mismatches connector | fail before building SQL |
+| source status is not `active` | fail before building SQL |
+| missing spec | fail before building SQL |
+| selected/filter/group/order field not registered | fail with unregistered field error |
+| aggregate alias used in `order-by` | allow alias without requiring it in source fields |
+| `--output-name` contains path separators or `..` | fail; never write outside `jobs/{SESSION_ID}/data/` |
+| `--limit` is negative | fail |
+| source object begins with `TEMP_` or `ToDrop_` | fail |
+| connection ref looks like secret/DSN in report/summary | redact or reject according to layer |
+| client dependency missing | fail with remediation pointing to project dependencies |
+
+### 5. Good/Base/Bad Cases
+
+- Good: registered MySQL source with `connection_ref=MYSQL_ANALYTICS_JSON`, selected fields all in registry, output `orders.csv`, wrapper writes CSV + summary + acquisition log + artifact index.
+- Base: `init-source --backend clickhouse --dry-run` returns adapter scripts and credential boundary without connecting to a live server.
+- Bad: `--output-name ../orders.csv` or `--filter "not_registered=1"` fails before any query runs.
+
+### 6. Tests Required
+
+Add focused tests for every new SQL connector:
+
+- `metadata.py init-source --backend <connector>` returns expected adapter/export scripts.
+- `sync_registry.py build_entry_and_spec()` keeps connector payload under `entry[connector]` and `spec`.
+- `status_registry.py` reports export-ready only when object/table, fields, and connection ref are present.
+- Export helpers enforce registered field whitelist, non-negative limit, path confinement, temporary-object rejection, and parameterized filter/date-range handling.
+- Wrapper scripts write `acquisition_log.jsonl`, `artifact_index.json`, and connector-neutral `data_export_summary.json`.
+- Report context redacts suspicious connection refs and does not print raw secrets/DSNs.
+- Tests use mocks/helper-level clients; do not require live MySQL or ClickHouse services in CI.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```python
+sql = f"SELECT {columns} FROM {table} WHERE region = '{value}'"
+output_file = workspace / "jobs" / session_id / args.output_name
+```
+
+This bypasses registry validation, string-concatenates filter values, and allows path escape.
+
+#### Correct
+
+```python
+entry = get_entry_by_source_id(source_id)
+spec = load_spec_by_entry_key(entry["key"])
+validate_fields(used_fields, allowed_fields(entry, spec))
+sql = build_sql(..., placeholder="%s")
+params = build_params(filters, date_ranges)
+output_file = resolve_output_file(workspace, session_id, output_name)
+```
+
+This keeps the source registry-managed, parameterizes values, and confines output to the job data directory.
+
+---
+
 ## 查询模式（SQLite）
 
 SQLite helper 使用 `sqlite3.Row`、短事务和 `_json_dumps()` / `_json_loads()`：

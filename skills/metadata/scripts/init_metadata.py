@@ -17,6 +17,8 @@ WORKSPACE_DIRS = (
     "metadata/models",
     "metadata/sync/duckdb",
     "metadata/sync/tableau",
+    "metadata/sync/mysql",
+    "metadata/sync/clickhouse",
     "metadata/audit",
     "metadata/index",
     "metadata/osi",
@@ -32,6 +34,8 @@ CLEAN_FILES = {
     "metadata/audit/README.md": "metadata/audit/README.md",
     "metadata/sync/duckdb/README.md": "metadata/sync/duckdb/README.md",
     "metadata/sync/tableau/README.md": "metadata/sync/tableau/README.md",
+    "metadata/sync/mysql/README.md": "metadata/sync/mysql/README.md",
+    "metadata/sync/clickhouse/README.md": "metadata/sync/clickhouse/README.md",
     "metadata/conversion/README.md": "metadata/conversion/README.md",
     "metadata/conversion/metadata_conversion_manifest.yaml": "metadata/conversion/metadata_conversion_manifest.yaml",
 }
@@ -50,6 +54,8 @@ FALLBACK_FILE_CONTENTS = {
     "metadata/audit/README.md": "# Audit\n\nMetadata maintenance logs, ref relation records, and change reports go here. Run `metadata.py record-change` after YAML edits and `metadata.py record-relation` when adding a `business_definition.ref` association.\n",
     "metadata/sync/duckdb/README.md": "# DuckDB Sync\n\nDuckDB discovery snapshots go here.\n",
     "metadata/sync/tableau/README.md": "# Tableau Sync\n\nTableau field, filter, and workbook snapshots go here.\n",
+    "metadata/sync/mysql/README.md": "# MySQL Sync\n\nMySQL discovery snapshots go here. Store only redacted catalog material; keep credentials in environment variables or local ignored config.\n",
+    "metadata/sync/clickhouse/README.md": "# ClickHouse Sync\n\nClickHouse discovery snapshots go here. Store only redacted catalog material; keep credentials in environment variables or local ignored config.\n",
     "metadata/conversion/README.md": "# Conversion\n\nMetadata conversion notes and manifests go here.\n",
     "metadata/conversion/metadata_conversion_manifest.yaml": "version: 1\nconversions: []\n",
 }

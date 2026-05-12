@@ -6,6 +6,7 @@ This is the durable audit trail for *each* data download/export inside a continu
 Supported inputs:
 - --json / --json-file: provide a record directly
 - --from-duckdb-summary: build record from duckdb_export_summary.json
+- --from-sql-summary: build record from mysql/clickhouse/data_export_summary.json
 - --from-tableau-run: build record from the JSON printed by tableau export_source.py
 
 The script will always add:
@@ -21,12 +22,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-WORKSPACE_DIR = Path(__file__).resolve().parents[1]
+WORKSPACE_DIR = Path(os.environ.get("ANALYST_WORKSPACE_DIR") or Path(__file__).resolve().parents[1]).expanduser().resolve()
 
 
 def _now_iso() -> str:
@@ -58,6 +60,15 @@ def _meta_dir(session_id: str) -> Path:
 
 def _load_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _relpath(path: Path) -> str:
+    if path.is_absolute():
+        try:
+            return str(path.resolve().relative_to(WORKSPACE_DIR.resolve()))
+        except ValueError:
+            return str(path)
+    return str(path)
 
 
 def _ensure_meta_files(session_id: str) -> Path:
@@ -92,7 +103,43 @@ def _build_from_duckdb_summary(path: Path, *, reason: str, confirmed: bool, is_n
         "reason": reason or "",
         "confirmed_by_user": bool(confirmed),
         "is_new_source": bool(is_new_source),
-        "summary_file": str(path.relative_to(WORKSPACE_DIR)) if path.is_absolute() else str(path),
+        "summary_file": _relpath(path),
+    }
+    return record
+
+
+def _build_from_sql_summary(path: Path, *, reason: str, confirmed: bool, is_new_source: bool) -> dict[str, Any]:
+    payload = _load_json(path)
+    if not isinstance(payload, dict):
+        raise SystemExit("sql summary is not a json object")
+    connector = payload.get("source_backend")
+    if connector not in {"mysql", "clickhouse", "duckdb"}:
+        raise SystemExit("sql summary source_backend must be mysql, clickhouse, or duckdb")
+    record: dict[str, Any] = {
+        "source_backend": connector,
+        "source_id": payload.get("source_id"),
+        "display_name": payload.get("display_name"),
+        "database": payload.get("database"),
+        "schema": payload.get("schema"),
+        "object_name": payload.get("object_name"),
+        "object_kind": payload.get("object_kind"),
+        "connection_ref": payload.get("connection_ref"),
+        "credential_ref": payload.get("credential_ref"),
+        "dsn_env": payload.get("dsn_env"),
+        "output_file": payload.get("output_file"),
+        "row_count": payload.get("row_count"),
+        "selected_fields": payload.get("selected_fields"),
+        "filters": payload.get("filters"),
+        "date_ranges": payload.get("date_ranges"),
+        "group_by": payload.get("group_by"),
+        "aggregates": payload.get("aggregates"),
+        "order_by": payload.get("order_by"),
+        "limit": payload.get("limit"),
+        "exported_at": payload.get("exported_at"),
+        "reason": reason or "",
+        "confirmed_by_user": bool(confirmed),
+        "is_new_source": bool(is_new_source),
+        "summary_file": _relpath(path),
     }
     return record
 
@@ -114,7 +161,7 @@ def _build_from_tableau_run(path: Path, *, reason: str, confirmed: bool, is_new_
         "reason": reason or "",
         "confirmed_by_user": bool(confirmed),
         "is_new_source": bool(is_new_source),
-        "run_summary_file": str(path.relative_to(WORKSPACE_DIR)) if path.is_absolute() else str(path),
+        "run_summary_file": _relpath(path),
     }
     return record
 
@@ -127,6 +174,7 @@ def main() -> int:
     src.add_argument("--json", help="Record JSON string")
     src.add_argument("--json-file", help="Path to a JSON file containing the record")
     src.add_argument("--from-duckdb-summary", help="Path to duckdb_export_summary.json")
+    src.add_argument("--from-sql-summary", help="Path to mysql/clickhouse/data_export_summary.json")
     src.add_argument("--from-tableau-run", help="Path to tableau export_source.py stdout JSON")
 
     ap.add_argument("--reason", default="", help="Why this acquisition happened")
@@ -151,6 +199,13 @@ def main() -> int:
     elif args.from_duckdb_summary:
         record = _build_from_duckdb_summary(
             Path(args.from_duckdb_summary),
+            reason=args.reason,
+            confirmed=args.confirmed,
+            is_new_source=args.is_new_source,
+        )
+    elif args.from_sql_summary:
+        record = _build_from_sql_summary(
+            Path(args.from_sql_summary),
             reason=args.reason,
             confirmed=args.confirmed,
             is_new_source=args.is_new_source,

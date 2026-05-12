@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.19 - 2026-05-12
+
+- Added full MySQL and ClickHouse metadata registration channels, including discovery adapter handoff, registry sync/status support, and metadata-report connector context.
+- Added controlled MySQL and ClickHouse data-export backends with registry source checks, field whitelists, parameterized filters, job summaries, acquisition logs, and artifact index updates.
+- Added connector-neutral `data_export_summary.json` compatibility for downstream profiling while preserving existing Tableau and DuckDB flows.
+- Added dependency readiness checks, docs, and tests for SQL connector safety, path confinement, and credential/reference redaction.
+
+## 0.3.18 - 2026-05-12
+
+- Fixed SQLite registry connection cleanup and removed dead imports.
+- Tightened runtime annotations and docstrings around installed skill execution paths.
+
 ## 0.3.17 - 2026-05-11
 
 - Fixed project-local installed skill execution so `./scripts/py skills/...` resolves to `.agents/skills/...` when the source `skills/` tree is absent.

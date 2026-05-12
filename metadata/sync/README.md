@@ -1,7 +1,7 @@
 # Metadata Sync
 
 这里保存 connector 同步快照。
-同步快照来自 Tableau、DuckDB 等外部系统，包含 workbook、字段、筛选器、table catalog 等结构信息。
+同步快照来自 Tableau、DuckDB、MySQL、ClickHouse 等外部系统，包含 workbook、字段、筛选器、table catalog 等结构信息。
 
 > 它们是整理 metadata 的素材，不是最终业务定义。
 
@@ -11,7 +11,7 @@
 
 ```mermaid
 flowchart LR
-    T[Tableau / DuckDB] --> S[metadata/sync<br/>原始结构快照]
+    T[Tableau / DuckDB / MySQL / ClickHouse] --> S[metadata/sync<br/>原始结构快照]
     S --> Review[LLM + reviewer 整理]
     Review --> S[metadata/sources<br/>原始证据归档]
     Review --> M[metadata/mappings/*.yaml<br/>字段映射]
@@ -28,6 +28,8 @@ flowchart LR
 | --- | --- |
 | `tableau/` | Tableau workbook、fields、filters 等同步快照 |
 | `duckdb/` | DuckDB catalog 同步快照 |
+| `mysql/` | MySQL catalog 同步快照 |
+| `clickhouse/` | ClickHouse catalog 同步快照 |
 
 ---
 
@@ -37,6 +39,7 @@ flowchart LR
 | --- | --- |
 | `.example.*` 示例文件 | 可以提交 |
 | 真实同步快照 | 不提交 |
+| 连接密码、token、DSN 明文 | 不提交 |
 | 同步报告中的真实字段/路径 | 不提交 |
 | 脱敏后的说明文档 | 可以提交 |
 

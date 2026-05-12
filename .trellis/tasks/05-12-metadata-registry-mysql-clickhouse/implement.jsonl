@@ -1,0 +1,4 @@
+{"file":".trellis/spec/backend/index.md","reason":"Load backend pre-development checklist and package-scoped coding guidelines before implementing metadata/runtime/data-export changes."}
+{"file":".trellis/spec/backend/directory-structure.md","reason":"Preserve RealAnalyst skill, metadata, runtime, job artifact, and project-local install boundaries while adding MySQL and ClickHouse connectors."}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"Follow runtime registry, metadata index, controlled export, SQLite helper, and migration rules for connector registration and export."}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Apply validation, report quality, test, and no-placeholder requirements for connector and report changes."}

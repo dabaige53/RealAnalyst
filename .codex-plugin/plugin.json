@@ -1,6 +1,6 @@
 {
   "name": "realanalyst",
-  "version": "0.3.18",
+  "version": "0.3.19",
   "description": "Platform-neutral metadata-first analysis system with Codex skills as the first adapter.",
   "author": {
     "name": "dabaige53",
@@ -15,6 +15,8 @@
     "metadata",
     "tableau",
     "duckdb",
+    "mysql",
+    "clickhouse",
     "reporting"
   ],
   "skills": "./skills/",

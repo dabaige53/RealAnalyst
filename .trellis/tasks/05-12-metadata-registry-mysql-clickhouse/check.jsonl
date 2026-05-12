@@ -1,0 +1,4 @@
+{"file":".trellis/spec/backend/index.md","reason":"Use backend checklist to verify implementation coverage."}
+{"file":".trellis/spec/backend/directory-structure.md","reason":"Check that new connector code does not violate skill and metadata/runtime responsibility boundaries."}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"Check registry sync, export safety, and compatibility with existing runtime DB rules."}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Check tests, report quality, no placeholder output, and docs alignment."}

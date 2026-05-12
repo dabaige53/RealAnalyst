@@ -62,6 +62,11 @@ def _export_ready(workspace: Path, entry: dict[str, Any] | None, spec: dict[str,
     if connector == "tableau":
         tableau = entry.get("tableau") if isinstance(entry.get("tableau"), dict) else {}
         return bool(tableau.get("content_url") or tableau.get("view_luid"))
+    if connector in {"mysql", "clickhouse"}:
+        payload = entry.get(connector) if isinstance(entry.get(connector), dict) else {}
+        object_name = payload.get("object_name") or payload.get("table")
+        connection_ref = payload.get("connection_ref") or payload.get("credential_ref") or payload.get("dsn_env")
+        return bool(object_name and connection_ref and spec.get("fields"))
     return bool(spec.get("fields"))
 
 
@@ -77,6 +82,7 @@ def _status_for_path(workspace: Path, path: Path) -> dict[str, Any]:
         "runtime_registry": bool(entry),
         "runtime_spec": bool(spec),
         "export_ready": _export_ready(workspace, entry, spec),
+        "source_backend": entry.get("source_backend") if entry else None,
         "registry_db": str(registry_path) if registry_path else str(db_path()),
     }
 

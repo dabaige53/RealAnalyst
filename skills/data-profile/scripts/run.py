@@ -112,27 +112,29 @@ def _resolve_data_csv_from_summary(output_dir: Path) -> tuple[Path, str]:
             raise RuntimeError("multiple successful CSV candidates found in export_summary.json")
         return candidates[0], "export_summary"
 
-    duckdb_summary_path = output_dir / "duckdb_export_summary.json"
-    if duckdb_summary_path.exists():
+    for summary_name in ("data_export_summary.json", "duckdb_export_summary.json", "mysql_export_summary.json", "clickhouse_export_summary.json"):
+        summary_path = output_dir / summary_name
+        if not summary_path.exists():
+            continue
         try:
-            payload = json.loads(duckdb_summary_path.read_text(encoding="utf-8"))
+            payload = json.loads(summary_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
-            raise ValueError(f"duckdb_export_summary.json is invalid JSON: {duckdb_summary_path}") from exc
+            raise ValueError(f"{summary_name} is invalid JSON: {summary_path}") from exc
 
         if not isinstance(payload, dict):
-            raise ValueError("duckdb_export_summary.json must be a JSON object")
+            raise ValueError(f"{summary_name} must be a JSON object")
         file_path = payload.get("output_file")
         if not isinstance(file_path, str) or not file_path:
-            raise ValueError("duckdb_export_summary.json missing output_file")
+            raise ValueError(f"{summary_name} missing output_file")
         candidate = (_workspace_dir() / file_path).resolve()
         try:
             candidate.relative_to(_workspace_dir().resolve())
         except ValueError as exc:
             raise ValueError(f"output_file escapes workspace: {file_path}") from exc
-        return candidate, "duckdb_export_summary"
+        return candidate, summary_path.stem
 
     raise FileNotFoundError(
-        f"neither export_summary.json nor duckdb_export_summary.json found in: {output_dir}"
+        f"no supported export summary found in: {output_dir}"
     )
 
 

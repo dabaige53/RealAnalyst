@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import importlib.util
+import os
 import subprocess
 import sys
 import tempfile
@@ -19,6 +20,13 @@ SCRIPT_PY = REPO / "scripts" / "py"
 ANALYSIS_INIT_JOB = REPO / "skills" / "analysis-run" / "scripts" / "init_or_resume_job.py"
 REFINE_BUILD = REPO / "skills" / "metadata-refine" / "scripts" / "build_reference_pack.py"
 DUCKDB_EXPORTER = REPO / "skills" / "data-export" / "scripts" / "duckdb" / "export_duckdb_source.py"
+MYSQL_EXPORTER = REPO / "skills" / "data-export" / "scripts" / "mysql" / "export_mysql_source.py"
+MYSQL_EXPORT_WRAPPER = REPO / "skills" / "data-export" / "scripts" / "mysql" / "mysql_export_with_meta.py"
+CLICKHOUSE_EXPORTER = REPO / "skills" / "data-export" / "scripts" / "clickhouse" / "export_clickhouse_source.py"
+CLICKHOUSE_EXPORT_WRAPPER = REPO / "skills" / "data-export" / "scripts" / "clickhouse" / "clickhouse_export_with_meta.py"
+SQL_EXPORT_COMMON = REPO / "skills" / "data-export" / "scripts" / "sql" / "common_sql_export.py"
+MYSQL_DISCOVER = REPO / "skills" / "metadata" / "adapters" / "mysql" / "scripts" / "discover_catalog.py"
+CLICKHOUSE_DISCOVER = REPO / "skills" / "metadata" / "adapters" / "clickhouse" / "scripts" / "discover_catalog.py"
 METADATA_REPORTER = REPO / "skills" / "metadata-report" / "scripts" / "generate_report.py"
 DUCKDB_REPORTER = REPO / "skills" / "metadata-report" / "scripts" / "duckdb_report.py"
 TABLEAU_REPORTER = REPO / "skills" / "metadata-report" / "scripts" / "tableau_report.py"
@@ -124,6 +132,82 @@ def write_dataset(workspace: Path, *, metric_field_count: int, metric_count: int
     (workspace / "metadata" / "dictionaries").mkdir(parents=True)
     (workspace / "metadata" / "datasets" / "test.dataset.yaml").write_text(yaml.safe_dump(dataset, allow_unicode=True), encoding="utf-8")
     (workspace / "metadata" / "mappings" / "test.dataset.mapping.yaml").write_text(yaml.safe_dump(mapping, allow_unicode=True), encoding="utf-8")
+
+
+def write_sql_dataset(workspace: Path, connector: str) -> None:
+    dataset = {
+        "version": 1,
+        "id": f"{connector}.test.orders",
+        "display_name": f"{connector} orders",
+        "description": "SQL orders test dataset.",
+        "source": {
+            "connector": connector,
+            "object": "analytics.orders",
+            connector: {
+                "database": "analytics",
+                "schema": "analytics" if connector == "mysql" else "",
+                "table": "orders",
+                "object_name": "orders",
+                "object_kind": "table",
+                "connection_ref": f"{connector.upper()}_CONNECTION_JSON",
+            },
+        },
+        "business": {"grain": ["order_id"], "primary_key": ["order_id"], "time_fields": ["order_date"], "suitable_for": [], "not_suitable_for": [], "sample_questions": []},
+        "maintenance": {"owner": "test", "pending_questions": []},
+        "fields": [
+            {
+                "name": "order_id",
+                "display_name": "Order ID",
+                "source_field": "order_id",
+                "role": "identifier",
+                "type": "string",
+                "description": "Order identifier.",
+                "business_definition": definition("Order identifier definition"),
+            },
+            {
+                "name": "order_date",
+                "display_name": "Order Date",
+                "source_field": "order_date",
+                "role": "time_dimension",
+                "type": "date",
+                "description": "Order date.",
+                "business_definition": definition("Order date definition"),
+            },
+            {
+                "name": "region",
+                "display_name": "Region",
+                "source_field": "region",
+                "role": "dimension",
+                "type": "string",
+                "description": "Order region.",
+                "business_definition": definition("Order region definition"),
+            },
+            {
+                "name": "amount",
+                "display_name": "Amount",
+                "source_field": "amount",
+                "role": "metric_source",
+                "type": "number",
+                "description": "Order amount.",
+                "business_definition": definition("Order amount field definition"),
+            },
+        ],
+        "metrics": [
+            {
+                "name": "amount",
+                "display_name": "Amount",
+                "source_field": "amount",
+                "expression": "SUM(amount)",
+                "aggregation": "sum",
+                "description": "Order amount metric.",
+                "business_definition": definition("Order amount metric definition"),
+            }
+        ],
+    }
+    (workspace / "metadata" / "datasets").mkdir(parents=True)
+    (workspace / "metadata" / "mappings").mkdir(parents=True)
+    (workspace / "metadata" / "dictionaries").mkdir(parents=True)
+    (workspace / "metadata" / "datasets" / f"{connector}.test.orders.yaml").write_text(yaml.safe_dump(dataset, allow_unicode=True), encoding="utf-8")
 
 
 class MetadataProductFixTests(unittest.TestCase):
@@ -494,6 +578,226 @@ class MetadataProductFixTests(unittest.TestCase):
         proc = self.run_cmd([sys.executable, str(DUCKDB_EXPORTER), "--help"], cwd=REPO)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("Controlled export", proc.stdout)
+
+    def test_mysql_clickhouse_init_source_and_discovery_help(self) -> None:
+        for backend, discover in [("mysql", MYSQL_DISCOVER), ("clickhouse", CLICKHOUSE_DISCOVER)]:
+            proc = self.run_cmd(
+                [
+                    sys.executable,
+                    str(METADATA),
+                    "init-source",
+                    "--backend",
+                    backend,
+                    "--source-id",
+                    f"{backend}.test.orders",
+                    "--dry-run",
+                ]
+            )
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            payload = json.loads(proc.stdout)
+            self.assertEqual(payload["backend"], backend)
+            self.assertIn(f"skills/metadata/adapters/{backend}/scripts/discover_catalog.py", payload["adapter_scripts"])
+            self.assertIn("credential_boundary", payload)
+
+            help_proc = self.run_cmd([sys.executable, str(discover), "--help"])
+            self.assertEqual(help_proc.returncode, 0, help_proc.stderr)
+            self.assertIn("Discover", help_proc.stdout)
+
+            dry_run = self.run_cmd(
+                [
+                    sys.executable,
+                    str(discover),
+                    "--source-id",
+                    f"{backend}.test.orders",
+                    "--database",
+                    "analytics",
+                    "--table",
+                    "orders",
+                    "--dry-run",
+                ]
+            )
+            self.assertEqual(dry_run.returncode, 0, dry_run.stdout + dry_run.stderr)
+            snapshot = json.loads(dry_run.stdout)
+            self.assertEqual(snapshot["connector"], backend)
+            self.assertEqual(snapshot["columns"], [])
+
+    def test_mysql_clickhouse_sync_registry_status_and_report(self) -> None:
+        for connector in ("mysql", "clickhouse"):
+            with tempfile.TemporaryDirectory() as tmp:
+                workspace = Path(tmp)
+                write_sql_dataset(workspace, connector)
+                validate = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "validate"])
+                self.assertEqual(validate.returncode, 0, validate.stdout + validate.stderr)
+
+                dry_run = self.run_cmd(
+                    [
+                        sys.executable,
+                        str(METADATA),
+                        "--workspace",
+                        str(workspace),
+                        "sync-registry",
+                        "--dataset-id",
+                        f"{connector}.test.orders",
+                        "--dry-run",
+                    ]
+                )
+                self.assertEqual(dry_run.returncode, 0, dry_run.stdout + dry_run.stderr)
+                preview = json.loads(dry_run.stdout)
+                self.assertTrue(preview["success"])
+
+                sync = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "sync-registry", "--dataset-id", f"{connector}.test.orders"])
+                self.assertEqual(sync.returncode, 0, sync.stdout + sync.stderr)
+                status = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "status", "--dataset-id", f"{connector}.test.orders"])
+                self.assertEqual(status.returncode, 0, status.stdout + status.stderr)
+                status_payload = json.loads(status.stdout)["results"][0]
+                self.assertEqual(status_payload["source_backend"], connector)
+                self.assertTrue(status_payload["export_ready"])
+
+                report = self.run_cmd([sys.executable, str(METADATA_REPORTER), "--workspace", str(workspace), "--connector", connector, "--dataset-id", f"{connector}.test.orders"])
+                self.assertEqual(report.returncode, 0, report.stdout + report.stderr)
+                reports = list((workspace / "metadata" / "sync" / connector / "reports").glob(f"*{connector}.test.orders_sync_report.md"))
+                self.assertEqual(len(reports), 1)
+                content = reports[0].read_text(encoding="utf-8")
+                self.assertIn("connection_ref", content)
+                self.assertNotIn("Tableau 参数边界", content)
+                self.assertNotIn("样本值来自只读采样", content)
+
+    def test_sql_export_common_uses_whitelist_parameters_and_summary(self) -> None:
+        module = load_script(SQL_EXPORT_COMMON, "sql_export_common_test")
+
+        class FakeClient:
+            def __init__(self) -> None:
+                self.calls: list[tuple[str, list[str]]] = []
+
+            def query(self, sql: str, params: list[str]):
+                self.calls.append((sql, params))
+                return ["region", "total_amount"], [("East", 12)]
+
+        fake_client = FakeClient()
+        old_ensure = module.ensure_valid_source
+        module.ensure_valid_source = lambda source_id, connector: (
+            {
+                "key": source_id,
+                "source_backend": connector,
+                "status": "active",
+                "display_name": "Orders",
+                "fields": ["region", "amount", "order_date"],
+                connector: {"database": "analytics", "table": "orders", "connection_ref": "MYSQL_CONNECTION_JSON"},
+            },
+            {
+                "fields": ["region", "amount", "order_date"],
+                "dimensions": [{"name": "region"}, {"name": "order_date"}],
+                "measures": [{"name": "amount"}],
+                "filters": [{"key": "region"}, {"key": "order_date"}],
+            },
+            {"database": "analytics", "table": "orders", "connection_ref": "MYSQL_CONNECTION_JSON"},
+        )
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                workspace = Path(tmp)
+                payload = module.run_export(
+                    workspace=workspace,
+                    connector="mysql",
+                    source_id="mysql.test.orders",
+                    session_id="session-1",
+                    output_name="orders.csv",
+                    selected_fields=[],
+                    filters=[module.parse_filter("region=East")],
+                    date_ranges=[module.parse_date_range("order_date:2026-01-01:2026-01-31")],
+                    group_by=["region"],
+                    aggregates=[module.parse_aggregate("amount:sum:total_amount")],
+                    order_by=[module.parse_order("total_amount:desc")],
+                    limit=5,
+                    client=fake_client,
+                    placeholder="%s",
+                )
+                self.assertTrue(Path(payload["output_file"]).exists())
+                summary = json.loads(Path(payload["latest_summary_file"]).read_text(encoding="utf-8"))
+        finally:
+            module.ensure_valid_source = old_ensure
+
+        sql, params = fake_client.calls[0]
+        self.assertIn("WHERE `region` = %s", sql)
+        self.assertIn("CAST(`order_date` AS DATE) BETWEEN %s AND %s", sql)
+        self.assertEqual(params, ["East", "2026-01-01", "2026-01-31"])
+        self.assertEqual(summary["source_backend"], "mysql")
+        self.assertEqual(summary["connection_ref"], "MYSQL_CONNECTION_JSON")
+        self.assertNotIn("password", json.dumps(summary).lower())
+        self.assertEqual(module.safe_ref("mysql://user:password@example/db"), "[redacted]")
+
+        with self.assertRaises(ValueError):
+            module.validate_fields(["not_registered"], {"region"})
+        with self.assertRaises(ValueError):
+            module.resolve_output_file(Path("/tmp/workspace"), "session-1", "../escape.csv")
+
+    def test_mysql_clickhouse_export_help_and_audit_sql_summary(self) -> None:
+        for path in [MYSQL_EXPORTER, MYSQL_EXPORT_WRAPPER, CLICKHOUSE_EXPORTER, CLICKHOUSE_EXPORT_WRAPPER]:
+            proc = self.run_cmd([sys.executable, str(path), "--help"], cwd=REPO)
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertIn("export", proc.stdout.lower())
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            job = workspace / "jobs" / "session-1"
+            data_file = job / "data" / "orders.csv"
+            data_file.parent.mkdir(parents=True)
+            data_file.write_text("region,total\nEast,12\n", encoding="utf-8")
+            summary = job / "mysql_export_summary.json"
+            summary.write_text(
+                json.dumps(
+                    {
+                        "source_backend": "mysql",
+                        "source_id": "mysql.test.orders",
+                        "display_name": "Orders",
+                        "database": "analytics",
+                        "object_name": "orders",
+                        "connection_ref": "MYSQL_CONNECTION_JSON",
+                        "output_file": "jobs/session-1/data/orders.csv",
+                        "row_count": 1,
+                        "selected_fields": ["region", "total"],
+                        "exported_at": "2026-05-12T00:00:00+08:00",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            env = {**os.environ, "ANALYST_WORKSPACE_DIR": str(workspace)}
+            log_proc = subprocess.run(
+                [
+                    sys.executable,
+                    str(REPO / "scripts" / "log_acquisition.py"),
+                    "--session-id",
+                    "session-1",
+                    "--from-sql-summary",
+                    str(summary),
+                    "--reason",
+                    "test",
+                ],
+                cwd=REPO,
+                text=True,
+                capture_output=True,
+                env=env,
+            )
+            self.assertEqual(log_proc.returncode, 0, log_proc.stdout + log_proc.stderr)
+            event_id = json.loads(log_proc.stdout)["event_id"]
+            index_proc = subprocess.run(
+                [
+                    sys.executable,
+                    str(REPO / "scripts" / "update_artifact_index.py"),
+                    "--session-id",
+                    "session-1",
+                    "--from-sql-summary",
+                    str(summary),
+                    "--event-id",
+                    event_id,
+                ],
+                cwd=REPO,
+                text=True,
+                capture_output=True,
+                env=env,
+            )
+            self.assertEqual(index_proc.returncode, 0, index_proc.stdout + index_proc.stderr)
+            index = json.loads((workspace / "jobs" / "session-1" / ".meta" / "artifact_index.json").read_text(encoding="utf-8"))
+            self.assertEqual(index["items"][0]["source_backend"], "mysql")
 
     def test_duckdb_metadata_report_uses_metric_definition_for_metric_source_field(self) -> None:
         module = load_script(DUCKDB_REPORTER, "duckdb_report_for_test")

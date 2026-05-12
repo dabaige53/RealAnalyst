@@ -22,6 +22,8 @@ mods = [
   ('numpy', None),
   ('pandas', None),
   ('duckdb', None),
+  ('pymysql', None),
+  ('clickhouse_connect', 'clickhouse-connect'),
 ]
 missing = []
 for m, pkg in mods:

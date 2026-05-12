@@ -13,6 +13,7 @@ jobs/<SESSION_ID>/artifact_index.json summary (if possible).
 Inputs:
 - --item JSON string (repeatable)
 - --from-duckdb-summary: add raw_data + audit items from duckdb_export_summary.json
+- --from-sql-summary: add raw_data + audit items from mysql/clickhouse/data_export_summary.json
 - --set-report: set report path
 
 It prints the updated .meta/artifact_index.json payload.
@@ -22,11 +23,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-WORKSPACE_DIR = Path(__file__).resolve().parents[1]
+WORKSPACE_DIR = Path(os.environ.get("ANALYST_WORKSPACE_DIR") or Path(__file__).resolve().parents[1]).expanduser().resolve()
 
 
 def _now_iso() -> str:
@@ -60,7 +62,7 @@ def _relpath(path: str) -> str:
     p = Path(path)
     if p.is_absolute():
         try:
-            return str(p.relative_to(WORKSPACE_DIR))
+            return str(p.resolve().relative_to(WORKSPACE_DIR.resolve()))
         except ValueError:
             return str(p)
     return str(p)
@@ -173,7 +175,7 @@ def _from_duckdb_summary(path: Path, *, event_id: str | None) -> list[dict[str, 
 
     items.append(
         {
-            "path": _relpath(str(path.relative_to(WORKSPACE_DIR)) if path.is_absolute() else str(path)),
+            "path": _relpath(str(path)),
             "kind": "audit",
             "role": "system",
             "created_at": str(payload.get("exported_at") or _now_iso()),
@@ -186,12 +188,49 @@ def _from_duckdb_summary(path: Path, *, event_id: str | None) -> list[dict[str, 
     return items
 
 
+def _from_sql_summary(path: Path, *, event_id: str | None) -> list[dict[str, Any]]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise SystemExit("sql summary is not a json object")
+    connector = str(payload.get("source_backend") or "").strip()
+    if connector not in {"mysql", "clickhouse", "duckdb"}:
+        raise SystemExit("sql summary source_backend must be mysql, clickhouse, or duckdb")
+    output_file = payload.get("output_file")
+    if not isinstance(output_file, str) or not output_file:
+        raise SystemExit("sql summary missing output_file")
+
+    created_at = str(payload.get("exported_at") or _now_iso())
+    return [
+        {
+            "path": _relpath(output_file),
+            "kind": "raw_data",
+            "role": "archive",
+            "created_at": created_at,
+            "source_backend": connector,
+            "source_id": payload.get("source_id"),
+            "display_name": payload.get("display_name"),
+            "event_id": event_id,
+            "row_count": payload.get("row_count"),
+        },
+        {
+            "path": _relpath(str(path)),
+            "kind": "audit",
+            "role": "system",
+            "created_at": created_at,
+            "source_backend": connector,
+            "source_id": payload.get("source_id"),
+            "event_id": event_id,
+        },
+    ]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Update .meta/artifact_index.json")
     ap.add_argument("--session-id", default="", help="jobs/<session-id>/ (defaults to env SESSION_ID)")
     ap.add_argument("--set-report", default="", help="Report path to set (and upsert as kind=report, role=user)")
     ap.add_argument("--item", action="append", default=[], help="Artifact item JSON string (repeatable)")
     ap.add_argument("--from-duckdb-summary", default="", help="Path to duckdb_export_summary.json")
+    ap.add_argument("--from-sql-summary", default="", help="Path to mysql/clickhouse/data_export_summary.json")
     ap.add_argument("--event-id", default="", help="Attach event_id to generated items")
     args = ap.parse_args()
 
@@ -234,6 +273,10 @@ def main() -> int:
     if args.from_duckdb_summary:
         event_id = args.event_id.strip() or None
         for it in _from_duckdb_summary(Path(args.from_duckdb_summary), event_id=event_id):
+            _upsert(items, it)
+    if args.from_sql_summary:
+        event_id = args.event_id.strip() or None
+        for it in _from_sql_summary(Path(args.from_sql_summary), event_id=event_id):
             _upsert(items, it)
 
     index["updated_at"] = _now_iso()

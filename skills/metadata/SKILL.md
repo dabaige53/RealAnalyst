@@ -94,6 +94,8 @@ python3 {baseDir}/skills/metadata/scripts/metadata.py init
 ```bash
 python3 {baseDir}/skills/metadata/scripts/metadata.py init-source --backend tableau --source-id <source_id> --dry-run
 python3 {baseDir}/skills/metadata/scripts/metadata.py init-source --backend duckdb --source-id <source_id> --dry-run
+python3 {baseDir}/skills/metadata/scripts/metadata.py init-source --backend mysql --source-id <source_id> --dry-run
+python3 {baseDir}/skills/metadata/scripts/metadata.py init-source --backend clickhouse --source-id <source_id> --dry-run
 ```
 
 3. 按 `references/yaml-structure-contract.md` 维护 YAML：

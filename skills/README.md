@@ -29,7 +29,7 @@ RealAnalyst 是平台无关的 metadata-first 分析执行系统。Codex skills 
 | Core | 职责 |
 | --- | --- |
 | Metadata Core | 管业务含义：YAML schema、definition state、evidence relation、index/context builder |
-| Runtime Registry Core | 管数据源能不能取：source registry、Tableau / DuckDB / CSV connector metadata、filter / parameter / source group |
+| Runtime Registry Core | 管数据源能不能取：source registry、Tableau / DuckDB / MySQL / ClickHouse / CSV connector metadata、filter / parameter / source group |
 | Job Core | 管本次实际用了什么：analysis job 状态、artifact index、feedback、verification artifacts |
 
 核心边界：Metadata 管“含义”，Registry 管“能不能取”，Job 管“这次实际用了什么”。LLM 负责组织、推断、解释和编排；事实状态由三核承接。
@@ -396,6 +396,8 @@ runtime/
 ├── paths.py           # runtime 路径单一来源
 ├── tableau/           # Tableau 查询与 source context 脚本
 ├── duckdb/            # DuckDB 注册脚本
+├── mysql/             # MySQL 受控导出脚本
+├── clickhouse/        # ClickHouse 受控导出脚本
 └── *.yaml             # 模板、框架等不入库的配置
 ```
 
@@ -409,6 +411,8 @@ runtime/
 | --- | --- | --- |
 | Tableau | `skills/data-export/scripts/tableau/tableau_export_with_meta.py` | `skills/data-export/scripts/tableau/export_source.py` |
 | DuckDB | `skills/data-export/scripts/duckdb/duckdb_export_with_meta.py` | `skills/data-export/scripts/duckdb/export_duckdb_source.py` |
+| MySQL | `skills/data-export/scripts/mysql/mysql_export_with_meta.py` | `skills/data-export/scripts/mysql/export_mysql_source.py` |
+| ClickHouse | `skills/data-export/scripts/clickhouse/clickhouse_export_with_meta.py` | `skills/data-export/scripts/clickhouse/export_clickhouse_source.py` |
 
 ### data-profile
 

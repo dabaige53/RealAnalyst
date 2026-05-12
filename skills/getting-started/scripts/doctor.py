@@ -27,7 +27,7 @@ def probe_project_python(workspace: Path, python_command: str) -> dict[str, Any]
     command_path = workspace / "scripts" / "py" if python_command == "./scripts/py" else Path(python_command)
     code = """
 import importlib.util, json, sys
-mods = {name: importlib.util.find_spec(name) is not None for name in ["yaml", "duckdb", "pandas"]}
+mods = {name: importlib.util.find_spec(name) is not None for name in ["yaml", "duckdb", "pandas", "pymysql", "clickhouse_connect"]}
 print(json.dumps({"python_executable": sys.executable, "dependencies": mods}))
 """.strip()
     try:
@@ -42,13 +42,13 @@ print(json.dumps({"python_executable": sys.executable, "dependencies": mods}))
     except Exception as exc:
         return {
             "python_executable": sys.executable,
-            "dependencies": {name: module_available(name) for name in ("yaml", "duckdb", "pandas")},
+            "dependencies": {name: module_available(name) for name in ("yaml", "duckdb", "pandas", "pymysql", "clickhouse_connect")},
             "probe_error": str(exc),
         }
     if completed.returncode != 0:
         return {
             "python_executable": sys.executable,
-            "dependencies": {name: module_available(name) for name in ("yaml", "duckdb", "pandas")},
+            "dependencies": {name: module_available(name) for name in ("yaml", "duckdb", "pandas", "pymysql", "clickhouse_connect")},
             "probe_error": (completed.stderr or completed.stdout).strip(),
         }
     try:
@@ -56,7 +56,7 @@ print(json.dumps({"python_executable": sys.executable, "dependencies": mods}))
     except json.JSONDecodeError as exc:
         return {
             "python_executable": sys.executable,
-            "dependencies": {name: module_available(name) for name in ("yaml", "duckdb", "pandas")},
+            "dependencies": {name: module_available(name) for name in ("yaml", "duckdb", "pandas", "pymysql", "clickhouse_connect")},
             "probe_error": str(exc),
         }
 
@@ -121,6 +121,24 @@ def build_summary(workspace: Path, intent: str) -> dict[str, Any]:
                 "code": "missing_duckdb_python",
                 "command": "./scripts/setup_venv.sh",
                 "note": "Install project Python dependencies so ./scripts/py can run DuckDB-backed export wrappers.",
+            }
+        )
+    if recommended_skill in {"RA:data-export", "RA:analysis-run"} and not dependencies.get("pymysql"):
+        issues.append("pymysql Python package missing for MySQL-backed exports; run scripts/setup_venv.sh in this project.")
+        remediation.append(
+            {
+                "code": "missing_pymysql_python",
+                "command": "./scripts/setup_venv.sh",
+                "note": "Install project Python dependencies so ./scripts/py can run MySQL-backed export wrappers.",
+            }
+        )
+    if recommended_skill in {"RA:data-export", "RA:analysis-run"} and not dependencies.get("clickhouse_connect"):
+        issues.append("clickhouse-connect Python package missing for ClickHouse-backed exports; run scripts/setup_venv.sh in this project.")
+        remediation.append(
+            {
+                "code": "missing_clickhouse_python",
+                "command": "./scripts/setup_venv.sh",
+                "note": "Install project Python dependencies so ./scripts/py can run ClickHouse-backed export wrappers.",
             }
         )
 

@@ -5,3 +5,5 @@ numpy>=1.24
 pandas>=2.0
 
 duckdb>=1.1
+pymysql>=1.1
+clickhouse-connect>=0.7

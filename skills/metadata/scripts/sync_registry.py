@@ -110,6 +110,10 @@ def _connector_type(connector: str, source: dict[str, Any]) -> str:
     if connector == "duckdb":
         object_kind = _safe_str((source.get("duckdb") or {}).get("object_kind")).lower()
         return "duckdb_view" if object_kind == "view" else "duckdb_table"
+    if connector in {"mysql", "clickhouse"}:
+        meta = source.get(connector) if isinstance(source.get(connector), dict) else {}
+        object_kind = _safe_str(meta.get("object_kind") or source.get("object_kind")).lower()
+        return f"{connector}_view" if object_kind == "view" else f"{connector}_table"
     if connector == "tableau":
         return "view"
     if connector in {"csv", "excel", "file"}:
@@ -129,6 +133,18 @@ def _connector_payload(source: dict[str, Any], connector: str) -> dict[str, Any]
             out["db_path"] = out.pop("path")
         out.setdefault("object_name", _safe_str(source.get("object")).split(".")[-1])
         out.setdefault("schema", "main")
+    elif connector in {"mysql", "clickhouse"}:
+        object_parts = [_safe_str(part) for part in _safe_str(source.get("object")).split(".") if _safe_str(part)]
+        if object_parts:
+            out.setdefault("object_name", object_parts[-1])
+            out.setdefault("table", object_parts[-1])
+        if len(object_parts) >= 2:
+            out.setdefault("schema" if connector == "mysql" else "database", object_parts[-2])
+        if "table" in out and "object_name" not in out:
+            out["object_name"] = out["table"]
+        if "object" in out and "object_name" not in out:
+            out["object_name"] = _safe_str(out["object"]).split(".")[-1]
+        out.setdefault("object_kind", "table")
     return out
 
 

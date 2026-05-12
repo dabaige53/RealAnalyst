@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
-WORKSPACE_DIR = Path(__file__).resolve().parents[1]
+WORKSPACE_DIR = Path(os.environ.get("ANALYST_WORKSPACE_DIR") or Path(__file__).resolve().parents[1]).expanduser().resolve()
 RUNTIME_DIR = WORKSPACE_DIR / "runtime"
 RUNTIME_DB_PATH = RUNTIME_DIR / "registry.db"
 
