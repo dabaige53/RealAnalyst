@@ -5,6 +5,7 @@ import argparse
 import csv
 import json
 from collections import Counter
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +32,22 @@ def infer_type(values: list[str]) -> str:
     return "string"
 
 
+def parse_number(value: str) -> float | None:
+    try:
+        return float(value.replace(",", ""))
+    except ValueError:
+        return None
+
+
+def parse_date(value: str) -> str | None:
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%Y%m%d", "%Y-%m", "%Y/%m", "%Y%m"):
+        try:
+            return datetime.strptime(value, fmt).date().isoformat()
+        except ValueError:
+            continue
+    return None
+
+
 def summarize_csv(path: Path, *, max_rows: int) -> dict[str, Any]:
     with path.open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
@@ -51,25 +68,49 @@ def summarize_csv(path: Path, *, max_rows: int) -> dict[str, Any]:
                     counters[name][value] += 1
 
     columns: list[dict[str, Any]] = []
+    candidate_key_fields: list[str] = []
+    likely_grain: list[str] = []
     sampled_rows = min(rows, max_rows)
     for name in fieldnames:
         column_values = values[name]
         null_count = sum(1 for value in column_values if value == "")
         non_empty = [value for value in column_values if value != ""]
         top_values = counters[name].most_common(8)
+        observed_type = infer_type(column_values)
+        distinct_count = len(counters[name])
+        null_rate = round(null_count / sampled_rows, 6) if sampled_rows else 0
+        numeric_values = [parsed for value in non_empty if (parsed := parse_number(value)) is not None]
+        date_values = [parsed for value in non_empty if (parsed := parse_date(value))]
+        column_payload: dict[str, Any] = {
+            "name": name,
+            "observed_type": observed_type,
+            "sampled_rows": sampled_rows,
+            "null_count": null_count,
+            "null_rate": null_rate,
+            "distinct_count_sample": distinct_count,
+            "cardinality_ratio_sample": round(distinct_count / sampled_rows, 6) if sampled_rows else 0,
+            "sample_values": non_empty[:5],
+            "top_values": [{"value": value, "count": count} for value, count in top_values],
+            "suggestion_status": "candidate",
+        }
+        if numeric_values and observed_type in {"integer", "number"}:
+            column_payload["numeric_range"] = {"min": min(numeric_values), "max": max(numeric_values)}
+        if date_values:
+            column_payload["date_range"] = {"min": min(date_values), "max": max(date_values)}
+        if sampled_rows and null_count == 0 and distinct_count == sampled_rows:
+            candidate_key_fields.append(name)
+        if sampled_rows and null_rate <= 0.01 and distinct_count / sampled_rows >= 0.95:
+            likely_grain.append(name)
         columns.append(
-            {
-                "name": name,
-                "observed_type": infer_type(column_values),
-                "sampled_rows": sampled_rows,
-                "null_count": null_count,
-                "null_rate": round(null_count / sampled_rows, 6) if sampled_rows else 0,
-                "distinct_count_sample": len(counters[name]),
-                "sample_values": non_empty[:5],
-                "top_values": [{"value": value, "count": count} for value, count in top_values],
-            }
+            column_payload
         )
-    return {"row_sample_count": sampled_rows, "column_count": len(fieldnames), "columns": columns}
+    return {
+        "row_sample_count": sampled_rows,
+        "column_count": len(fieldnames),
+        "candidate_key_fields": candidate_key_fields,
+        "likely_grain": likely_grain[:5],
+        "columns": columns,
+    }
 
 
 def write_summary(path: Path, payload: dict[str, Any]) -> None:
@@ -81,13 +122,18 @@ def write_summary(path: Path, payload: dict[str, Any]) -> None:
         f"- sampled_rows: {payload['probe']['row_sample_count']}",
         f"- column_count: {payload['probe']['column_count']}",
         "",
-        "| field | observed_type | null_rate | distinct_sample | sample_values |",
-        "| --- | --- | ---: | ---: | --- |",
+        f"- likely_grain: {', '.join(payload['probe'].get('likely_grain') or []) or 'none'}",
+        f"- candidate_key_fields: {', '.join(payload['probe'].get('candidate_key_fields') or []) or 'none'}",
+        "",
+        "| field | observed_type | null_rate | distinct_sample | range | sample_values |",
+        "| --- | --- | ---: | ---: | --- | --- |",
     ]
     for column in payload["probe"]["columns"]:
         samples = ", ".join(str(value) for value in column.get("sample_values", []))
+        range_payload = column.get("numeric_range") or column.get("date_range") or {}
+        range_text = f"{range_payload.get('min')} to {range_payload.get('max')}" if range_payload else ""
         lines.append(
-            f"| {column['name']} | {column['observed_type']} | {column['null_rate']} | {column['distinct_count_sample']} | {samples} |"
+            f"| {column['name']} | {column['observed_type']} | {column['null_rate']} | {column['distinct_count_sample']} | {range_text} | {samples} |"
         )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 

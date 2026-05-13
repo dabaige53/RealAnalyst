@@ -68,6 +68,11 @@ def _has_review_flag(items: list[Any]) -> bool:
     return False
 
 
+def _definition_text(item: dict[str, Any]) -> str:
+    definition = item.get("business_definition")
+    return _safe_str(definition.get("text")) if isinstance(definition, dict) else ""
+
+
 def _field_data_type(field: dict[str, Any]) -> str:
     field_type = _safe_str(field.get("type")).lower()
     if field_type in {"number", "integer", "float", "double", "decimal"}:
@@ -164,7 +169,7 @@ def build_entry_and_spec(dataset: dict[str, Any]) -> tuple[dict[str, Any], dict[
     measure_fields = [_field_source_name(field) for field in fields if _is_measure_field(field)]
     measure_fields = [name for name in measure_fields if name]
     metric_names = [_metric_name(metric) for metric in metrics]
-    available_metric_names = _dedupe([name for name in [*measure_fields, *metric_names] if name])
+    available_metric_names = _dedupe([name for name in metric_names if name])
     review_required = _has_review_flag(fields) or _has_review_flag(metrics)
 
     entry: dict[str, Any] = {
@@ -237,6 +242,8 @@ def build_entry_and_spec(dataset: dict[str, Any]) -> tuple[dict[str, Any], dict[
                 "description": _safe_str(metric.get("description")),
                 "unit": _safe_str(metric.get("unit")),
                 "aggregation": _safe_str(metric.get("aggregation")),
+                "definition_status": "needs_review" if _has_review_flag([metric]) else ("confirmed" if _definition_text(metric) else "missing"),
+                "definition": _definition_text(metric),
             }
             for metric in metrics
             if _metric_name(metric)

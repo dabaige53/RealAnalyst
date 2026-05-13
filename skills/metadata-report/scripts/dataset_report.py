@@ -124,14 +124,21 @@ def _registered_value(spec_item: dict[str, Any], field: dict[str, Any]) -> str:
     if field_type in NUMERIC_TYPES:
         minimum = validation.get("min") or validation.get("minimum") or range_payload.get("min") or range_payload.get("minimum")
         maximum = validation.get("max") or validation.get("maximum") or range_payload.get("max") or range_payload.get("maximum")
-        return _range_text(minimum, maximum)
+        if minimum is not None or maximum is not None:
+            return _range_text(minimum, maximum)
 
     if field_type in DATE_TYPES:
         earliest = validation.get("earliest") or validation.get("min_date") or range_payload.get("earliest") or range_payload.get("min_date")
         latest = validation.get("latest") or validation.get("max_date") or range_payload.get("latest") or range_payload.get("max_date")
-        return _range_text(earliest, latest)
+        if earliest is not None or latest is not None:
+            return _range_text(earliest, latest)
 
-    values = spec_item.get("allowed_values") or spec_item.get("values")
+    values = (
+        spec_item.get("allowed_values")
+        or spec_item.get("values")
+        or validation.get("allowed_values")
+        or validation.get("values")
+    )
     if isinstance(values, list) and values:
         text = "、".join(_text(value) for value in values if _text(value))
         return text or MISSING

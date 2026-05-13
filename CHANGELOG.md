@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.20 - 2026-05-13
+
+- Fixed dataset-first metadata reports so generic/DuckDB reports do not eagerly import connector-only Tableau renderer paths.
+- Fixed project-local installed `RA:metadata-report` bootstrap path resolution for `.agents/skills` workspaces.
+- Improved metadata report filter coverage rendering for nested validation values and date/numeric ranges.
+- Made registry metric exposure canonical while preserving physical source fields for controlled SQL export validation.
+- Added guided metadata-refine report-gap workflow with real CSV profiling, candidate grain/key/range evidence, and optional validate/index/sync/report loop.
+- Added issue spam moderation for explicit `Payment Address` issue/comment spam.
+
 ## 0.3.19 - 2026-05-12
 
 - Added full MySQL and ClickHouse metadata registration channels, including discovery adapter handoff, registry sync/status support, and metadata-report connector context.

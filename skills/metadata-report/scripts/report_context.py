@@ -157,6 +157,42 @@ def _sample_text(values: list[Any]) -> str:
     return "、".join(cleaned[:5]) if cleaned else ""
 
 
+def _validation_text(spec_item: dict[str, Any], field_type: str) -> str:
+    validation = _map(spec_item.get("validation"))
+    range_payload = _map(spec_item.get("range"))
+    field_type = field_type.lower()
+    if field_type in {"number", "integer", "float", "double", "decimal"}:
+        minimum = validation.get("min") or validation.get("minimum") or range_payload.get("min") or range_payload.get("minimum")
+        maximum = validation.get("max") or validation.get("maximum") or range_payload.get("max") or range_payload.get("maximum")
+        if minimum is not None or maximum is not None:
+            return f"{_text(minimum) or '未维护'} 至 {_text(maximum) or '未维护'}"
+    if field_type in {"date", "datetime", "time", "timestamp"}:
+        earliest = validation.get("earliest") or validation.get("min_date") or range_payload.get("earliest") or range_payload.get("min_date")
+        latest = validation.get("latest") or validation.get("max_date") or range_payload.get("latest") or range_payload.get("max_date")
+        if earliest is not None or latest is not None:
+            return f"{_text(earliest) or '未维护'} 至 {_text(latest) or '未维护'}"
+    values = (
+        spec_item.get("allowed_values")
+        or spec_item.get("values")
+        or validation.get("allowed_values")
+        or validation.get("values")
+    )
+    if isinstance(values, list) and values:
+        return _join([_text(value) for value in values], limit=8)
+    return ""
+
+
+def _spec_lookup(spec: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    lookup: dict[str, dict[str, Any]] = {}
+    for section in ("filters", "dimensions", "parameters"):
+        for item in _list_dicts(spec.get(section)):
+            for key in ("key", "name", "tableau_field", "display_name"):
+                value = _text(item.get(key))
+                if value:
+                    lookup.setdefault(value, item)
+    return lookup
+
+
 def _mapping_note(row: dict[str, Any]) -> str:
     note = _text(row.get("definition_override") or row.get("notes"))
     if any(marker in note for marker in ("待确认", "待补齐", "需确认", "具体业务口径", "指标候选")):
@@ -279,6 +315,7 @@ def build_report_context(
     raw_metrics = _list_dicts(dataset.get("metrics"))
     metric_lookup = _metric_lookup(raw_metrics)
     samples = sample_values or {}
+    spec_lookup = _spec_lookup(spec)
 
     if not raw_fields and connector == "tableau":
         for item in _list_dicts(spec.get("dimensions")):
@@ -378,14 +415,17 @@ def build_report_context(
                 continue
             source_name = field_row["源字段"]
             metadata_name = field_row.get("元数据字段名") or source_name
+            field_type = field_row.get("metadata类型") or ""
+            spec_item = spec_lookup.get(source_name) or spec_lookup.get(metadata_name) or {}
+            rule_text = _validation_text(spec_item, field_type) or field_row["示例/规则"]
             context.filters.append(
                 {
                     "筛选入口": field_row["名称"],
                     "类型": f"{field_row['类型']}字段",
-                    "示例值/规则": field_row["示例/规则"],
+                    "示例值/规则": rule_text,
                     "使用方式": "sql_where",
                     "使用边界": f"按 {_code(source_name)} 过滤；示例值只用于识别值域。",
-                    "来源": f"metadata/datasets/{dataset_id}.yaml::fields[name={metadata_name}].role",
+                    "来源": "runtime/registry.validation" if spec_item and rule_text else f"metadata/datasets/{dataset_id}.yaml::fields[name={metadata_name}].role",
                 }
             )
     else:

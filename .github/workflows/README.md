@@ -23,6 +23,21 @@ flowchart LR
 | 文件 | 作用 |
 | --- | --- |
 | `ci.yml` | 运行轻量公开校验：安装依赖、校验插件声明、校验 demo metadata |
+| `issue-spam-moderation.yml` | 监听 issue / issue comment，命中 `Payment Address` 垃圾内容时自动处理；评论会删除，issue 正文会被清理并关闭 |
+
+---
+
+## Issue Spam Moderation
+
+`issue-spam-moderation.yml` 使用仓库默认 `GITHUB_TOKEN` 和最小权限：
+
+- `contents: read`：checkout moderation 脚本。
+- `issues: write`：删除 issue comment，或清理并关闭 spam issue。
+
+边界：
+
+- 只匹配明确的 `Payment Address` 字样，不做泛化反垃圾分类。
+- GitHub 仓库级 workflow 不适合自动 block 用户；block 需要个人账号 `user` scope，应由仓库 owner 手动处理。
 
 ---
 

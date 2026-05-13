@@ -10,11 +10,7 @@ from _bootstrap import bootstrap_workspace_path
 WORKSPACE_DIR = bootstrap_workspace_path()
 
 import dataset_report  # noqa: E402
-import duckdb_report  # noqa: E402
-from report_context import build_report_context, render_markdown  # noqa: E402
-import tableau_report  # noqa: E402
 from skills.metadata.lib.metadata_io import MetadataError  # noqa: E402
-from runtime.tableau import sqlite_store  # noqa: E402
 
 
 def _connector_from_dataset_id(dataset_id: str | None) -> str | None:
@@ -52,6 +48,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _generate_duckdb(args: argparse.Namespace, workspace: Path, report_dir: Path) -> None:
+    import duckdb_report  # noqa: PLC0415
+    from runtime.tableau import sqlite_store  # noqa: PLC0415
+
     duckdb_report.WORKSPACE_DIR = workspace
     duckdb_report.AGENTS_DIR = workspace / ".agents"
     sqlite_store._DB_PATH = workspace / "runtime" / "registry.db"
@@ -111,6 +110,9 @@ def _generate_duckdb(args: argparse.Namespace, workspace: Path, report_dir: Path
 
 
 def _generate_tableau(args: argparse.Namespace, workspace: Path, report_dir: Path) -> None:
+    import tableau_report  # noqa: PLC0415
+    from runtime.tableau import sqlite_store  # noqa: PLC0415
+
     tableau_report.WORKSPACE_DIR = workspace
     sqlite_store._DB_PATH = workspace / "runtime" / "registry.db"
     generated_at = tableau_report.datetime.now()
@@ -154,6 +156,9 @@ def _generate_tableau(args: argparse.Namespace, workspace: Path, report_dir: Pat
 
 
 def _generate_sql_connector(args: argparse.Namespace, workspace: Path, report_dir: Path, connector: str) -> None:
+    import duckdb_report  # noqa: PLC0415
+    from report_context import build_report_context, render_markdown  # noqa: PLC0415
+
     generated_at = duckdb_report.datetime.now().astimezone()
     step_results = {
         "register": args.register_step_status,
@@ -208,6 +213,7 @@ def _generate_sql_connector(args: argparse.Namespace, workspace: Path, report_di
 def main() -> None:
     args = build_parser().parse_args()
     workspace = Path(args.workspace).expanduser().resolve() if args.workspace else WORKSPACE_DIR
+    bootstrap_workspace_path(workspace)
     if not args.connector:
         if args.all_yaml:
             print("[Error] --all-yaml is a connector compatibility option. Use --all for dataset-first reports.")

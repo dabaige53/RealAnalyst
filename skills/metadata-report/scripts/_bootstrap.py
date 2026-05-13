@@ -14,7 +14,7 @@ def _find_workspace_root(start: Path) -> Path:
     if env_root:
         return Path(env_root).expanduser().resolve()
     for candidate in [start, *start.parents]:
-        if _has_skill_root(candidate):
+        if _has_skill_root(candidate) and ((candidate / "metadata").exists() or (candidate / "runtime").exists()):
             return candidate
     raise RuntimeError(f"Unable to locate workspace root from {start}")
 
@@ -22,10 +22,14 @@ def _find_workspace_root(start: Path) -> Path:
 WORKSPACE_DIR = _find_workspace_root(Path(__file__).resolve())
 
 
-def bootstrap_workspace_path() -> Path:
+def bootstrap_workspace_path(workspace: Path | None = None) -> Path:
+    global WORKSPACE_DIR
+    if workspace is not None:
+        WORKSPACE_DIR = workspace.expanduser().resolve()
     roots = [WORKSPACE_DIR]
-    if (WORKSPACE_DIR / ".agents" / "skills").is_dir():
-        roots.append(WORKSPACE_DIR / ".agents")
+    agents_dir = WORKSPACE_DIR / ".agents"
+    if (agents_dir / "skills").is_dir():
+        roots.append(agents_dir)
     for root in reversed(roots):
         root_text = str(root)
         if root_text not in sys.path:

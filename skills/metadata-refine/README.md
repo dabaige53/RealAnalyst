@@ -20,6 +20,14 @@ python3 skills/metadata-refine/scripts/probe_data.py --dataset-id <dataset_id> -
 python3 skills/metadata-refine/scripts/build_reference_pack.py --dataset-id <dataset_id> --data-csv <file>.csv --profile-json <profile.json>
 ```
 
+从 `RA:metadata-report` 的未维护项出发时，可以使用 guided workflow：
+
+```bash
+python3 skills/metadata-refine/scripts/resolve_report_gaps.py --dataset-id <dataset_id> --data-csv <file>.csv
+```
+
+该流程会探查字段 cardinality、日期范围、数值范围、likely grain 和 candidate key fields，并生成候选维护建议。加 `--run-loop` 时会继续执行 validate、index、sync-registry dry-run 和 metadata-report；它不自动修改正式 YAML。
+
 ## 产物
 
 临时目录：

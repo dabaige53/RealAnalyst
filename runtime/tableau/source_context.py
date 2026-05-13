@@ -291,6 +291,40 @@ def _metric_from_record(
     return {k: v for k, v in payload.items() if v not in (None, [], {}, "")}
 
 
+def _metric_from_spec(metric: dict[str, Any]) -> dict[str, Any]:
+    name = str(metric.get("name") or "").strip()
+    source_field = str(metric.get("source_field") or metric.get("expression") or name).strip()
+    payload = {
+        "source_field": source_field,
+        "status": _STATUS_MAPPED,
+        "match_method": "registry_spec",
+        "metric_id": name,
+        "name_cn": metric.get("display_name") or name,
+        "source_metric_id": name,
+        "expression": metric.get("expression"),
+        "aggregation": metric.get("aggregation"),
+        "unit": metric.get("unit"),
+        "definition": metric.get("definition"),
+        "definition_status": metric.get("definition_status"),
+    }
+    return {k: v for k, v in payload.items() if v not in (None, [], {}, "")}
+
+
+def _spec_metric_lookup(spec: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    lookup: dict[str, dict[str, Any]] = {}
+    metrics = spec.get("metrics")
+    if not isinstance(metrics, list):
+        return lookup
+    for metric in metrics:
+        if not isinstance(metric, dict):
+            continue
+        for key in ("name", "source_field", "display_name"):
+            value = str(metric.get(key) or "").strip()
+            if value:
+                lookup.setdefault(value, metric)
+    return lookup
+
+
 def _dimension_from_record(
     source_field: str,
     record: dict[str, Any],
@@ -459,12 +493,18 @@ def _summary(items: list[dict[str, Any]]) -> dict[str, int]:
 def build_source_context(src: dict[str, Any]) -> dict[str, Any]:
     source_id = str(src.get("source_id") or "")
     semantics = src.get("semantics") if isinstance(src.get("semantics"), dict) else {}
+    spec = load_spec_for_entry(src)
+    spec = spec if isinstance(spec, dict) else {}
     fields = get_source_fields(src)
     filters = get_source_filters(src)
     metric_candidates = _dedupe_str_list(semantics.get("available_metrics", []) if isinstance(semantics, dict) else [])
     dimension_candidates = _dedupe_str_list(semantics.get("primary_dimensions", []) if isinstance(semantics, dict) else [])
 
-    metrics = [_resolve_metric(source_id, field_name) for field_name in metric_candidates]
+    spec_metrics = _spec_metric_lookup(spec)
+    metrics = [
+        _metric_from_spec(spec_metrics[field_name]) if field_name in spec_metrics else _resolve_metric(source_id, field_name)
+        for field_name in metric_candidates
+    ]
     dimensions = [_resolve_dimension(source_id, field_name) for field_name in dimension_candidates]
 
     role_mismatches = [

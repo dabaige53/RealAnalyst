@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import importlib.util
+import builtins
 import os
 import subprocess
 import sys
@@ -27,7 +28,11 @@ CLICKHOUSE_EXPORT_WRAPPER = REPO / "skills" / "data-export" / "scripts" / "click
 SQL_EXPORT_COMMON = REPO / "skills" / "data-export" / "scripts" / "sql" / "common_sql_export.py"
 MYSQL_DISCOVER = REPO / "skills" / "metadata" / "adapters" / "mysql" / "scripts" / "discover_catalog.py"
 CLICKHOUSE_DISCOVER = REPO / "skills" / "metadata" / "adapters" / "clickhouse" / "scripts" / "discover_catalog.py"
+SOURCE_CONTEXT = REPO / "runtime" / "tableau" / "source_context.py"
+REFINE_PROBE = REPO / "skills" / "metadata-refine" / "scripts" / "probe_data.py"
+REFINE_RESOLVE_GAPS = REPO / "skills" / "metadata-refine" / "scripts" / "resolve_report_gaps.py"
 METADATA_REPORTER = REPO / "skills" / "metadata-report" / "scripts" / "generate_report.py"
+METADATA_REPORT_BOOTSTRAP = REPO / "skills" / "metadata-report" / "scripts" / "_bootstrap.py"
 DUCKDB_REPORTER = REPO / "skills" / "metadata-report" / "scripts" / "duckdb_report.py"
 TABLEAU_REPORTER = REPO / "skills" / "metadata-report" / "scripts" / "tableau_report.py"
 DUCKDB_LEGACY_REPORTER = REPO / "skills" / "metadata" / "adapters" / "duckdb" / "scripts" / "generate_sync_report.py"
@@ -621,6 +626,65 @@ class MetadataProductFixTests(unittest.TestCase):
             self.assertEqual(snapshot["connector"], backend)
             self.assertEqual(snapshot["columns"], [])
 
+    def test_metadata_refine_guided_gap_workflow_profiles_real_csv(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            csv_path = workspace / "orders.csv"
+            csv_path.write_text(
+                "order_id,order_date,region,amount\n"
+                "O1,2026-01-01,East,10.5\n"
+                "O2,2026-01-02,West,20.0\n"
+                "O3,2026-01-03,East,15.0\n",
+                encoding="utf-8",
+            )
+
+            probe_proc = self.run_cmd(
+                [
+                    sys.executable,
+                    str(REFINE_PROBE),
+                    "--workspace",
+                    str(workspace),
+                    "--dataset-id",
+                    "duckdb.test.orders",
+                    "--refine-id",
+                    "gap-test",
+                    "--data-csv",
+                    str(csv_path),
+                ]
+            )
+            self.assertEqual(probe_proc.returncode, 0, probe_proc.stdout + probe_proc.stderr)
+            probe = json.loads((workspace / "runtime" / "metadata-refine" / "gap-test" / "data_probe.json").read_text(encoding="utf-8"))
+            self.assertIn("order_id", probe["probe"]["candidate_key_fields"])
+            self.assertIn("order_id", probe["probe"]["likely_grain"])
+            amount = next(column for column in probe["probe"]["columns"] if column["name"] == "amount")
+            self.assertEqual(amount["numeric_range"], {"min": 10.5, "max": 20.0})
+            order_date = next(column for column in probe["probe"]["columns"] if column["name"] == "order_date")
+            self.assertEqual(order_date["date_range"], {"min": "2026-01-01", "max": "2026-01-03"})
+
+            workflow_proc = self.run_cmd(
+                [
+                    sys.executable,
+                    str(REFINE_RESOLVE_GAPS),
+                    "--workspace",
+                    str(workspace),
+                    "--dataset-id",
+                    "duckdb.test.orders",
+                    "--refine-id",
+                    "gap-workflow",
+                    "--data-csv",
+                    str(csv_path),
+                ]
+            )
+            self.assertEqual(workflow_proc.returncode, 0, workflow_proc.stdout + workflow_proc.stderr)
+            payload = json.loads(workflow_proc.stdout)
+            self.assertTrue(payload["success"])
+            self.assertEqual(payload["suggestion_status"], "candidate_requires_human_review")
+            reference = (workspace / "runtime" / "metadata-refine" / "gap-workflow" / "metadata_update_reference.md").read_text(encoding="utf-8")
+            self.assertIn("Candidate Metadata Maintenance Suggestions", reference)
+            self.assertIn("candidate_requires_human_review", reference)
+            self.assertIn("numeric_range=10.5..20.0", reference)
+            self.assertIn("date_range=2026-01-01..2026-01-03", reference)
+
     def test_mysql_clickhouse_sync_registry_status_and_report(self) -> None:
         for connector in ("mysql", "clickhouse"):
             with tempfile.TemporaryDirectory() as tmp:
@@ -729,6 +793,60 @@ class MetadataProductFixTests(unittest.TestCase):
             module.validate_fields(["not_registered"], {"region"})
         with self.assertRaises(ValueError):
             module.resolve_output_file(Path("/tmp/workspace"), "session-1", "../escape.csv")
+
+    def test_registry_metrics_use_canonical_ids_while_export_keeps_source_fields(self) -> None:
+        sync_module = load_script(SYNC_REGISTRY, "sync_registry_canonical_metrics_test")
+        dataset = {
+            "version": 1,
+            "id": "clickhouse.default.vm_flight_history",
+            "display_name": "Flight History",
+            "source": {
+                "connector": "clickhouse",
+                "object": "default.vm_flight_history",
+                "clickhouse": {"database": "default", "table": "vm_flight_history", "connection_ref": "CLICKHOUSE_CONNECTION_JSON"},
+            },
+            "business": {"grain": ["flight_id"], "time_fields": [], "suitable_for": [], "not_suitable_for": [], "sample_questions": []},
+            "maintenance": {"owner": "test", "pending_questions": []},
+            "fields": [
+                {"name": "am_income_field", "source_field": "amIncome", "role": "metric_source", "type": "number", "business_definition": definition("income field")},
+                {"name": "flight_id", "source_field": "flightId", "role": "identifier", "type": "string", "business_definition": definition("flight id")},
+            ],
+            "metrics": [
+                {
+                    "name": "am_income",
+                    "display_name": "AM Income",
+                    "source_field": "amIncome",
+                    "expression": "SUM(amIncome)",
+                    "aggregation": "sum",
+                    "unit": "CNY",
+                    "business_definition": definition("AM income metric"),
+                }
+            ],
+        }
+
+        entry, spec = sync_module.build_entry_and_spec(dataset)
+
+        self.assertEqual(entry["semantics"]["available_metrics"], ["am_income"])
+        self.assertIn("amIncome", entry["fields"])
+        self.assertIn("amIncome", spec["fields"])
+        self.assertEqual(spec["metrics"][0]["source_field"], "amIncome")
+        self.assertEqual(spec["metrics"][0]["definition_status"], "confirmed")
+
+        source_context = load_script(SOURCE_CONTEXT, "source_context_canonical_metrics_test")
+        old_loader = source_context.load_spec_for_entry
+        source_context.load_spec_for_entry = lambda src: spec
+        try:
+            context = source_context.build_source_context(entry)
+        finally:
+            source_context.load_spec_for_entry = old_loader
+
+        self.assertEqual(context["unresolved_metrics"], [])
+        self.assertEqual(context["metrics"][0]["metric_id"], "am_income")
+        self.assertEqual(context["metrics"][0]["source_field"], "amIncome")
+        self.assertEqual(context["metrics"][0]["expression"], "SUM(amIncome)")
+        self.assertEqual(context["metrics"][0]["aggregation"], "sum")
+        self.assertEqual(context["metrics"][0]["unit"], "CNY")
+        self.assertEqual(context["metrics"][0]["definition_status"], "confirmed")
 
     def test_mysql_clickhouse_export_help_and_audit_sql_summary(self) -> None:
         for path in [MYSQL_EXPORTER, MYSQL_EXPORT_WRAPPER, CLICKHOUSE_EXPORTER, CLICKHOUSE_EXPORT_WRAPPER]:
@@ -1231,6 +1349,46 @@ class MetadataProductFixTests(unittest.TestCase):
             self.assertEqual(rerun.returncode, 0, rerun.stdout + rerun.stderr)
             self.assertNotEqual(report_path.read_text(encoding="utf-8"), "old report")
 
+    def test_dataset_first_metadata_report_does_not_import_tableau_renderer(self) -> None:
+        old_import = builtins.__import__
+
+        def blocked_import(name, *args, **kwargs):
+            if name == "tableau_report":
+                raise AssertionError("dataset-first report should not import tableau_report")
+            return old_import(name, *args, **kwargs)
+
+        try:
+            builtins.__import__ = blocked_import
+            module = load_script(METADATA_REPORTER, "generate_report_lazy_import_test")
+        finally:
+            builtins.__import__ = old_import
+        self.assertTrue(callable(module.build_parser))
+
+    def test_metadata_report_bootstrap_supports_installed_skill_workspace(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            (workspace / "metadata").mkdir()
+            (workspace / "runtime").mkdir()
+            script_dir = workspace / ".agents" / "skills" / "metadata-report" / "scripts"
+            script_dir.mkdir(parents=True)
+            (script_dir / "_bootstrap.py").write_text(METADATA_REPORT_BOOTSTRAP.read_text(encoding="utf-8"), encoding="utf-8")
+
+            code = (
+                "import json, sys;"
+                f"sys.path.insert(0, {str(script_dir)!r});"
+                "import _bootstrap;"
+                "root=_bootstrap.bootstrap_workspace_path();"
+                "print(json.dumps({'root': str(root), 'has_workspace': str(root) in sys.path, 'has_agents': str(root / '.agents') in sys.path}))"
+            )
+            env = {k: v for k, v in os.environ.items() if k != "ANALYST_WORKSPACE_DIR"}
+            proc = subprocess.run([sys.executable, "-c", code], cwd=workspace, text=True, capture_output=True, env=env)
+
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            payload = json.loads(proc.stdout)
+            self.assertEqual(Path(payload["root"]).resolve(), workspace.resolve())
+            self.assertTrue(payload["has_workspace"])
+            self.assertTrue(payload["has_agents"])
+
     def test_dataset_first_metadata_report_uses_registry_ranges_not_sample_values(self) -> None:
         module = load_script(SQLITE_STORE, "sqlite_store_dataset_report_values_test")
 
@@ -1306,7 +1464,13 @@ class MetadataProductFixTests(unittest.TestCase):
                                 "key": "region",
                                 "display_name": "region",
                                 "apply_via": "sql_where",
-                                "allowed_values": ["East", "West"],
+                                "validation": {"allowed_values": ["East", "West"]},
+                            },
+                            {
+                                "key": "order_code",
+                                "display_name": "order_code",
+                                "apply_via": "sql_where",
+                                "validation": {"values": ["ORD-001", "ORD-002"]},
                             },
                             {
                                 "key": "order_code",
@@ -1327,11 +1491,11 @@ class MetadataProductFixTests(unittest.TestCase):
             self.assertIn("2020 至 2026", content)
             self.assertIn("2020-01-01 至 2026-12-31", content)
             self.assertIn("East、West", content)
+            self.assertIn("ORD-001、ORD-002", content)
             self.assertNotIn("2021、2022", content)
             self.assertNotIn("2020-02-02", content)
             self.assertNotIn("SHOULD_NOT_APPEAR", content)
             self.assertNotIn("格式：", content)
-            self.assertNotIn("ORD-001", content)
 
     def test_dataset_first_metadata_report_output_dir_and_all(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

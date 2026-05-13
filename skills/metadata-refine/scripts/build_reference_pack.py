@@ -68,7 +68,15 @@ def write_feedback_summary(path: Path, records: list[dict[str, Any]]) -> None:
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def write_reference(path: Path, *, dataset_id: str, records: list[dict[str, Any]], columns: list[dict[str, Any]], probe_path: str) -> None:
+def write_reference(
+    path: Path,
+    *,
+    dataset_id: str,
+    records: list[dict[str, Any]],
+    columns: list[dict[str, Any]],
+    probe_path: str,
+    probe_payload: dict[str, Any],
+) -> None:
     lines = [
         "# metadata update reference",
         "",
@@ -88,6 +96,30 @@ def write_reference(path: Path, *, dataset_id: str, records: list[dict[str, Any]
         lines.append(
             f"| {column.get('name') or ''} | {column.get('role') or ''} | {column.get('semantic_type') or ''} | {column.get('physical_type') or ''} |"
         )
+    probe = probe_payload.get("probe") if isinstance(probe_payload.get("probe"), dict) else {}
+    if probe:
+        lines.extend(["", "## Candidate Metadata Maintenance Suggestions", ""])
+        lines.append("- status: candidate_requires_human_review")
+        if probe.get("likely_grain"):
+            lines.append(f"- likely_grain: {', '.join(str(x) for x in probe.get('likely_grain') or [])}")
+        if probe.get("candidate_key_fields"):
+            lines.append(f"- candidate_key_fields: {', '.join(str(x) for x in probe.get('candidate_key_fields') or [])}")
+        lines.extend(["", "| field | compact suggestion | evidence |", "| --- | --- | --- |"])
+        for column in probe.get("columns") or []:
+            if not isinstance(column, dict):
+                continue
+            evidence_bits = [
+                f"distinct={column.get('distinct_count_sample')}",
+                f"null_rate={column.get('null_rate')}",
+            ]
+            if column.get("numeric_range"):
+                rng = column["numeric_range"]
+                evidence_bits.append(f"numeric_range={rng.get('min')}..{rng.get('max')}")
+            if column.get("date_range"):
+                rng = column["date_range"]
+                evidence_bits.append(f"date_range={rng.get('min')}..{rng.get('max')}")
+            suggestion = "review field role/type/validation; keep examples in evidence, not dataset YAML"
+            lines.append(f"| {column.get('name') or ''} | {suggestion} | {'; '.join(evidence_bits)} |")
     lines.extend(
         [
             "",
@@ -238,6 +270,7 @@ def main() -> int:
         records=records,
         columns=columns,
         probe_path=maybe_rel(workspace, probe_summary),
+        probe_payload=read_json(data_probe) if data_probe.exists() else {},
     )
 
     manifest_payload: dict[str, Any] = {
