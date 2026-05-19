@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.21 - 2026-05-19
+
+- Tightened dataset field identity so `name` is the stable standard semantic id and `physical_name` is the current source column.
+- Removed redundant dataset-level `display_name`, `source_field`, alias, and standard-id usage from the core metadata contract unless a dedicated layer owns that responsibility.
+- Added semantic-reference handling so metadata search and analysis context can tell standard references apart from AI-created local ids.
+- Updated metadata context, search, registry sync, schema validation, docs, specs, and tests around the simplified identity contract.
+
 ## 0.3.20 - 2026-05-13
 
 - Fixed dataset-first metadata reports so generic/DuckDB reports do not eagerly import connector-only Tableau renderer paths.
