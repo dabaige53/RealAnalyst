@@ -106,3 +106,36 @@ Implemented dataset-first RA:metadata-report, added metadata.py read fact loadin
 ### Next Steps
 
 - None - task complete
+
+
+## Session 4: Strict metadata field identity contract
+
+**Date**: 2026-05-19
+**Task**: Strict metadata field identity contract
+**Branch**: `main`
+
+### Summary
+
+Tightened dataset field identity to name/display_name/physical_name, moved aliases to standard-layer index records, updated context/registry contracts, tests, docs, and schema.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0853edb` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
