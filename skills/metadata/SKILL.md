@@ -109,7 +109,8 @@ python3 {baseDir}/skills/metadata/scripts/metadata.py init-source --backend clic
 
 - `fields[].name` 是稳定语义 ID，推荐 snake_case / dotted-style ASCII，不用于中文展示。
 - 中文或面向用户的列名写 `display_name`。
-- DuckDB / Tableau / CSV 的原始字段写 `physical_name` 或 `source_field`。
+- DuckDB / Tableau / CSV 的原始字段写 `physical_name`；dataset 字段不得写 `standard_id`、`source_field`、`aliases` 或 `synonyms`。
+- dataset 指标使用 `name`、`display_name` 和 `expression`；不得写 `source_field`、`aliases` 或 `synonyms`。
 - 导出 CSV 的 header 翻译不改 `fields[].name`；这是 `RA:data-export` 的输出层职责。
 
 若输入来自 `RA:metadata-refine`，先读取：

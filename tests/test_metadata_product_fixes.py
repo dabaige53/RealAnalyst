@@ -86,6 +86,7 @@ def write_dataset(workspace: Path, *, metric_field_count: int, metric_count: int
             {
                 "name": name,
                 "display_name": name,
+                "physical_name": name,
                 "role": "metric_source",
                 "type": "number",
                 "description": f"{name} description",
@@ -106,6 +107,7 @@ def write_dataset(workspace: Path, *, metric_field_count: int, metric_count: int
         {
             "name": "year",
             "display_name": "year",
+            "physical_name": "year",
             "role": "dimension",
             "type": "number",
             "description": "year dimension",
@@ -163,7 +165,7 @@ def write_sql_dataset(workspace: Path, connector: str) -> None:
             {
                 "name": "order_id",
                 "display_name": "Order ID",
-                "source_field": "order_id",
+                "physical_name": "order_id",
                 "role": "identifier",
                 "type": "string",
                 "description": "Order identifier.",
@@ -172,7 +174,7 @@ def write_sql_dataset(workspace: Path, connector: str) -> None:
             {
                 "name": "order_date",
                 "display_name": "Order Date",
-                "source_field": "order_date",
+                "physical_name": "order_date",
                 "role": "time_dimension",
                 "type": "date",
                 "description": "Order date.",
@@ -181,7 +183,7 @@ def write_sql_dataset(workspace: Path, connector: str) -> None:
             {
                 "name": "region",
                 "display_name": "Region",
-                "source_field": "region",
+                "physical_name": "region",
                 "role": "dimension",
                 "type": "string",
                 "description": "Order region.",
@@ -190,7 +192,7 @@ def write_sql_dataset(workspace: Path, connector: str) -> None:
             {
                 "name": "amount",
                 "display_name": "Amount",
-                "source_field": "amount",
+                "physical_name": "amount",
                 "role": "metric_source",
                 "type": "number",
                 "description": "Order amount.",
@@ -201,7 +203,6 @@ def write_sql_dataset(workspace: Path, connector: str) -> None:
             {
                 "name": "amount",
                 "display_name": "Amount",
-                "source_field": "amount",
                 "expression": "SUM(amount)",
                 "aggregation": "sum",
                 "description": "Order amount metric.",
@@ -333,6 +334,213 @@ class MetadataProductFixTests(unittest.TestCase):
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn("stable semantic id", proc.stdout)
             self.assertIn("display_name", proc.stdout)
+
+    def test_validate_blocks_legacy_dataset_identity_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            write_dataset(workspace, metric_field_count=1, metric_count=1)
+            path = workspace / "metadata" / "datasets" / "test.dataset.yaml"
+            dataset = yaml.safe_load(path.read_text(encoding="utf-8"))
+            dataset["fields"][0]["standard_id"] = "metric_field_0"
+            dataset["fields"][0]["source_field"] = "metric_field_0"
+            dataset["fields"][0]["aliases"] = ["metric field"]
+            dataset["fields"][0]["synonyms"] = ["metric source"]
+            dataset["metrics"][0]["source_field"] = "metric_field_0"
+            dataset["metrics"][0]["aliases"] = ["metric"]
+            dataset["metrics"][0]["synonyms"] = ["metric synonym"]
+            path.write_text(yaml.safe_dump(dataset, allow_unicode=True), encoding="utf-8")
+
+            proc = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "validate"])
+
+            self.assertNotEqual(proc.returncode, 0)
+            for key in ("standard_id", "source_field", "aliases", "synonyms"):
+                self.assertIn(key, proc.stdout)
+            self.assertIn("forbidden in dataset fields", proc.stdout)
+            self.assertIn("forbidden in dataset metrics", proc.stdout)
+
+    def test_enrich_definitions_removes_legacy_identity_fields_and_keeps_display_name(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            write_dataset(workspace, metric_field_count=1, metric_count=1)
+            path = workspace / "metadata" / "datasets" / "test.dataset.yaml"
+            dataset = yaml.safe_load(path.read_text(encoding="utf-8"))
+            field = dataset["fields"][0]
+            field.pop("physical_name")
+            field["source_field"] = "source_metric_field"
+            field["display_name"] = "指标字段"
+            field["standard_id"] = "metric_field_0"
+            field["aliases"] = ["指标字段别名"]
+            field["synonyms"] = ["指标字段同义词"]
+            metric = dataset["metrics"][0]
+            metric["display_name"] = "指标"
+            metric["source_field"] = "source_metric_field"
+            metric["standard_id"] = "metric_field_0"
+            metric["aliases"] = ["指标别名"]
+            metric["synonyms"] = ["指标同义词"]
+            path.write_text(yaml.safe_dump(dataset, allow_unicode=True), encoding="utf-8")
+
+            enrich = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "enrich-definitions", "--dataset-id", "test.dataset"])
+            self.assertEqual(enrich.returncode, 0, enrich.stdout + enrich.stderr)
+            cleaned = yaml.safe_load(path.read_text(encoding="utf-8"))
+
+            self.assertEqual(cleaned["fields"][0]["display_name"], "指标字段")
+            self.assertEqual(cleaned["fields"][0]["physical_name"], "source_metric_field")
+            for key in ("standard_id", "source_field", "aliases", "synonyms"):
+                self.assertNotIn(key, cleaned["fields"][0])
+                self.assertNotIn(key, cleaned["metrics"][0])
+
+            validate = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "validate"])
+            self.assertEqual(validate.returncode, 0, validate.stdout + validate.stderr)
+
+    def test_dictionary_aliases_feed_search_and_context_without_dataset_aliases(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            (workspace / "metadata" / "datasets").mkdir(parents=True)
+            (workspace / "metadata" / "dictionaries").mkdir(parents=True)
+            (workspace / "metadata" / "mappings").mkdir(parents=True)
+            dataset = {
+                "version": 1,
+                "id": "test.alias.orders",
+                "display_name": "Alias Orders",
+                "source": {"connector": "duckdb", "object": "main.orders"},
+                "business": {"grain": ["order_id"], "time_fields": [], "suitable_for": [], "not_suitable_for": [], "sample_questions": []},
+                "maintenance": {"owner": "test", "pending_questions": []},
+                "dictionary_refs": ["test.metrics"],
+                "mapping_ref": "test.alias.orders.mapping",
+                "fields": [
+                    {
+                        "name": "ticket_revenue",
+                        "display_name": "票款收入",
+                        "physical_name": "ticket_revenue",
+                        "role": "metric_source",
+                        "type": "number",
+                        "description": "Ticket revenue field.",
+                        "business_definition": definition("Ticket revenue source field definition."),
+                    }
+                ],
+                "metrics": [
+                    {
+                        "name": "passenger_revenue",
+                        "display_name": "客运收入",
+                        "expression": "SUM(ticket_revenue)",
+                        "aggregation": "sum",
+                        "description": "Passenger revenue metric.",
+                        "business_definition": {
+                            "text": "Passenger revenue definition.",
+                            "source_type": "dictionary",
+                            "ref": "test.metrics.passenger_revenue",
+                            "confidence": 0.9,
+                            "needs_review": False,
+                        },
+                    }
+                ],
+            }
+            dictionary = {
+                "version": 1,
+                "id": "test.metrics",
+                "kind": "dictionary",
+                "display_name": "Test Metrics",
+                "source_evidence": [{"type": "test", "source": "tests", "quote": "fixture"}],
+                "metrics": [
+                    {
+                        "name": "passenger_revenue",
+                        "display_name": "客运收入",
+                        "expression": "SUM(ticket_revenue)",
+                        "description": "Passenger revenue metric.",
+                        "aliases": ["客收", "旅客运输收入"],
+                        "synonyms": ["票款收入同义词"],
+                        "business_definition": {
+                            "text": "Passenger revenue definition.",
+                            "source_type": "dictionary",
+                            "confidence": 0.9,
+                            "source_evidence": [{"type": "test", "source": "tests", "quote": "fixture"}],
+                            "needs_review": False,
+                        },
+                    }
+                ],
+                "glossary": [
+                    {
+                        "section": "revenue",
+                        "key": "revenue_term",
+                        "display_name": "收入术语",
+                        "definition": "Revenue term definition.",
+                        "synonyms": ["收入同义词"],
+                        "business_definition": {
+                            "text": "Revenue term definition.",
+                            "source_type": "dictionary",
+                            "confidence": 0.9,
+                            "source_evidence": [{"type": "test", "source": "tests", "quote": "fixture"}],
+                            "needs_review": False,
+                        },
+                    }
+                ],
+            }
+            mapping = {
+                "version": 1,
+                "id": "test.alias.orders.mapping",
+                "kind": "mapping",
+                "source_id": "test.alias.orders",
+                "display_name": "Alias Orders Mapping",
+                "source_evidence": [{"type": "test", "source": "tests", "quote": "fixture"}],
+                "mappings": [{"type": "metric", "view_field": "ticket_revenue", "standard_id": "passenger_revenue"}],
+            }
+            (workspace / "metadata" / "datasets" / "test.alias.orders.yaml").write_text(yaml.safe_dump(dataset, allow_unicode=True), encoding="utf-8")
+            (workspace / "metadata" / "dictionaries" / "test.metrics.yaml").write_text(yaml.safe_dump(dictionary, allow_unicode=True), encoding="utf-8")
+            (workspace / "metadata" / "mappings" / "test.alias.orders.mapping.yaml").write_text(yaml.safe_dump(mapping, allow_unicode=True), encoding="utf-8")
+
+            validate = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "validate"])
+            self.assertEqual(validate.returncode, 0, validate.stdout + validate.stderr)
+            index = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "index"])
+            self.assertEqual(index.returncode, 0, index.stdout + index.stderr)
+            search = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "search", "--type", "metric", "--query", "客收"])
+            self.assertEqual(search.returncode, 0, search.stdout + search.stderr)
+            match = json.loads(search.stdout)["matches"][0]
+            self.assertEqual(match["record_type"], "alias")
+            self.assertEqual(match["matched_alias"], "客收")
+            self.assertEqual(match["canonical_name"], "passenger_revenue")
+            self.assertEqual(match["canonical_display_name"], "客运收入")
+            self.assertEqual(match["physical_name"], "ticket_revenue")
+            self.assertEqual(match["ref"], "test.metrics.passenger_revenue")
+            synonym_search = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "search", "--type", "metric", "--query", "票款收入同义词"])
+            self.assertEqual(synonym_search.returncode, 0, synonym_search.stdout + synonym_search.stderr)
+            synonym_match = json.loads(synonym_search.stdout)["matches"][0]
+            self.assertEqual(synonym_match["record_type"], "alias")
+            self.assertEqual(synonym_match["matched_alias"], "票款收入同义词")
+            self.assertEqual(synonym_match["canonical_name"], "passenger_revenue")
+            glossary_search = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "search", "--type", "term", "--query", "收入同义词"])
+            self.assertEqual(glossary_search.returncode, 0, glossary_search.stdout + glossary_search.stderr)
+            glossary_match = json.loads(glossary_search.stdout)["matches"][0]
+            self.assertEqual(glossary_match["record_type"], "alias")
+            self.assertEqual(glossary_match["matched_alias"], "收入同义词")
+            self.assertEqual(glossary_match["canonical_name"], "revenue_term")
+
+            context = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "context", "--dataset-id", "test.alias.orders", "--metric", "passenger_revenue"])
+            self.assertEqual(context.returncode, 0, context.stdout + context.stderr)
+            metrics = json.loads(context.stdout)["metrics"]
+            dataset_metric = next(item for item in metrics if item["source_layer"] == "dataset")
+            self.assertEqual(dataset_metric["canonical_name"], "passenger_revenue")
+            self.assertEqual(dataset_metric["canonical_display_name"], "客运收入")
+            self.assertEqual(dataset_metric["physical_name"], "ticket_revenue")
+            self.assertEqual(dataset_metric["ref"], "test.metrics.passenger_revenue")
+            self.assertIn("客收", dataset_metric["aliases"])
+            self.assertEqual(dataset_metric["alias_source"], "test.metrics.passenger_revenue")
+
+    def test_sync_registry_uses_physical_names_without_metric_source_field(self) -> None:
+        sync_module = load_script(SYNC_REGISTRY, "sync_registry_no_source_field_test")
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            write_dataset(workspace, metric_field_count=1, metric_count=1)
+            validate = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "validate"])
+            self.assertEqual(validate.returncode, 0, validate.stdout + validate.stderr)
+            dry_run = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "sync-registry", "--dataset-id", "test.dataset", "--dry-run"])
+            self.assertEqual(dry_run.returncode, 0, dry_run.stdout + dry_run.stderr)
+
+            dataset = yaml.safe_load((workspace / "metadata" / "datasets" / "test.dataset.yaml").read_text(encoding="utf-8"))
+            entry, spec = sync_module.build_entry_and_spec(dataset)
+            self.assertIn("metric_field_0", entry["fields"])
+            self.assertEqual(spec["metrics"][0]["name"], "metric_field_0")
+            self.assertEqual(spec["metrics"][0]["display_name"], "metric_field_0")
+            self.assertNotIn("source_field", spec["metrics"][0])
 
     def test_getting_started_doctor_reports_fixed_environment_summary(self) -> None:
         proc = self.run_cmd([sys.executable, str(GETTING_STARTED_DOCTOR), "--workspace", str(REPO), "--intent", "analyze"])
@@ -808,14 +1016,13 @@ class MetadataProductFixTests(unittest.TestCase):
             "business": {"grain": ["flight_id"], "time_fields": [], "suitable_for": [], "not_suitable_for": [], "sample_questions": []},
             "maintenance": {"owner": "test", "pending_questions": []},
             "fields": [
-                {"name": "am_income_field", "source_field": "amIncome", "role": "metric_source", "type": "number", "business_definition": definition("income field")},
-                {"name": "flight_id", "source_field": "flightId", "role": "identifier", "type": "string", "business_definition": definition("flight id")},
+                {"name": "am_income_field", "display_name": "AM Income Field", "physical_name": "amIncome", "role": "metric_source", "type": "number", "business_definition": definition("income field")},
+                {"name": "flight_id", "display_name": "Flight ID", "physical_name": "flightId", "role": "identifier", "type": "string", "business_definition": definition("flight id")},
             ],
             "metrics": [
                 {
                     "name": "am_income",
                     "display_name": "AM Income",
-                    "source_field": "amIncome",
                     "expression": "SUM(amIncome)",
                     "aggregation": "sum",
                     "unit": "CNY",
@@ -829,7 +1036,7 @@ class MetadataProductFixTests(unittest.TestCase):
         self.assertEqual(entry["semantics"]["available_metrics"], ["am_income"])
         self.assertIn("amIncome", entry["fields"])
         self.assertIn("amIncome", spec["fields"])
-        self.assertEqual(spec["metrics"][0]["source_field"], "amIncome")
+        self.assertNotIn("source_field", spec["metrics"][0])
         self.assertEqual(spec["metrics"][0]["definition_status"], "confirmed")
 
         source_context = load_script(SOURCE_CONTEXT, "source_context_canonical_metrics_test")
@@ -842,7 +1049,7 @@ class MetadataProductFixTests(unittest.TestCase):
 
         self.assertEqual(context["unresolved_metrics"], [])
         self.assertEqual(context["metrics"][0]["metric_id"], "am_income")
-        self.assertEqual(context["metrics"][0]["source_field"], "amIncome")
+        self.assertNotIn("source_field", context["metrics"][0])
         self.assertEqual(context["metrics"][0]["expression"], "SUM(amIncome)")
         self.assertEqual(context["metrics"][0]["aggregation"], "sum")
         self.assertEqual(context["metrics"][0]["unit"], "CNY")
@@ -1120,7 +1327,7 @@ class MetadataProductFixTests(unittest.TestCase):
                 "fields": [
                     {
                         "name": "travel_month",
-                        "source_field": "period_key",
+                        "physical_name": "period_key",
                         "display_name": "period_key",
                         "role": "time_dimension",
                         "type": "date",
@@ -1137,7 +1344,6 @@ class MetadataProductFixTests(unittest.TestCase):
                 "metrics": [
                     {
                         "name": "passenger_count",
-                        "source_field": "measure_value",
                         "display_name": "measure_value",
                         "expression": "SUM(`measure_value`)",
                         "aggregation": "sum",

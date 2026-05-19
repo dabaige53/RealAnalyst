@@ -58,7 +58,12 @@ def build_dictionary_indexes(dictionaries: list[dict[str, Any]]) -> dict[str, di
                 continue
             metric = dict(metric)
             metric["_dictionary_id"] = dictionary_id
-            for key in {as_text(metric.get("name")), as_text(metric.get("display_name")), *map(as_text, as_list(metric.get("synonyms")))}:
+            for key in {
+                as_text(metric.get("name")),
+                as_text(metric.get("display_name")),
+                *map(as_text, as_list(metric.get("aliases"))),
+                *map(as_text, as_list(metric.get("synonyms"))),
+            }:
                 if key:
                     indexes["metrics"].setdefault(key, metric)
         for field in as_list(dictionary.get("fields")):
@@ -70,6 +75,7 @@ def build_dictionary_indexes(dictionaries: list[dict[str, Any]]) -> dict[str, di
                 as_text(field.get("name")),
                 as_text(field.get("display_name")),
                 as_text(field.get("physical_name")),
+                *map(as_text, as_list(field.get("aliases"))),
                 *map(as_text, as_list(field.get("synonyms"))),
             }:
                 if key:
@@ -83,6 +89,7 @@ def build_dictionary_indexes(dictionaries: list[dict[str, Any]]) -> dict[str, di
                 as_text(term.get("key")),
                 as_text(term.get("display_name")),
                 as_text(term.get("english_name")),
+                *map(as_text, as_list(term.get("aliases"))),
                 *map(as_text, as_list(term.get("synonyms"))),
             }:
                 if key:
@@ -113,10 +120,8 @@ def find_dictionary_item(
     keys = [
         as_text((mapping or {}).get("standard_id")),
         as_text((mapping or {}).get("field_id_or_override")),
-        as_text(item.get("standard_id")),
         as_text(item.get("name")),
         as_text(item.get("display_name")),
-        as_text(item.get("source_field")),
         as_text(item.get("physical_name")),
     ]
     buckets = ["metrics", "glossary"] if role == "metric" else ["fields", "glossary"]

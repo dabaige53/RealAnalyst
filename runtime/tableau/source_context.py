@@ -293,9 +293,9 @@ def _metric_from_record(
 
 def _metric_from_spec(metric: dict[str, Any]) -> dict[str, Any]:
     name = str(metric.get("name") or "").strip()
-    source_field = str(metric.get("source_field") or metric.get("expression") or name).strip()
+    physical_name = str(metric.get("physical_name") or "").strip()
     payload = {
-        "source_field": source_field,
+        "source_field": physical_name,
         "status": _STATUS_MAPPED,
         "match_method": "registry_spec",
         "metric_id": name,
@@ -318,7 +318,7 @@ def _spec_metric_lookup(spec: dict[str, Any]) -> dict[str, dict[str, Any]]:
     for metric in metrics:
         if not isinstance(metric, dict):
             continue
-        for key in ("name", "source_field", "display_name"):
+        for key in ("name", "display_name"):
             value = str(metric.get(key) or "").strip()
             if value:
                 lookup.setdefault(value, metric)

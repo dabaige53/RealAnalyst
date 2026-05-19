@@ -69,7 +69,20 @@ def search_records(records: Iterable[dict[str, Any]], query: str, *, limit: int 
     return [record for _, _, record in scored[:limit]]
 
 
-def _fts5_match_expr(query: str, record_type: str | None = None) -> tuple[str, list[str]]:
+def _record_type_filter(record_type: str | Iterable[str] | None) -> str:
+    if not record_type or record_type == "all":
+        return ""
+    if isinstance(record_type, str):
+        values = [record_type]
+    else:
+        values = [value for value in record_type if value and value != "all"]
+    values = list(dict.fromkeys(values))
+    if not values:
+        return ""
+    return " OR ".join(f'record_type:"{value}"' for value in values)
+
+
+def _fts5_match_expr(query: str, record_type: str | Iterable[str] | None = None) -> tuple[str, list[str]]:
     """Build an FTS5 MATCH expression from a query string.
 
     Keep CJK words intact because SQLite unicode61 indexes contiguous Chinese
@@ -84,8 +97,9 @@ def _fts5_match_expr(query: str, record_type: str | None = None) -> tuple[str, l
     if not terms:
         return "", []
     body = " OR ".join(f'"{t.replace(chr(34), chr(34) + chr(34))}"*' for t in terms)
-    if record_type and record_type not in ("all",):
-        expr = f'record_type:"{record_type}" AND ({body})'
+    type_filter = _record_type_filter(record_type)
+    if type_filter:
+        expr = f"({type_filter}) AND ({body})"
     else:
         expr = body
     return expr, terms
@@ -95,7 +109,7 @@ def search_fts5(
     db_path: Path,
     query: str,
     *,
-    record_type: str | None = None,
+    record_type: str | Iterable[str] | None = None,
     limit: int = 10,
 ) -> list[dict[str, Any]]:
     """Search the FTS5 index at *db_path* and return matching records sorted by BM25."""

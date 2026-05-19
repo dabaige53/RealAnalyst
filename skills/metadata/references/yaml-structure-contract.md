@@ -199,8 +199,12 @@ Dataset YAML is a semantic entry, not a profile store, enum store, mapping file,
 Field identity rules:
 
 - `fields[].name` is the stable semantic identifier. Prefer snake_case or dotted ASCII identifiers.
-- User-facing Chinese names belong in `display_name`.
-- Physical source columns belong in `physical_name` or `source_field`.
+- User-facing Chinese names belong in `display_name`. Keep it even when it equals `physical_name`; it is the canonical semantic label, not an alias bucket.
+- Physical source columns belong in `physical_name`. Source resolution for fields is `physical_name -> name`.
+- `standard_id` belongs in `metadata/mappings/*.yaml`; dataset fields use `name` as the semantic id.
+- Dataset fields must not contain `standard_id`, `source_field`, `aliases`, or `synonyms`.
+- Dataset metrics must not contain `source_field`, `aliases`, or `synonyms`; use canonical `name`, `display_name`, and `expression`.
+- Aliases and synonyms belong in `metadata/dictionaries/*.yaml` or glossary items. `metadata index` compiles those standard-layer aliases into alias records with `matched_alias`, `alias_source`, `canonical_name`, `canonical_display_name`, `physical_name`, and `ref`.
 - Export-only CSV header translation must be handled by `RA:data-export`; it must not rewrite dataset field identities.
 
 Example:
@@ -221,6 +225,24 @@ fields:
       needs_review: false
 ```
 
+Metric example:
+
+```yaml
+metrics:
+  - name: passenger_revenue
+    display_name: 客运收入
+    expression: SUM(ticket_revenue)
+    aggregation: sum
+    unit: 元
+    description: 客运收入指标。
+    business_definition:
+      text: 客运收入指标。
+      source_type: dictionary
+      ref: juneyao.metrics.passenger_revenue
+      confidence: 0.9
+      needs_review: false
+```
+
 Do not write these keys anywhere in `metadata/datasets/*.yaml`:
 
 - `sample_profile`
@@ -231,6 +253,13 @@ Do not write these keys anywhere in `metadata/datasets/*.yaml`:
 - `definition_source`
 - `duckdb_type`
 - `nullable`
+
+Do not write these identity keys in dataset fields or metrics:
+
+- `standard_id`
+- `source_field`
+- `aliases`
+- `synonyms`
 
 Dataset field and metric definitions must use `business_definition.ref` to point to dictionary, mapping, or audit evidence. Do not expand `source_evidence`, `quote`, `source`, or document paths into dataset field/metric definitions.
 

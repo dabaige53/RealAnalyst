@@ -70,7 +70,8 @@ metadata/
 必须遵守：
 
 - `metadata/datasets/*.yaml` 保持轻量，只放语义身份、字段、指标、业务边界和引用关系。
-- dataset 的 `fields[].name` / `metrics[].name` 是稳定语义 ID，面向用户的中文名写 `display_name`，物理源字段写 `physical_name` / `source_field`；CSV/header 中文化属于 export/display layer，不得改 dataset identity。
+- dataset 的 `fields[].name` / `metrics[].name` 是稳定语义 ID，面向用户的正式语义标签写 `display_name`，真实源字段只写 `fields[].physical_name`；CSV/header 中文化属于 export/display layer，不得改 dataset identity。
+- dataset 字段和指标不得维护 `standard_id`、`source_field`、`aliases` 或 `synonyms`。`standard_id` 属于 `metadata/mappings/*.yaml`，别名属于 `metadata/dictionaries/*.yaml` 或 glossary，指标实现使用 `expression`。
 - 不把 `sample_profile`、`sample_values`、`top_values`、`enum_values`、`source_mapping`、`duckdb_type`、`nullable`、registry snapshot 或 report 内容塞进 dataset YAML。
 - `metadata/index/` 和 `metadata/osi/` 是生成层，禁止人工编辑。
 - `metadata/sync/reports/` 是同步审计输出，不是业务定义真源。

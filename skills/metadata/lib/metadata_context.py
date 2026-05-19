@@ -19,10 +19,11 @@ def _as_list(value: Any) -> list[Any]:
 def _business_definition(item: dict[str, Any]) -> dict[str, Any]:
     definition = item.get("business_definition")
     if not isinstance(definition, dict):
-        return {"text": "", "confidence": None, "needs_review": False}
+        return {"text": "", "source_type": "", "ref": "", "confidence": None, "needs_review": False}
     return {
         "text": _as_text(definition.get("text")),
         "source_type": _as_text(definition.get("source_type")),
+        "ref": _as_text(definition.get("ref")),
         "confidence": definition.get("confidence"),
         "needs_review": bool(definition.get("needs_review")),
     }
@@ -61,10 +62,84 @@ def _mapping_id(mapping: dict[str, Any]) -> str:
     return _as_text(mapping.get("id") or mapping.get("mapping_id"))
 
 
-def _field_pack(field: dict[str, Any], *, source_layer: str, dictionary_id: str = "") -> dict[str, Any]:
+def _alias_values(item: dict[str, Any] | None) -> list[str]:
+    if not item:
+        return []
+    values: list[str] = []
+    seen: set[str] = set()
+    for key in ("aliases", "synonyms"):
+        for value in _as_list(item.get(key)):
+            alias = _as_text(value)
+            if alias and alias.casefold() not in seen:
+                seen.add(alias.casefold())
+                values.append(alias)
+    return values
+
+
+def _canonical_key(item: dict[str, Any]) -> str:
+    return _as_text(item.get("name") or item.get("key") or item.get("item_key") or item.get("display_name"))
+
+
+def _dictionary_ref(dictionary_id: str, item_key: str) -> str:
+    return ".".join(part for part in (dictionary_id, item_key) if part)
+
+
+def _dictionary_entity_index(dictionaries: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    index: dict[str, dict[str, Any]] = {}
+    for dictionary in dictionaries:
+        dictionary_id = _dictionary_id(dictionary)
+        if not dictionary_id:
+            continue
+        for section, entity_type in (("fields", "field"), ("metrics", "metric"), ("glossary", "glossary")):
+            for item in _as_list(dictionary.get(section)):
+                if not isinstance(item, dict):
+                    continue
+                item_key = _canonical_key(item)
+                if not item_key:
+                    continue
+                entity = dict(item)
+                ref = _dictionary_ref(dictionary_id, item_key)
+                entity["_ref"] = ref
+                entity["_dictionary_id"] = dictionary_id
+                entity["_entity_type"] = entity_type
+                for key in (ref, f"dictionary:{dictionary_id}:{item_key}", item_key, _as_text(item.get("display_name"))):
+                    if key:
+                        index.setdefault(key, entity)
+    return index
+
+
+def _standard_item_for(item: dict[str, Any], dictionary_index: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
+    definition = _business_definition(item)
+    for key in (definition["ref"], _as_text(item.get("name")), _as_text(item.get("display_name")), _as_text(item.get("physical_name"))):
+        if key and key in dictionary_index:
+            return dictionary_index[key]
+    return None
+
+
+def _alias_source(item: dict[str, Any] | None) -> str:
+    return _as_text(item.get("_ref")) if item else ""
+
+
+def _field_pack(
+    field: dict[str, Any],
+    *,
+    source_layer: str,
+    dictionary_id: str = "",
+    standard_item: dict[str, Any] | None = None,
+    physical_name: str = "",
+) -> dict[str, Any]:
     definition = _business_definition(field)
+    canonical_name = _as_text(field.get("name")) or _canonical_key(standard_item or {})
+    canonical_display_name = _as_text(field.get("display_name") or (standard_item or {}).get("display_name"))
     payload = {
-        "name": _as_text(field.get("name")),
+        "name": canonical_name,
+        "canonical_name": canonical_name,
+        "display_name": canonical_display_name,
+        "canonical_display_name": canonical_display_name,
+        "physical_name": physical_name or _as_text(field.get("physical_name")),
+        "ref": definition["ref"] or _alias_source(standard_item),
+        "aliases": _alias_values(standard_item),
+        "alias_source": _alias_source(standard_item),
         "role": _as_text(field.get("role")),
         "type": _as_text(field.get("type")),
         "description": _as_text(field.get("description")),
@@ -75,13 +150,29 @@ def _field_pack(field: dict[str, Any], *, source_layer: str, dictionary_id: str 
         "source_layer": source_layer,
         "dictionary_id": dictionary_id,
     }
-    return {key: value for key, value in payload.items() if value != ""}
+    return {key: value for key, value in payload.items() if value not in ("", [])}
 
 
-def _metric_pack(metric: dict[str, Any], *, source_layer: str, dictionary_id: str = "") -> dict[str, Any]:
+def _metric_pack(
+    metric: dict[str, Any],
+    *,
+    source_layer: str,
+    dictionary_id: str = "",
+    standard_item: dict[str, Any] | None = None,
+    physical_name: str = "",
+) -> dict[str, Any]:
     definition = _business_definition(metric)
+    canonical_name = _as_text(metric.get("name")) or _canonical_key(standard_item or {})
+    canonical_display_name = _as_text(metric.get("display_name") or (standard_item or {}).get("display_name"))
     payload = {
-        "name": _as_text(metric.get("name")),
+        "name": canonical_name,
+        "canonical_name": canonical_name,
+        "display_name": canonical_display_name,
+        "canonical_display_name": canonical_display_name,
+        "physical_name": physical_name or _as_text(metric.get("physical_name")),
+        "ref": definition["ref"] or _alias_source(standard_item),
+        "aliases": _alias_values(standard_item),
+        "alias_source": _alias_source(standard_item),
         "expression": _as_text(metric.get("expression")),
         "aggregation": _as_text(metric.get("aggregation")),
         "unit": _as_text(metric.get("unit")),
@@ -93,7 +184,7 @@ def _metric_pack(metric: dict[str, Any], *, source_layer: str, dictionary_id: st
         "source_layer": source_layer,
         "dictionary_id": dictionary_id,
     }
-    return {key: value for key, value in payload.items() if value != ""}
+    return {key: value for key, value in payload.items() if value not in ("", [])}
 
 
 def _glossary_pack(item: dict[str, Any], *, dictionary_id: str) -> dict[str, Any]:
@@ -163,6 +254,12 @@ def build_context_pack(
         for item in _as_list(mapping.get("mappings"))
         if isinstance(item, dict)
     ]
+    dictionary_index = _dictionary_entity_index(referenced_dictionaries)
+    physical_by_standard = {
+        _as_text(item.get("standard_id")): _as_text(item.get("view_field"))
+        for item in all_mapping_items
+        if _as_text(item.get("standard_id")) and _as_text(item.get("view_field"))
+    }
 
     field_items = [field for field in _as_list(dataset.get("fields")) if isinstance(field, dict)]
     metric_items = [metric for metric in _as_list(dataset.get("metrics")) if isinstance(metric, dict)]
@@ -226,10 +323,44 @@ def build_context_pack(
         if effective_metric_names is None or _as_text(metric.get("name")) in effective_metric_names
     ]
 
-    field_packs = [_field_pack(field, source_layer="dataset") for field in selected_dataset_fields]
-    field_packs.extend(_field_pack(field, source_layer="dictionary", dictionary_id=dictionary_id) for field, dictionary_id in selected_dictionary_fields)
-    metric_packs = [_metric_pack(metric, source_layer="dataset") for metric in selected_dataset_metrics]
-    metric_packs.extend(_metric_pack(metric, source_layer="dictionary", dictionary_id=dictionary_id) for metric, dictionary_id in selected_dictionary_metrics)
+    field_packs = [
+        _field_pack(
+            field,
+            source_layer="dataset",
+            standard_item=_standard_item_for(field, dictionary_index),
+            physical_name=_as_text(field.get("physical_name")) or physical_by_standard.get(_as_text(field.get("name")), ""),
+        )
+        for field in selected_dataset_fields
+    ]
+    field_packs.extend(
+        _field_pack(
+            field,
+            source_layer="dictionary",
+            dictionary_id=dictionary_id,
+            standard_item=field,
+            physical_name=physical_by_standard.get(_as_text(field.get("name")), ""),
+        )
+        for field, dictionary_id in selected_dictionary_fields
+    )
+    metric_packs = [
+        _metric_pack(
+            metric,
+            source_layer="dataset",
+            standard_item=_standard_item_for(metric, dictionary_index),
+            physical_name=physical_by_standard.get(_as_text(metric.get("name")), ""),
+        )
+        for metric in selected_dataset_metrics
+    ]
+    metric_packs.extend(
+        _metric_pack(
+            metric,
+            source_layer="dictionary",
+            dictionary_id=dictionary_id,
+            standard_item=metric,
+            physical_name=physical_by_standard.get(_as_text(metric.get("name")), ""),
+        )
+        for metric, dictionary_id in selected_dictionary_metrics
+    )
 
     available_fields = [*field_items, *(field for field, _ in dictionary_fields), *({"name": item.get("standard_id")} for item in all_mapping_items)]
     available_metrics = [*metric_items, *(metric for metric, _ in dictionary_metrics), *({"name": item.get("standard_id")} for item in all_mapping_items)]

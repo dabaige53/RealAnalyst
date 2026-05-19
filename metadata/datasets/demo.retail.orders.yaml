@@ -48,7 +48,6 @@ fields:
       source_type: industry_draft
       confidence: 0.95
       needs_review: false
-    synonyms: [order number]
     sensitive_level: public
   - name: order_date
     physical_name: order_date
@@ -61,7 +60,6 @@ fields:
       source_type: industry_draft
       confidence: 0.9
       needs_review: false
-    synonyms: [purchase date, transaction date]
     sensitive_level: public
   - name: region
     physical_name: region
@@ -75,7 +73,6 @@ fields:
       ref: mapping:demo.retail.orders.mapping:region
       confidence: 0.82
       needs_review: false
-    synonyms: [sales region, territory]
     sensitive_level: public
   - name: revenue
     physical_name: revenue
@@ -89,11 +86,10 @@ fields:
       ref: mapping:demo.retail.orders.mapping:total_revenue
       confidence: 0.64
       needs_review: true
-    synonyms: [sales, order amount]
     sensitive_level: public
 metrics:
   - name: total_revenue
-    source_field: revenue
+    display_name: Total Revenue
     expression: SUM(revenue)
     aggregation: sum
     unit: USD
@@ -105,5 +101,4 @@ metrics:
       ref: demo.retail.dictionary.total_revenue
       confidence: 0.64
       needs_review: true
-    synonyms: [sales, total sales]
 relationships: []

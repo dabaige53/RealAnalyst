@@ -32,7 +32,7 @@ def _safe_str(value: Any) -> str:
 
 
 def _field_source_name(field: dict[str, Any]) -> str:
-    for key in ("source_field", "physical_name", "display_name", "name"):
+    for key in ("physical_name", "name"):
         value = _safe_str(field.get(key))
         if value:
             return value
@@ -238,7 +238,6 @@ def build_entry_and_spec(dataset: dict[str, Any]) -> tuple[dict[str, Any], dict[
                 "name": _metric_name(metric),
                 "display_name": _safe_str(metric.get("display_name")) or _metric_name(metric),
                 "expression": _safe_str(metric.get("expression")),
-                "source_field": _safe_str(metric.get("source_field")),
                 "description": _safe_str(metric.get("description")),
                 "unit": _safe_str(metric.get("unit")),
                 "aggregation": _safe_str(metric.get("aggregation")),

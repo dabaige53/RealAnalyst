@@ -60,6 +60,7 @@ DATASET_PAYLOAD_KEYS = (
     "nullable",
 )
 EXPANDED_EVIDENCE_KEYS = ("source_evidence", "quote", "source", "document_path")
+DATASET_ALIAS_KEYS = ("aliases", "synonyms")
 
 
 def _clean_dataset_payload(item: dict[str, Any]) -> None:
@@ -72,6 +73,24 @@ def _clean_dataset_payload(item: dict[str, Any]) -> None:
     if isinstance(definition, dict):
         for key in EXPANDED_EVIDENCE_KEYS:
             definition.pop(key, None)
+
+
+def _clean_field_identity(item: dict[str, Any]) -> None:
+    item.pop("standard_id", None)
+    for key in DATASET_ALIAS_KEYS:
+        item.pop(key, None)
+    source_field = as_text(item.get("source_field"))
+    physical_name = as_text(item.get("physical_name"))
+    if source_field and not physical_name:
+        item["physical_name"] = source_field
+    item.pop("source_field", None)
+
+
+def _clean_metric_identity(item: dict[str, Any]) -> None:
+    item.pop("standard_id", None)
+    item.pop("source_field", None)
+    for key in DATASET_ALIAS_KEYS:
+        item.pop(key, None)
 
 
 def _clean_legacy_schema_notes(item: dict[str, Any]) -> None:
@@ -135,6 +154,11 @@ def enrich_dataset(workspace: Path, dataset_id: str) -> dict[str, Any]:
     dataset = load_dataset_file(path)
     mapping = _load_mapping(workspace, dataset)
     mapping_index = mapping_by_source_field(mapping)
+    mapping_by_standard = {
+        as_text(item.get("standard_id")): item
+        for item in mapping_index.values()
+        if as_text(item.get("standard_id"))
+    }
     dictionaries = [load_mapping_file(item) for item in iter_dictionary_files(workspace)]
     dictionary_indexes = build_dictionary_indexes(dictionaries)
     updated_fields = 0
@@ -150,6 +174,7 @@ def enrich_dataset(workspace: Path, dataset_id: str) -> dict[str, Any]:
         dictionary_item = find_dictionary_item(item=field, mapping=mapping_item, role="field", indexes=dictionary_indexes)
         definition, source_type = enriched_definition(item=field, mapping=mapping_item, dictionary_item=dictionary_item, role="field")
         changed = _apply_definition(field, definition, source_type)
+        _clean_field_identity(field)
         _clean_legacy_schema_notes(field)
         if changed:
             updated_fields += 1
@@ -159,11 +184,13 @@ def enrich_dataset(workspace: Path, dataset_id: str) -> dict[str, Any]:
     for metric in dataset.get("metrics") or []:
         if not isinstance(metric, dict):
             continue
-        source_field = as_text(metric.get("source_field"))
-        mapping_item = mapping_index.get(source_field)
+        metric_name = as_text(metric.get("name"))
+        physical_name = as_text(metric.get("physical_name"))
+        mapping_item = mapping_by_standard.get(metric_name) or mapping_index.get(physical_name)
         dictionary_item = find_dictionary_item(item=metric, mapping=mapping_item, role="metric", indexes=dictionary_indexes)
         definition, source_type = enriched_definition(item=metric, mapping=mapping_item, dictionary_item=dictionary_item, role="metric")
         changed = _apply_definition(metric, definition, source_type)
+        _clean_metric_identity(metric)
         if dictionary_item:
             if not as_text(metric.get("unit")) and as_text(dictionary_item.get("unit")):
                 metric["unit"] = as_text(dictionary_item.get("unit"))

@@ -26,8 +26,11 @@ from skills.metadata.lib.metadata_completeness import completeness_findings, loa
 REQUIRED_DATASET_KEYS = ("version", "id", "display_name", "source", "business", "maintenance", "fields")
 REQUIRED_DICTIONARY_KEYS = ("version", "id", "kind", "display_name", "source_evidence")
 REQUIRED_MAPPING_KEYS = ("version", "id", "kind", "source_id", "display_name", "source_evidence", "mappings")
-ALLOWED_DEFINITION_SOURCE_TYPES = {"user_confirmed", "mapping_override", "dictionary", "industry_draft", "pending"}
+ALLOWED_DEFINITION_SOURCE_TYPES = {"user_confirmed", "mapping_override", "dictionary", "industry_draft", "inferred", "pending"}
+REF_REQUIRED_SOURCE_TYPES = {"dictionary", "mapping_override"}
 PENDING_DEFINITION_TEXT = "业务定义待确认"
+FORBIDDEN_FIELD_IDENTITY_KEYS = ("standard_id", "source_field", "aliases", "synonyms")
+FORBIDDEN_METRIC_IDENTITY_KEYS = ("standard_id", "source_field", "aliases", "synonyms")
 SCHEMA_ONLY_PHRASES = (
     "字段存在于 DuckDB 对象",
     "字段存在于 Tableau 对象",
@@ -86,7 +89,7 @@ def validate_semantic_name(value: Any, errors: list[str], prefix: str, *, label:
     if not SEMANTIC_NAME_RE.match(value.strip()):
         errors.append(
             f"{prefix}: {label} must be a stable semantic id using ASCII letters, digits, '_' or '.'; "
-            "put user-facing names in display_name and physical source columns in physical_name/source_field"
+            "put user-facing names in display_name and physical source columns in physical_name"
         )
 
 
@@ -139,6 +142,7 @@ def validate_definition(
     require_evidence: bool = True,
     allow_evidence: bool = True,
     require_ref: bool = False,
+    reference_index: set[str] | None = None,
 ) -> None:
     required_keys = ["text", "source_type", "confidence", "needs_review"]
     if require_evidence:
@@ -157,8 +161,13 @@ def validate_definition(
     evidence = definition.get("source_evidence")
     if require_evidence and (not isinstance(evidence, list) or not evidence):
         errors.append(f"{prefix}.source_evidence must contain at least one evidence item")
-    if require_ref and source_type in {"dictionary", "mapping_override"} and not _as_text(definition.get("ref")):
+    ref = _as_text(definition.get("ref"))
+    if require_ref and source_type in REF_REQUIRED_SOURCE_TYPES and not ref:
         errors.append(f"{prefix}.ref is required when source_type={source_type}")
+    if reference_index is not None and source_type in REF_REQUIRED_SOURCE_TYPES and ref and ref not in reference_index:
+        errors.append(f"{prefix}.ref target not found: {ref}")
+    if source_type == "inferred" and definition.get("needs_review") is not True:
+        errors.append(f"{prefix}: inferred definitions must set needs_review=true")
     if definition.get("source_type") == "pending":
         if text != PENDING_DEFINITION_TEXT:
             errors.append(f"{prefix}: pending definitions must use text={PENDING_DEFINITION_TEXT!r}")
@@ -174,7 +183,44 @@ def validate_definition(
         errors.append(f"{prefix}: business definition must not duplicate description")
 
 
-def validate_dataset(data: dict[str, Any], *, path: Path) -> list[str]:
+def _definition_ref(definition: Any) -> str:
+    return _as_text(definition.get("ref")) if isinstance(definition, dict) else ""
+
+
+def _dictionary_item_key(item: dict[str, Any]) -> str:
+    return _as_text(item.get("name") or item.get("key") or item.get("item_key") or item.get("display_name"))
+
+
+def build_reference_index(dictionaries: list[dict[str, Any]], mappings: list[dict[str, Any]]) -> set[str]:
+    refs: set[str] = set()
+    for dictionary in dictionaries:
+        dictionary_id = _as_text(dictionary.get("id") or dictionary.get("dictionary_id"))
+        if not dictionary_id:
+            continue
+        for section in ("metrics", "fields", "glossary"):
+            for item in dictionary.get(section, []) or []:
+                if not isinstance(item, dict):
+                    continue
+                item_key = _dictionary_item_key(item)
+                if not item_key:
+                    continue
+                refs.add(f"{dictionary_id}.{item_key}")
+                refs.add(f"dictionary:{dictionary_id}:{item_key}")
+    for mapping in mappings:
+        mapping_id = _as_text(mapping.get("id") or mapping.get("mapping_id"))
+        if not mapping_id:
+            continue
+        for item in mapping.get("mappings", []) or []:
+            if not isinstance(item, dict):
+                continue
+            for key in ("standard_id", "view_field", "field_id_or_override"):
+                item_id = _as_text(item.get(key))
+                if item_id:
+                    refs.add(f"mapping:{mapping_id}:{item_id}")
+    return refs
+
+
+def validate_dataset(data: dict[str, Any], *, path: Path, reference_index: set[str] | None = None) -> list[str]:
     errors: list[str] = []
     for key in REQUIRED_DATASET_KEYS:
         require(data, key, errors, path.name)
@@ -194,8 +240,11 @@ def validate_dataset(data: dict[str, Any], *, path: Path) -> list[str]:
         if not isinstance(field, dict):
             errors.append(f"{prefix} must be a mapping")
             continue
-        for key in ("name", "role", "type", "description"):
+        for key in ("name", "display_name", "physical_name", "role", "type", "description"):
             require(field, key, errors, prefix)
+        for key in FORBIDDEN_FIELD_IDENTITY_KEYS:
+            if key in field:
+                errors.append(f"{prefix}.{key}: forbidden in dataset fields; keep only name, display_name, physical_name, and business_definition.ref for identity")
         name = field.get("name")
         if isinstance(name, str):
             validate_semantic_name(name, errors, f"{prefix}.name", label="field name")
@@ -206,7 +255,6 @@ def validate_dataset(data: dict[str, Any], *, path: Path) -> list[str]:
             _as_text(field.get("name")),
             _as_text(field.get("display_name")),
             _as_text(field.get("physical_name")),
-            _as_text(field.get("source_field")),
         }
         definition = field.get("business_definition")
         if isinstance(definition, dict):
@@ -220,6 +268,7 @@ def validate_dataset(data: dict[str, Any], *, path: Path) -> list[str]:
                 require_evidence=False,
                 allow_evidence=False,
                 require_ref=True,
+                reference_index=reference_index,
             )
         else:
             errors.append(f"{prefix}.business_definition is required")
@@ -230,8 +279,11 @@ def validate_dataset(data: dict[str, Any], *, path: Path) -> list[str]:
         if not isinstance(metric, dict):
             errors.append(f"{prefix} must be a mapping")
             continue
-        for key in ("name", "expression", "description"):
+        for key in ("name", "display_name", "expression", "description"):
             require(metric, key, errors, prefix)
+        for key in FORBIDDEN_METRIC_IDENTITY_KEYS:
+            if key in metric:
+                errors.append(f"{prefix}.{key}: forbidden in dataset metrics; use name, display_name, expression, and business_definition.ref")
         name = metric.get("name")
         if isinstance(name, str):
             validate_semantic_name(name, errors, f"{prefix}.name", label="metric name")
@@ -241,7 +293,6 @@ def validate_dataset(data: dict[str, Any], *, path: Path) -> list[str]:
         subject_names = {
             _as_text(metric.get("name")),
             _as_text(metric.get("display_name")),
-            _as_text(metric.get("source_field")),
         }
         definition = metric.get("business_definition")
         if isinstance(definition, dict):
@@ -255,6 +306,7 @@ def validate_dataset(data: dict[str, Any], *, path: Path) -> list[str]:
                 require_evidence=False,
                 allow_evidence=False,
                 require_ref=True,
+                reference_index=reference_index,
             )
             if definition.get("source_type") == "pending":
                 errors.append(f"{prefix}.business_definition: pending definitions must not be registered as formal metrics")
@@ -395,23 +447,30 @@ def main() -> int:
     dataset_files = list(iter_dataset_files(workspace))
     dictionary_files = list(iter_dictionary_files(workspace))
     mapping_files = list(iter_mapping_files(workspace))
-    for path in dataset_files:
-        try:
-            data = load_dataset_file(path)
-            errors.extend(validate_dataset(data, path=path))
-            warnings.extend(dataset_size_warnings(path=path))
-        except MetadataError as exc:
-            errors.append(str(exc))
+    dictionaries: list[dict[str, Any]] = []
+    mappings: list[dict[str, Any]] = []
     for path in dictionary_files:
         try:
-            errors.extend(validate_dictionary(load_mapping_file(path), path=path))
+            dictionaries.append(load_mapping_file(path))
         except MetadataError as exc:
             errors.append(str(exc))
     for path in mapping_files:
         try:
-            errors.extend(validate_mapping(load_mapping_file(path), path=path))
+            mappings.append(load_mapping_file(path))
         except MetadataError as exc:
             errors.append(str(exc))
+    reference_index = build_reference_index(dictionaries, mappings)
+    for path in dataset_files:
+        try:
+            data = load_dataset_file(path)
+            errors.extend(validate_dataset(data, path=path, reference_index=reference_index))
+            warnings.extend(dataset_size_warnings(path=path))
+        except MetadataError as exc:
+            errors.append(str(exc))
+    for path, dictionary in zip(dictionary_files, dictionaries):
+        errors.extend(validate_dictionary(dictionary, path=path))
+    for path, mapping in zip(mapping_files, mappings):
+        errors.extend(validate_mapping(mapping, path=path))
     if args.completeness or args.strict:
         errors.extend(validate_completeness(workspace, dataset_files))
 

@@ -69,17 +69,16 @@
       "required": ["text", "source_type", "confidence", "needs_review"],
       "properties": {
         "text": { "type": "string" },
-        "source_type": { "type": "string", "enum": ["user_confirmed", "mapping_override", "dictionary", "industry_draft", "pending"] },
+        "source_type": { "type": "string", "enum": ["user_confirmed", "mapping_override", "dictionary", "industry_draft", "inferred", "pending"] },
         "ref": { "type": "string" },
         "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
-        "source_evidence": { "type": "array", "items": { "$ref": "#/$defs/source_evidence" } },
         "needs_review": { "type": "boolean" }
       }
     },
     "field": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "role", "type", "description", "business_definition"],
+      "required": ["name", "display_name", "physical_name", "role", "type", "description", "business_definition"],
       "properties": {
         "name": { "type": "string" },
         "physical_name": { "type": "string" },
@@ -88,7 +87,6 @@
         "type": { "type": "string" },
         "description": { "type": "string" },
         "business_definition": { "$ref": "#/$defs/business_definition" },
-        "synonyms": { "type": "array", "items": { "type": "string" } },
         "allowed_values": { "type": "array", "items": { "type": "string" } },
         "sensitive_level": { "type": "string", "enum": ["public", "internal", "restricted"] }
       }
@@ -96,16 +94,16 @@
     "metric": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "expression", "description", "business_definition"],
+      "required": ["name", "display_name", "expression", "description", "business_definition"],
       "properties": {
         "name": { "type": "string" },
+        "display_name": { "type": "string" },
         "expression": { "type": "string" },
         "unit": { "type": "string" },
         "aggregation": { "type": "string" },
         "valid_grains": { "type": "array", "items": { "type": "string" } },
         "description": { "type": "string" },
-        "business_definition": { "$ref": "#/$defs/business_definition" },
-        "synonyms": { "type": "array", "items": { "type": "string" } }
+        "business_definition": { "$ref": "#/$defs/business_definition" }
       }
     },
     "relationship": {
