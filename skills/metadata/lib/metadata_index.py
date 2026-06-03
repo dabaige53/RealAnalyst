@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from typing import Any, Iterable
 
+from skills.metadata.lib.semantic_definitions import semantic_ref_payload
+
 
 def _as_text(value: Any) -> str:
     return str(value or "").strip()
@@ -23,6 +25,11 @@ def _definition_text(item: dict[str, Any]) -> str:
     if isinstance(definition, dict):
         return _as_text(definition.get("text"))
     return ""
+
+
+def _definition(item: dict[str, Any]) -> dict[str, Any]:
+    definition = item.get("business_definition")
+    return definition if isinstance(definition, dict) else {}
 
 
 def _source_type(item: dict[str, Any]) -> str:
@@ -57,6 +64,20 @@ def _alias_values(item: dict[str, Any]) -> list[str]:
 
 def _dictionary_ref(dictionary_id: str, item_key: str) -> str:
     return ".".join(part for part in (dictionary_id, item_key) if part)
+
+
+def _add_semantic_ref(
+    record: dict[str, Any],
+    definition: dict[str, Any],
+    *,
+    ref: str = "",
+    source_layer: str = "",
+) -> dict[str, Any]:
+    semantic_ref = semantic_ref_payload(definition, ref=ref, source_layer=source_layer)
+    record["semantic_ref_status"] = _as_text(semantic_ref.get("status"))
+    record["semantic_ref_label"] = _as_text(semantic_ref.get("label"))
+    record["semantic_ref"] = semantic_ref
+    return record
 
 
 def _dictionary_entity_index(dictionaries: Iterable[dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -142,53 +163,55 @@ def dataset_record(dataset: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def field_records(dataset: dict[str, Any]) -> list[dict[str, Any]]:
+def field_records(dataset: dict[str, Any], *, source_layer: str = "dataset", default_ref_prefix: str = "") -> list[dict[str, Any]]:
     dataset_id = _as_text(dataset.get("id") or dataset.get("source_id"))
     records: list[dict[str, Any]] = []
     for field in _as_list(dataset.get("fields")):
         if not isinstance(field, dict):
             continue
-        records.append(
-            {
-                "record_type": "field",
-                "dataset_id": dataset_id,
-                "field_name": _as_text(field.get("name")),
-                "physical_name": _as_text(field.get("physical_name")),
-                "display_name": _as_text(field.get("display_name")),
-                "role": _as_text(field.get("role")),
-                "type": _as_text(field.get("type")),
-                "description": _as_text(field.get("description")),
-                "definition": _definition_text(field),
-                "source_type": _source_type(field),
-                "ref": _definition_ref(field),
-                "sensitive_level": _as_text(field.get("sensitive_level")),
-            }
-        )
+        field_name = _as_text(field.get("name"))
+        ref = _definition_ref(field) or (_dictionary_ref(default_ref_prefix, field_name) if default_ref_prefix and field_name else "")
+        record = {
+            "record_type": "field",
+            "dataset_id": dataset_id,
+            "field_name": field_name,
+            "physical_name": _as_text(field.get("physical_name")),
+            "display_name": _as_text(field.get("display_name")),
+            "role": _as_text(field.get("role")),
+            "type": _as_text(field.get("type")),
+            "description": _as_text(field.get("description")),
+            "definition": _definition_text(field),
+            "source_type": _source_type(field),
+            "ref": ref,
+            "sensitive_level": _as_text(field.get("sensitive_level")),
+        }
+        records.append(_add_semantic_ref(record, _definition(field), ref=ref, source_layer=source_layer))
     return records
 
 
-def metric_records(dataset: dict[str, Any]) -> list[dict[str, Any]]:
+def metric_records(dataset: dict[str, Any], *, source_layer: str = "dataset", default_ref_prefix: str = "") -> list[dict[str, Any]]:
     dataset_id = _as_text(dataset.get("id") or dataset.get("source_id"))
     records: list[dict[str, Any]] = []
     for metric in _as_list(dataset.get("metrics")):
         if not isinstance(metric, dict):
             continue
-        records.append(
-            {
-                "record_type": "metric",
-                "dataset_id": dataset_id,
-                "metric_name": _as_text(metric.get("name")),
-                "display_name": _as_text(metric.get("display_name")),
-                "expression": _as_text(metric.get("expression")),
-                "aggregation": _as_text(metric.get("aggregation")),
-                "unit": _as_text(metric.get("unit")),
-                "valid_grains": _as_list(metric.get("valid_grains")),
-                "description": _as_text(metric.get("description")),
-                "definition": _definition_text(metric),
-                "source_type": _source_type(metric),
-                "ref": _definition_ref(metric),
-            }
-        )
+        metric_name = _as_text(metric.get("name"))
+        ref = _definition_ref(metric) or (_dictionary_ref(default_ref_prefix, metric_name) if default_ref_prefix and metric_name else "")
+        record = {
+            "record_type": "metric",
+            "dataset_id": dataset_id,
+            "metric_name": metric_name,
+            "display_name": _as_text(metric.get("display_name")),
+            "expression": _as_text(metric.get("expression")),
+            "aggregation": _as_text(metric.get("aggregation")),
+            "unit": _as_text(metric.get("unit")),
+            "valid_grains": _as_list(metric.get("valid_grains")),
+            "description": _as_text(metric.get("description")),
+            "definition": _definition_text(metric),
+            "source_type": _source_type(metric),
+            "ref": ref,
+        }
+        records.append(_add_semantic_ref(record, _definition(metric), ref=ref, source_layer=source_layer))
     return records
 
 
@@ -218,22 +241,21 @@ def alias_records(
             if key in seen:
                 continue
             seen.add(key)
-            records.append(
-                {
-                    "record_type": "alias",
-                    "dataset_id": dataset_id,
-                    "entity_type": entity_type,
-                    "alias": alias,
-                    "matched_alias": alias,
-                    "match_reason": "alias",
-                    "alias_source": alias_source,
-                    "canonical_name": canonical_name,
-                    "canonical_display_name": canonical_display_name,
-                    "display_name": canonical_display_name,
-                    "physical_name": physical_name,
-                    "ref": ref,
-                }
-            )
+            record = {
+                "record_type": "alias",
+                "dataset_id": dataset_id,
+                "entity_type": entity_type,
+                "alias": alias,
+                "matched_alias": alias,
+                "match_reason": "alias",
+                "alias_source": alias_source,
+                "canonical_name": canonical_name,
+                "canonical_display_name": canonical_display_name,
+                "display_name": canonical_display_name,
+                "physical_name": physical_name,
+                "ref": ref,
+            }
+            records.append(_add_semantic_ref(record, _definition(item), ref=ref, source_layer="dataset"))
 
     for dataset in datasets:
         dataset_id = _as_text(dataset.get("id") or dataset.get("source_id"))
@@ -266,22 +288,21 @@ def alias_records(
                 if key in seen:
                     continue
                 seen.add(key)
-                records.append(
-                    {
-                        "record_type": "alias",
-                        "dataset_id": dictionary_id,
-                        "entity_type": "glossary",
-                        "alias": alias,
-                        "matched_alias": alias,
-                        "match_reason": "alias",
-                        "alias_source": ref,
-                        "canonical_name": canonical_name,
-                        "canonical_display_name": canonical_display_name,
-                        "display_name": canonical_display_name,
-                        "physical_name": "",
-                        "ref": ref,
-                    }
-                )
+                record = {
+                    "record_type": "alias",
+                    "dataset_id": dictionary_id,
+                    "entity_type": "glossary",
+                    "alias": alias,
+                    "matched_alias": alias,
+                    "match_reason": "alias",
+                    "alias_source": ref,
+                    "canonical_name": canonical_name,
+                    "canonical_display_name": canonical_display_name,
+                    "display_name": canonical_display_name,
+                    "physical_name": "",
+                    "ref": ref,
+                }
+                records.append(_add_semantic_ref(record, _definition(item), ref=ref, source_layer="dictionary"))
     return records
 
 
@@ -349,8 +370,8 @@ def dictionary_records(dictionary: dict[str, Any]) -> dict[str, list[dict[str, A
         "glossary": _as_list(dictionary.get("glossary")),
     }
     return {
-        "fields": field_records(dictionary_dataset),
-        "metrics": metric_records(dictionary_dataset),
+        "fields": field_records(dictionary_dataset, source_layer="dictionary", default_ref_prefix=dictionary_id),
+        "metrics": metric_records(dictionary_dataset, source_layer="dictionary", default_ref_prefix=dictionary_id),
         "glossary": glossary_records(dictionary_dataset),
     }
 
@@ -362,19 +383,21 @@ def mapping_records(mapping: dict[str, Any]) -> list[dict[str, Any]]:
     for item in _as_list(mapping.get("mappings")):
         if not isinstance(item, dict):
             continue
-        records.append(
-            {
-                "record_type": "mapping",
-                "mapping_id": mapping_id,
-                "source_id": source_id,
-                "mapping_type": _as_text(item.get("type")),
-                "view_field": _as_text(item.get("view_field")),
-                "standard_id": _as_text(item.get("standard_id")),
-                "field_id_or_override": _as_text(item.get("field_id_or_override")),
-                "definition_override": _as_text(item.get("definition_override")),
-                "notes": _as_text(item.get("notes")),
-            }
-        )
+        standard_id = _as_text(item.get("standard_id"))
+        ref = f"mapping:{mapping_id}:{standard_id or _as_text(item.get('view_field'))}" if mapping_id else ""
+        definition = {"source_type": "mapping_override", "confidence": None, "needs_review": False}
+        record = {
+            "record_type": "mapping",
+            "mapping_id": mapping_id,
+            "source_id": source_id,
+            "mapping_type": _as_text(item.get("type")),
+            "view_field": _as_text(item.get("view_field")),
+            "standard_id": standard_id,
+            "field_id_or_override": _as_text(item.get("field_id_or_override")),
+            "definition_override": _as_text(item.get("definition_override")),
+            "notes": _as_text(item.get("notes")),
+        }
+        records.append(_add_semantic_ref(record, definition, ref=ref, source_layer="mapping"))
     return records
 
 
@@ -440,7 +463,7 @@ def _fts5_row(record: dict[str, Any]) -> tuple[str, str, str, str, str, str, str
                 "source_connector", "source_object", "mapping_type",
                 "standard_id", "entity_type", "entity_name", "matched_alias",
                 "alias_source", "canonical_name", "canonical_display_name",
-                "physical_name", "ref", "match_reason"):
+                "physical_name", "ref", "match_reason", "semantic_ref_status", "semantic_ref_label"):
         v = _as_text(record.get(key))
         if v:
             extra_parts.append(v)

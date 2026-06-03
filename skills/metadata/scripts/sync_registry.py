@@ -19,6 +19,7 @@ from skills.metadata.lib.metadata_io import (  # noqa: E402
     normalize_dataset,
     resolve_dataset_path,
 )
+from skills.metadata.lib.semantic_definitions import semantic_ref_payload  # noqa: E402
 from skills.metadata.lib.value_patterns import declared_field_pattern  # noqa: E402
 from skills.metadata.scripts.validate_metadata import validate_dataset  # noqa: E402
 
@@ -71,6 +72,16 @@ def _has_review_flag(items: list[Any]) -> bool:
 def _definition_text(item: dict[str, Any]) -> str:
     definition = item.get("business_definition")
     return _safe_str(definition.get("text")) if isinstance(definition, dict) else ""
+
+
+def _semantic_ref(item: dict[str, Any], *, source_layer: str = "registry") -> dict[str, Any]:
+    definition = item.get("business_definition")
+    payload = semantic_ref_payload(definition if isinstance(definition, dict) else {}, source_layer=source_layer)
+    return {
+        key: value
+        for key, value in payload.items()
+        if value not in ("", None)
+    }
 
 
 def _field_data_type(field: dict[str, Any]) -> str:
@@ -224,6 +235,9 @@ def build_entry_and_spec(dataset: dict[str, Any]) -> tuple[dict[str, Any], dict[
                 "name": _field_source_name(field),
                 "display_name": _field_display_name(field),
                 "data_type": _field_data_type(field),
+                "semantic_ref": _semantic_ref(field),
+                "semantic_ref_status": _semantic_ref(field).get("status"),
+                "semantic_ref_label": _semantic_ref(field).get("label"),
                 **({"validation": validation} if (validation := _field_validation(field)) else {}),
             }
             for field in fields
@@ -243,6 +257,9 @@ def build_entry_and_spec(dataset: dict[str, Any]) -> tuple[dict[str, Any], dict[
                 "aggregation": _safe_str(metric.get("aggregation")),
                 "definition_status": "needs_review" if _has_review_flag([metric]) else ("confirmed" if _definition_text(metric) else "missing"),
                 "definition": _definition_text(metric),
+                "semantic_ref": _semantic_ref(metric),
+                "semantic_ref_status": _semantic_ref(metric).get("status"),
+                "semantic_ref_label": _semantic_ref(metric).get("label"),
             }
             for metric in metrics
             if _metric_name(metric)
@@ -252,6 +269,9 @@ def build_entry_and_spec(dataset: dict[str, Any]) -> tuple[dict[str, Any], dict[
                 "key": _field_source_name(field),
                 "display_name": _field_display_name(field),
                 "apply_via": "sql_where",
+                "semantic_ref": _semantic_ref(field),
+                "semantic_ref_status": _semantic_ref(field).get("status"),
+                "semantic_ref_label": _semantic_ref(field).get("label"),
                 **({"validation": validation} if (validation := _field_validation(field)) else {}),
             }
             for field in fields

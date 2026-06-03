@@ -116,7 +116,8 @@ dataset-first 报告章节顺序固定：
 10. registry 不存在或未注册时报告继续生成，状态显示“未注册”。
 11. 不展示旧 YAML 的 `schema_note`，也不要生成“Schema 说明”列；字段存在性、DuckDB 类型、Tableau 字段名只能作为结构化类型或证据来源，不作为业务定义。
 12. 不根据 role/status 自动生成字段或指标的“常见用途”“使用建议”；元数据没有显式维护时，删除这些列或显示“未维护”。
-13. 不生成 `*_metadata_context.json` 伴生文件；agent 需要结构化读取时使用 `RA:metadata` 的 `read/search/status`。
+13. 字段、指标和映射明细必须显式展示“语义引用状态”，让用户区分标准定义引用、映射覆盖引用、本地口径和待补齐项。
+14. 不生成 `*_metadata_context.json` 伴生文件；agent 需要结构化读取时使用 `RA:metadata` 的 `read/search/status`。
 
 ## 质量门禁
 

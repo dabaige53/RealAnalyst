@@ -13,10 +13,8 @@
 flowchart LR
     Meta[metadata context<br/>业务语义] --> Plan[analysis-plan]
     Plan --> Runtime[runtime<br/>registry.db]
-    Runtime --> T[data-export]
-    Runtime --> D[data-export]
-    T --> Job[jobs/{SESSION_ID}]
-    D --> Job
+    Runtime --> Export[data-export]
+    Export --> Job[jobs/{SESSION_ID}]
 ```
 
 ---
@@ -25,11 +23,14 @@ flowchart LR
 
 | 内容 | 作用 | 是否提交 |
 | --- | --- | --- |
+| `paths.py` | 统一 workspace / runtime / registry.db 路径解析（支持 `ANALYST_WORKSPACE_DIR`） | 提交 |
+| `runtime_config_store.py` | `registry.db` 的 lookup 表读写入口（SQLite-backed） | 提交 |
+| `migrate_runtime_config_to_sqlite.py` | 一次性把 `runtime/*.yaml` lookup 引导进 `registry.db` | 提交 |
+| `runtime.example.yaml` | 运行时配置示例 | 提交 |
 | `tableau/query_registry.py` | 查询已注册 Tableau source、字段、筛选器、source context | 提交 |
 | `tableau/sqlite_store.py` | 读写统一本地 `runtime/registry.db`（含 source_groups CRUD） | 提交 |
 | `tableau/source_context.py` | 组装 source 与指标/维度上下文 | 提交 |
 | `duckdb/register_duckdb_sources.py` | 将 DuckDB catalog 注册成运行时 source | 提交 |
-| `runtime.example.yaml` | 运行时配置示例 | 提交 |
 | `registry.db` | 全局唯一 SQLite 运行库（source registry + lookup tables + source_groups），本地生成 | 不提交 |
 
 ---

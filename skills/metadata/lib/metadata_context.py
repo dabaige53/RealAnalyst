@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from skills.metadata.lib.semantic_definitions import semantic_ref_payload
+
 
 def _as_text(value: Any) -> str:
     return str(value or "").strip()
@@ -84,6 +86,17 @@ def _dictionary_ref(dictionary_id: str, item_key: str) -> str:
     return ".".join(part for part in (dictionary_id, item_key) if part)
 
 
+def _item_ref(item: dict[str, Any] | None, dictionary_id: str = "") -> str:
+    if not item:
+        return ""
+    ref = _as_text(item.get("_ref"))
+    if ref:
+        return ref
+    if dictionary_id:
+        return _dictionary_ref(dictionary_id, _canonical_key(item))
+    return ""
+
+
 def _dictionary_entity_index(dictionaries: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     index: dict[str, dict[str, Any]] = {}
     for dictionary in dictionaries:
@@ -131,13 +144,14 @@ def _field_pack(
     definition = _business_definition(field)
     canonical_name = _as_text(field.get("name")) or _canonical_key(standard_item or {})
     canonical_display_name = _as_text(field.get("display_name") or (standard_item or {}).get("display_name"))
+    ref = definition["ref"] or _item_ref(standard_item, dictionary_id)
     payload = {
         "name": canonical_name,
         "canonical_name": canonical_name,
         "display_name": canonical_display_name,
         "canonical_display_name": canonical_display_name,
         "physical_name": physical_name or _as_text(field.get("physical_name")),
-        "ref": definition["ref"] or _alias_source(standard_item),
+        "ref": ref,
         "aliases": _alias_values(standard_item),
         "alias_source": _alias_source(standard_item),
         "role": _as_text(field.get("role")),
@@ -149,6 +163,7 @@ def _field_pack(
         "needs_review": definition["needs_review"],
         "source_layer": source_layer,
         "dictionary_id": dictionary_id,
+        "semantic_ref": semantic_ref_payload(definition, ref=ref, source_layer=source_layer),
     }
     return {key: value for key, value in payload.items() if value not in ("", [])}
 
@@ -164,13 +179,14 @@ def _metric_pack(
     definition = _business_definition(metric)
     canonical_name = _as_text(metric.get("name")) or _canonical_key(standard_item or {})
     canonical_display_name = _as_text(metric.get("display_name") or (standard_item or {}).get("display_name"))
+    ref = definition["ref"] or _item_ref(standard_item, dictionary_id)
     payload = {
         "name": canonical_name,
         "canonical_name": canonical_name,
         "display_name": canonical_display_name,
         "canonical_display_name": canonical_display_name,
         "physical_name": physical_name or _as_text(metric.get("physical_name")),
-        "ref": definition["ref"] or _alias_source(standard_item),
+        "ref": ref,
         "aliases": _alias_values(standard_item),
         "alias_source": _alias_source(standard_item),
         "expression": _as_text(metric.get("expression")),
@@ -183,12 +199,14 @@ def _metric_pack(
         "needs_review": definition["needs_review"],
         "source_layer": source_layer,
         "dictionary_id": dictionary_id,
+        "semantic_ref": semantic_ref_payload(definition, ref=ref, source_layer=source_layer),
     }
     return {key: value for key, value in payload.items() if value not in ("", [])}
 
 
 def _glossary_pack(item: dict[str, Any], *, dictionary_id: str) -> dict[str, Any]:
     definition = _business_definition(item)
+    ref = _item_ref(item, dictionary_id)
     payload = {
         "section": _as_text(item.get("section")),
         "key": _as_text(item.get("key") or item.get("item_key")),
@@ -201,6 +219,8 @@ def _glossary_pack(item: dict[str, Any], *, dictionary_id: str) -> dict[str, Any
         "synonyms": _as_list(item.get("synonyms")),
         "values": _as_list(item.get("values")),
         "dictionary_id": dictionary_id,
+        "ref": ref,
+        "semantic_ref": semantic_ref_payload(definition, ref=ref, source_layer="dictionary"),
     }
     return {key: value for key, value in payload.items() if value not in ("", [])}
 

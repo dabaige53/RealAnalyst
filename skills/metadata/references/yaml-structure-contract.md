@@ -205,6 +205,7 @@ Field identity rules:
 - Dataset fields must not contain `standard_id`, `source_field`, `aliases`, or `synonyms`.
 - Dataset metrics must not contain `source_field`, `aliases`, or `synonyms`; use canonical `name`, `display_name`, and `expression`.
 - Aliases and synonyms belong in `metadata/dictionaries/*.yaml` or glossary items. `metadata index` compiles those standard-layer aliases into alias records with `matched_alias`, `alias_source`, `canonical_name`, `canonical_display_name`, `physical_name`, and `ref`.
+- Standard semantic reference status is derived at output time as `semantic_ref` / `semantic_ref_status`; it is not a dataset YAML maintenance field.
 - Export-only CSV header translation must be handled by `RA:data-export`; it must not rewrite dataset field identities.
 
 Example:

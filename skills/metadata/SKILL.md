@@ -209,7 +209,7 @@ python3 {baseDir}/skills/metadata/scripts/metadata.py context --dataset-id <data
 python3 {baseDir}/skills/metadata/scripts/metadata.py context --dataset-id <id_1> --dataset-id <id_2>
 ```
 
-context pack 是 `RA:analysis-plan` 的正式语义输入。若输出中出现 `needs_review=true` 或 `review_required=true`，必须在计划、报告和验证中标记为推断口径。
+context pack 是 `RA:analysis-plan` 的正式语义输入。字段、指标和术语会输出派生的 `semantic_ref`，用 `status` / `label` 显式说明是否引用标准语义；不要把 `semantic_ref` 反写进 dataset YAML。若输出中出现 `needs_review=true` 或 `review_required=true`，必须在计划、报告和验证中标记为推断口径。
 
 多数据集 context 输出包含 `shared_dictionary_refs`（共享字典引用）和 `shared_glossary`（去重后的共享术语）。
 

@@ -4,6 +4,15 @@ from __future__ import annotations
 from typing import Any
 
 PENDING_DEFINITION_TEXT = "业务定义待确认"
+SEMANTIC_REF_LABELS = {
+    "standard_ref": "标准定义引用",
+    "mapping_ref": "映射覆盖引用",
+    "local_confirmed": "本地确认口径",
+    "local_draft": "本地草稿口径",
+    "inferred": "推断口径",
+    "pending": "待补齐",
+    "local_only": "未引用标准语义",
+}
 SCHEMA_ONLY_PHRASES = (
     "来自 DuckDB 对象",
     "来自 Tableau 对象",
@@ -24,6 +33,49 @@ def as_list(value: Any) -> list[Any]:
     if isinstance(value, list):
         return value
     return [value]
+
+
+def semantic_ref_status(source_type: str, ref: str = "") -> str:
+    source_type = as_text(source_type)
+    ref = as_text(ref)
+    if source_type == "dictionary":
+        return "standard_ref"
+    if source_type == "mapping_override":
+        return "mapping_ref"
+    if source_type == "user_confirmed":
+        return "local_confirmed"
+    if source_type == "industry_draft":
+        return "local_draft"
+    if source_type == "inferred":
+        return "inferred"
+    if source_type == "pending":
+        return "pending"
+    if ref.startswith("mapping:"):
+        return "mapping_ref"
+    if ref:
+        return "standard_ref"
+    return "local_only"
+
+
+def semantic_ref_payload(
+    definition: dict[str, Any] | None,
+    *,
+    ref: str = "",
+    source_layer: str = "",
+) -> dict[str, Any]:
+    definition = definition if isinstance(definition, dict) else {}
+    source_type = as_text(definition.get("source_type"))
+    resolved_ref = as_text(ref or definition.get("ref"))
+    status = semantic_ref_status(source_type, resolved_ref)
+    return {
+        "status": status,
+        "label": SEMANTIC_REF_LABELS[status],
+        "ref": resolved_ref,
+        "source_type": source_type,
+        "source_layer": as_text(source_layer),
+        "confidence": definition.get("confidence"),
+        "needs_review": bool(definition.get("needs_review")),
+    }
 
 
 def is_schema_only_definition(text: str, subject_names: set[str] | None = None) -> bool:

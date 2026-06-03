@@ -14,7 +14,7 @@
 
 3. 轻量索引：`metadata/index/*.jsonl` + `metadata/index/search.db`
 
-   这里保存从 YAML 真源生成的检索记录，例如 dataset、field、metric、mapping、glossary。`metadata index` 同时生成 JSONL 文件和 SQLite FTS5 全文索引（`search.db`）。`metadata search` 优先使用 FTS5（BM25 排序），无 `search.db` 时降级到 JSONL 子串匹配。需求理解阶段先查轻量索引，快速定位可能相关的数据集、字段和指标。
+   这里保存从 YAML 真源生成的检索记录，例如 dataset、field、metric、mapping、glossary。field、metric、alias 和 mapping 记录会带有派生的 `semantic_ref_status` / `semantic_ref_label`，用于显式区分标准定义引用、映射覆盖引用、本地口径和待补齐项。`metadata index` 同时生成 JSONL 文件和 SQLite FTS5 全文索引（`search.db`）。`metadata search` 优先使用 FTS5（BM25 排序），无 `search.db` 时降级到 JSONL 子串匹配。需求理解阶段先查轻量索引，快速定位可能相关的数据集、字段和指标。
 
 4. 数据集目录：`metadata catalog` 输出 JSON
 
@@ -22,7 +22,7 @@
 
 5. 上下文包：`metadata context` 输出 JSON
 
-   当轻量索引命中候选对象后，`metadata context` 会从 YAML 真源抽取小型 JSON 上下文包，供规划阶段读取。上下文包只包含本次分析需要的 dataset、dictionary_refs、mapping_refs、metrics、fields、glossary、mappings、review 提示和缺失对象信息。支持多数据集（multi-dataset）：传多个 `--dataset-id` 可生成合并 context（含共享字典引用和去重术语）。
+   当轻量索引命中候选对象后，`metadata context` 会从 YAML 真源抽取小型 JSON 上下文包，供规划阶段读取。上下文包只包含本次分析需要的 dataset、dictionary_refs、mapping_refs、metrics、fields、glossary、mappings、review 提示和缺失对象信息；fields、metrics 和 glossary 会带有派生的 `semantic_ref`，但该字段不写回 YAML。支持多数据集（multi-dataset）：传多个 `--dataset-id` 可生成合并 context（含共享字典引用和去重术语）。
 
 6. 一致性比对：`metadata reconcile`
 
@@ -58,7 +58,7 @@ python3 skills/metadata/scripts/metadata.py reconcile
 
 ## 当前边界
 
-`registry.db` 是运行层，用于后续运行时锁定数据源、查询运行时指标/维度/术语和管理 source group，不作为需求理解索引。唯一 SQLite 路径是 `runtime/registry.db`。
+`registry.db` 是运行层，用于后续运行时锁定数据源、查询运行时指标/维度/术语和管理 source group，不作为需求理解索引。`metadata sync-registry` 会把派生的 `semantic_ref` 写入 runtime spec，供运行态 source context 透传，但 registry 仍不承担人工维护职责。唯一 SQLite 路径是 `runtime/registry.db`。
 
 Tableau/DuckDB 是 connector adapter。它们提供字段、筛选器、catalog 等初始化素材，但不直接成为业务口径真源。
 

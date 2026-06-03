@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from skills.metadata.lib.semantic_definitions import semantic_ref_payload
 from skills.metadata.lib.value_patterns import clean_sample_values, infer_value_pattern
 
 
@@ -96,6 +97,19 @@ def _definition_status(item: dict[str, Any]) -> str:
     if _text(definition.get("text")):
         return f"已确认{suffix}"
     return "仅结构可用"
+
+
+def _semantic_ref_label(item: dict[str, Any], *, source_layer: str) -> str:
+    payload = semantic_ref_payload(_definition(item), source_layer=source_layer)
+    return _text(payload.get("label"))
+
+
+def _mapping_semantic_ref_label(mapping_id: str, row: dict[str, Any]) -> str:
+    standard_id = _text(row.get("standard_id"))
+    view_field = _text(row.get("view_field"))
+    ref = f"mapping:{mapping_id}:{standard_id or view_field}" if mapping_id else ""
+    payload = semantic_ref_payload({"source_type": "mapping_override", "needs_review": False}, ref=ref, source_layer="mapping")
+    return _text(payload.get("label"))
 
 
 def _definition_location(dataset_id: str, section: str, item: dict[str, Any]) -> str:
@@ -364,6 +378,7 @@ def build_report_context(
                 "角色": role,
                 "业务含义": _definition_text(definition_item),
                 "口径状态": status,
+                "语义引用状态": _semantic_ref_label(definition_item, source_layer="dataset"),
                 "示例/规则": sample_text,
                 "定义位置": _definition_location(dataset_id, "metrics" if definition_item is not field_item else "fields", definition_item),
             }
@@ -394,6 +409,7 @@ def build_report_context(
                 "单位": _text(metric_item.get("unit")),
                 "适用粒度": _join(_list_str(metric_item.get("valid_grains")) or context.grain),
                 "口径状态": status,
+                "语义引用状态": _semantic_ref_label(metric_item, source_layer="dataset"),
                 "定义位置": _definition_location(dataset_id, "metrics", metric_item),
             }
         )
@@ -460,6 +476,7 @@ def build_report_context(
             )
 
     mapping_rows = _list_dicts(_map(mapping).get("mappings")) if mapping else []
+    mapping_id = _text(_map(mapping).get("id") or _map(mapping).get("mapping_id"))
     for row in mapping_rows:
         context.mappings.append(
             {
@@ -467,6 +484,7 @@ def build_report_context(
                 "类型": _text(row.get("type")),
                 "标准语义": _text(row.get("standard_id")),
                 "本地字段": _text(row.get("field_id_or_override")),
+                "语义引用状态": _mapping_semantic_ref_label(mapping_id, row),
                 "说明": _mapping_note(row),
             }
         )
@@ -661,19 +679,19 @@ def render_markdown(context: ReportContext) -> str:
     if context.fields or context.metrics:
         lines.extend(["## 3. 核心字段与指标", ""])
         if context.fields:
-            lines.extend(["### 3.1 核心字段", "", "| 名称 | 类型 | 业务含义 | 口径状态 | 定义位置 |", "| --- | --- | --- | --- | --- |"])
+            lines.extend(["### 3.1 核心字段", "", "| 名称 | 类型 | 业务含义 | 语义引用状态 | 口径状态 | 定义位置 |", "| --- | --- | --- | --- | --- | --- |"])
             for row in context.fields[:20]:
                 lines.append(
                     f"| {_cell(row['名称'])} | {_cell(row['类型'])} | {_cell(row['业务含义'])} | "
-                    f"{_cell(row['口径状态'])} | {_cell(row['定义位置'])} |"
+                    f"{_cell(row['语义引用状态'])} | {_cell(row['口径状态'])} | {_cell(row['定义位置'])} |"
                 )
             lines.append("")
         if context.metrics:
-            lines.extend(["### 3.2 核心指标", "", "| 指标 | 业务含义 | 计算或聚合方式 | 单位 | 适用粒度 | 口径状态 | 定义位置 |", "| --- | --- | --- | --- | --- | --- | --- |"])
+            lines.extend(["### 3.2 核心指标", "", "| 指标 | 业务含义 | 计算或聚合方式 | 单位 | 适用粒度 | 语义引用状态 | 口径状态 | 定义位置 |", "| --- | --- | --- | --- | --- | --- | --- | --- |"])
             for row in context.metrics[:20]:
                 lines.append(
                     f"| {_cell(row['指标'])} | {_cell(row['业务含义'])} | {_cell(row['计算或聚合方式'])} | "
-                    f"{_cell(row['单位'])} | {_cell(row['适用粒度'])} | {_cell(row['口径状态'])} | {_cell(row['定义位置'])} |"
+                    f"{_cell(row['单位'])} | {_cell(row['适用粒度'])} | {_cell(row['语义引用状态'])} | {_cell(row['口径状态'])} | {_cell(row['定义位置'])} |"
                 )
             lines.append("")
 
@@ -708,19 +726,19 @@ def render_markdown(context: ReportContext) -> str:
     if context.fields or context.metrics or entries:
         lines.extend(["## 7. 完整明细", ""])
         if context.fields:
-            lines.extend(["### 7.1 字段明细", "", "| 名称 | 源字段 | 元数据类型 | 角色 | 业务定义 | 示例/规则 | 口径状态 | 定义位置 |", "| --- | --- | --- | --- | --- | --- | --- | --- |"])
+            lines.extend(["### 7.1 字段明细", "", "| 名称 | 源字段 | 元数据类型 | 角色 | 业务定义 | 示例/规则 | 语义引用状态 | 口径状态 | 定义位置 |", "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"])
             for row in context.fields:
                 lines.append(
                     f"| {_cell(row['名称'])} | {_code(row['源字段'])} | {_cell(row['metadata类型'])} | {_cell(row['角色'])} | "
-                    f"{_cell(row['业务含义'])} | {_cell(row['示例/规则'])} | {_cell(row['口径状态'])} | {_cell(row['定义位置'])} |"
+                    f"{_cell(row['业务含义'])} | {_cell(row['示例/规则'])} | {_cell(row['语义引用状态'])} | {_cell(row['口径状态'])} | {_cell(row['定义位置'])} |"
                 )
             lines.append("")
         if context.metrics:
-            lines.extend(["### 7.2 指标明细", "", "| 指标 | 源字段/表达式 | 计算或聚合方式 | 单位 | 业务定义 | 适用粒度 | 口径状态 | 定义位置 |", "| --- | --- | --- | --- | --- | --- | --- | --- |"])
+            lines.extend(["### 7.2 指标明细", "", "| 指标 | 源字段/表达式 | 计算或聚合方式 | 单位 | 业务定义 | 适用粒度 | 语义引用状态 | 口径状态 | 定义位置 |", "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"])
             for row in context.metrics:
                 lines.append(
                     f"| {_cell(row['指标'])} | {_code(row['源字段/表达式'])} | {_cell(row['计算或聚合方式'])} | {_cell(row['单位'])} | "
-                    f"{_cell(row['业务含义'])} | {_cell(row['适用粒度'])} | {_cell(row['口径状态'])} | {_cell(row['定义位置'])} |"
+                    f"{_cell(row['业务含义'])} | {_cell(row['适用粒度'])} | {_cell(row['语义引用状态'])} | {_cell(row['口径状态'])} | {_cell(row['定义位置'])} |"
                 )
             lines.append("")
         if entries:
@@ -759,9 +777,12 @@ def render_markdown(context: ReportContext) -> str:
                 lines.append(f"| `{source}` | {_cell(purpose)} | {_cell(status)} |")
             lines.append("")
         if context.mappings:
-            lines.extend(["### 9.2 映射明细", "", "| 源字段 | 类型 | 标准语义 | 本地字段 | 说明 |", "| --- | --- | --- | --- | --- |"])
+            lines.extend(["### 9.2 映射明细", "", "| 源字段 | 类型 | 标准语义 | 本地字段 | 语义引用状态 | 说明 |", "| --- | --- | --- | --- | --- | --- |"])
             for row in context.mappings:
-                lines.append(f"| {_code(row['源字段'])} | {_cell(row['类型'])} | {_code(row['标准语义'])} | {_code(row['本地字段'])} | {_cell(row['说明'])} |")
+                lines.append(
+                    f"| {_code(row['源字段'])} | {_cell(row['类型'])} | {_code(row['标准语义'])} | "
+                    f"{_code(row['本地字段'])} | {_cell(row['语义引用状态'])} | {_cell(row['说明'])} |"
+                )
             lines.append("")
         if context.export_rows:
             lines.extend(["### 9.3 导出验证", "", "| 项目 | 值 |", "| --- | --- |"])

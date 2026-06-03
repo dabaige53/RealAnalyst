@@ -306,6 +306,9 @@ def _metric_from_spec(metric: dict[str, Any]) -> dict[str, Any]:
         "unit": metric.get("unit"),
         "definition": metric.get("definition"),
         "definition_status": metric.get("definition_status"),
+        "semantic_ref": metric.get("semantic_ref"),
+        "semantic_ref_status": metric.get("semantic_ref_status"),
+        "semantic_ref_label": metric.get("semantic_ref_label"),
     }
     return {k: v for k, v in payload.items() if v not in (None, [], {}, "")}
 

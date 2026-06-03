@@ -501,6 +501,16 @@ class MetadataProductFixTests(unittest.TestCase):
             self.assertEqual(match["canonical_display_name"], "客运收入")
             self.assertEqual(match["physical_name"], "ticket_revenue")
             self.assertEqual(match["ref"], "test.metrics.passenger_revenue")
+            self.assertEqual(match["semantic_ref_status"], "standard_ref")
+            self.assertEqual(match["semantic_ref_label"], "标准定义引用")
+            self.assertEqual(match["semantic_ref"]["status"], "standard_ref")
+
+            metric_search = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "search", "--type", "metric", "--query", "passenger_revenue", "--limit", "10"])
+            self.assertEqual(metric_search.returncode, 0, metric_search.stdout + metric_search.stderr)
+            metric_match = next(item for item in json.loads(metric_search.stdout)["matches"] if item.get("dataset_id") == "test.alias.orders" and item.get("record_type") == "metric")
+            self.assertEqual(metric_match["semantic_ref_status"], "standard_ref")
+            self.assertEqual(metric_match["semantic_ref_label"], "标准定义引用")
+
             synonym_search = self.run_cmd([sys.executable, str(METADATA), "--workspace", str(workspace), "search", "--type", "metric", "--query", "票款收入同义词"])
             self.assertEqual(synonym_search.returncode, 0, synonym_search.stdout + synonym_search.stderr)
             synonym_match = json.loads(synonym_search.stdout)["matches"][0]
@@ -524,6 +534,11 @@ class MetadataProductFixTests(unittest.TestCase):
             self.assertEqual(dataset_metric["ref"], "test.metrics.passenger_revenue")
             self.assertIn("客收", dataset_metric["aliases"])
             self.assertEqual(dataset_metric["alias_source"], "test.metrics.passenger_revenue")
+            self.assertEqual(dataset_metric["semantic_ref"]["status"], "standard_ref")
+            self.assertEqual(dataset_metric["semantic_ref"]["label"], "标准定义引用")
+            dictionary_metric = next(item for item in metrics if item["source_layer"] == "dictionary")
+            self.assertEqual(dictionary_metric["semantic_ref"]["status"], "standard_ref")
+            self.assertEqual(dictionary_metric["semantic_ref"]["ref"], "test.metrics.passenger_revenue")
 
     def test_sync_registry_uses_physical_names_without_metric_source_field(self) -> None:
         sync_module = load_script(SYNC_REGISTRY, "sync_registry_no_source_field_test")
@@ -1038,6 +1053,9 @@ class MetadataProductFixTests(unittest.TestCase):
         self.assertIn("amIncome", spec["fields"])
         self.assertNotIn("source_field", spec["metrics"][0])
         self.assertEqual(spec["metrics"][0]["definition_status"], "confirmed")
+        self.assertEqual(spec["metrics"][0]["semantic_ref_status"], "local_confirmed")
+        self.assertEqual(spec["metrics"][0]["semantic_ref_label"], "本地确认口径")
+        self.assertEqual(spec["dimensions"][0]["semantic_ref_status"], "local_confirmed")
 
         source_context = load_script(SOURCE_CONTEXT, "source_context_canonical_metrics_test")
         old_loader = source_context.load_spec_for_entry
@@ -1054,6 +1072,8 @@ class MetadataProductFixTests(unittest.TestCase):
         self.assertEqual(context["metrics"][0]["aggregation"], "sum")
         self.assertEqual(context["metrics"][0]["unit"], "CNY")
         self.assertEqual(context["metrics"][0]["definition_status"], "confirmed")
+        self.assertEqual(context["metrics"][0]["semantic_ref_status"], "local_confirmed")
+        self.assertEqual(context["metrics"][0]["semantic_ref_label"], "本地确认口径")
 
     def test_mysql_clickhouse_export_help_and_audit_sql_summary(self) -> None:
         for path in [MYSQL_EXPORTER, MYSQL_EXPORT_WRAPPER, CLICKHOUSE_EXPORTER, CLICKHOUSE_EXPORT_WRAPPER]:
@@ -1417,6 +1437,10 @@ class MetadataProductFixTests(unittest.TestCase):
         self.assertNotIn("`pending`", report)
         self.assertNotIn("待补齐的指标定义。", report)
         self.assertIn("待补齐（置信度 0.6）", report)
+        self.assertIn("语义引用状态", report)
+        self.assertIn("本地确认口径", report)
+        self.assertIn("本地草稿口径", report)
+        self.assertIn("映射覆盖引用", report)
         self.assertIn("## 5. 元数据补齐清单", report)
         self.assertIn("### 7.1 字段明细", report)
         self.assertIn("### 7.2 指标明细", report)
@@ -1470,6 +1494,8 @@ class MetadataProductFixTests(unittest.TestCase):
             self.assertEqual(len(reports), 1)
             content = reports[0].read_text(encoding="utf-8")
             self.assertIn("### 7.1 字段明细", content)
+            self.assertIn("语义引用状态", content)
+            self.assertIn("本地确认口径", content)
             self.assertIn("## 5. 元数据补齐清单", content)
             self.assertNotIn("常见用途", content)
             self.assertNotIn("使用建议", content)

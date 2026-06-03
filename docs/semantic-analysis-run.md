@@ -5,11 +5,11 @@
 ## 分层定位
 
 - Metadata Core 管“含义”：`dictionaries` 保存公共语义，`mappings` 保存字段映射，`datasets` 保存真实数据源 metadata，`sources` 保存证据，`audit` 保存关系和维护记录。
-- Runtime Registry Core 管“能不能取”：`runtime/registry.db` 通过 `metadata sync-registry` 从已校验 dataset YAML 受控同步，保存 source、字段、filter、parameter 和 `source_groups`。
+- Runtime Registry Core 管“能不能取”：`runtime/registry.db` 通过 `metadata sync-registry` 从已校验 dataset YAML 受控同步，保存 source、字段、filter、parameter、派生的 `semantic_ref` 和 `source_groups`。
 - Job Core 管“这次实际用了什么”：`jobs/{SESSION_ID}/` 保存 plan、export、profile、analysis、report、verification、feedback 和 artifact index。
-- index 是生成检索层：由 `metadata index` 生成 JSONL + FTS5 `search.db`，面向快速召回字段、指标、mapping、术语和数据集线索。
+- index 是生成检索层：由 `metadata index` 生成 JSONL + FTS5 `search.db`，面向快速召回字段、指标、mapping、术语和数据集线索，并在 field / metric / alias / mapping 记录上输出 `semantic_ref_status`。
 - catalog 是目录层：由 `metadata catalog` 生成所有数据集的轻量摘要，帮助发现和选择数据源。
-- context pack 是对话层：由 `metadata context` 生成，只携带本轮分析需要的最小上下文。支持多数据集合并 context。
+- context pack 是对话层：由 `metadata context` 生成，只携带本轮分析需要的最小上下文。字段、指标和术语会带有派生的 `semantic_ref`。支持多数据集合并 context。
 - reconcile 是一致性层：由 `metadata reconcile` 比对 `runtime/registry.db` 与 metadata YAML，发现语义漂移。
 - connector adapter 是初始化素材层：Tableau/DuckDB/CSV 只负责发现外部系统字段、筛选器、catalog 和运行所需 source 信息。
 - OSI 是交换层：用于跨系统交换语义模型，不进入本地分析主路径。
