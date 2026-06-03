@@ -40,6 +40,7 @@ RealAnalyst 围绕三核和 adapter entrypoints 组织。核心边界是：Metad
 | --- | --- | --- |
 | metadata YAML、index、context、registry sync | `RA:metadata` | `skills/metadata/scripts/metadata.py`、`skills/metadata/scripts/validate_metadata.py`、`skills/metadata/scripts/sync_registry.py` |
 | 元数据 Markdown 报告 | `RA:metadata-report` | `skills/metadata-report/scripts/generate_report.py`、`skills/metadata-report/scripts/duckdb_report.py`、`skills/metadata-report/scripts/tableau_report.py` |
+| Data Analytics semantic-layer 使用副本 | `RA:data-analytics-semantic-export` | `skills/data-analytics-semantic-export/scripts/export_semantic_layer.py` |
 | 受控取数 | `RA:data-export` | `skills/data-export/scripts/duckdb/export_duckdb_source.py`、`skills/data-export/scripts/tableau/tableau_export_with_meta.py` |
 | 数据画像 | `RA:data-profile` | `skills/data-profile/scripts/run.py`、`skills/data-profile/scripts/profile.py` |
 | 分析作业编排 | `RA:analysis-run` | `skills/analysis-run/scripts/init_or_resume_job.py`、`skills/analysis-run/scripts/validate_analysis.py` |
@@ -151,6 +152,79 @@ def run_python_script(workspace: Path, script: Path, args: list[str]) -> int:
 - 作业脚本可以通过 `runtime/` 加 `.agents/skills/` 或 `skills/` 判断 workspace，参考 `skills/data-profile/scripts/run.py`。
 
 不要在可复用 skill 脚本里硬编码这个仓库根路径。
+
+## Scenario: Data Analytics semantic-layer export contract
+
+### 1. Scope / Trigger
+
+修改 `RA:data-analytics-semantic-export` 或其脚本时必须按本契约检查。该路径把 RealAnalyst metadata 投影为 Data Analytics 全局 semantic-layer skill package，跨越项目内真源、运行态 registry 状态和 `$CODEX_HOME/skills` 使用副本。
+
+### 2. Signatures
+
+```bash
+python3 skills/data-analytics-semantic-export/scripts/export_semantic_layer.py \
+  --area <name> \
+  --dataset-id <id> [--dataset-id <id> ...] \
+  [--output-dir <package_dir>] \
+  [--skill-name <skill_name>] \
+  [--workspace <workspace>]
+```
+
+默认输出目录：
+
+```text
+$CODEX_HOME/skills/<area-slug>-semantic-layer/
+```
+
+测试和本任务 smoke 必须传 `--output-dir` 指向临时目录，不写真实全局 skills 目录。
+如需避免全局同名冲突，必须由用户显式传入 `--skill-name`；脚本不得自动追加项目名前缀。
+
+### 3. Contracts
+
+- 输出 package 固定包含 `SKILL.md`、`references/semantic-layer.md`、`references/source-inventory.md`。
+- stdout 成功时是 JSON-only，包含 `success`、`output_path`、`files_written`、`datasets`、`suggested_user_context_entry`、`data_analytics_validation_prompt`。
+- stdout 失败时是 JSON-only，包含 `success=false`、`error`、`error_code`。
+- RealAnalyst 项目内 `metadata/datasets`、`metadata/dictionaries`、`metadata/mappings`、`metadata/sources`、`metadata/audit`、`runtime/registry.db`、`jobs/` 仍是正式真源；全局 semantic-layer 只是使用副本。
+- 导出脚本不得写 Data Analytics plugin 文件，不得自动写 `$CODEX_HOME/state/plugins/data-analytics/user-context.md`。
+- 生成文件不得包含 secrets、DSN、token、row-level sample 或长私有摘录。
+
+### 4. Validation & Error Matrix
+
+| 条件 | 行为 |
+| --- | --- |
+| `--area` 或 `--dataset-id` 缺失 | argparse 失败 |
+| dataset id 不存在 | JSON failure，`error_code=SEMANTIC_EXPORT_FAILED` |
+| dataset validation 失败 | JSON failure，`error_code=SEMANTIC_EXPORT_INPUT_INVALID` |
+| `--skill-name` 不符合 kebab-case | JSON failure，`error_code=SEMANTIC_EXPORT_INPUT_INVALID` |
+| runtime registry 不存在或未注册 | 继续生成 package，在 source inventory / caveats 标记 missing registry |
+| 用户未批准 Data Analytics user-context 注册 | 只输出 `suggested_user_context_entry`，不写入 state |
+
+### 5. Good/Base/Bad Cases
+
+- Good: dataset 有 YAML、mapping、dictionary 和 registry，输出完整 metrics、field mapping、source inventory 和 caveats。
+- Base: dataset 只有 YAML / mapping，registry 未注册；输出仍成功，但明确 `runtime registry not registered`。
+- Bad: metadata validation 失败仍生成确定语义 package；这是错误行为。
+
+### 6. Tests Required
+
+- 临时 workspace + `--output-dir` 生成三件套。
+- 断言 JSON summary 包含 user-context 指针建议和 Data Analytics validation prompt。
+- 断言 `semantic-layer.md` 包含 Key Metrics、Field Mapping、Standard Filters And Dimensions、Key Tables、Open Questions。
+- 断言 `source-inventory.md` 标明不自动写 user-context，并在 registry 缺失时写 caveat。
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```text
+导出时直接写 `$CODEX_HOME/state/plugins/data-analytics/user-context.md`，并把 registry/sample values 当作业务定义写进 semantic-layer。
+```
+
+#### Correct
+
+```text
+只生成 semantic-layer package 和 user-context 指针建议；Data Analytics 注册由后续显式批准动作完成，业务定义仍以 RealAnalyst metadata 为准。
+```
 
 ---
 

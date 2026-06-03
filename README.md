@@ -121,6 +121,7 @@ python3 skills/metadata/scripts/metadata.py context --dataset-id demo.retail.ord
 | 元数据报告 | 数据集长期口径说明和 review gap 报告 | `RA:metadata-report` |
 | 元数据检索 | 按关键词检索字段、指标、术语和数据集 | `RA:metadata-search` |
 | 数据融合 | 合并多数据源产物并记录血缘 | `RA:artifact-fusion` |
+| Data Analytics 语义导出 | 把 RealAnalyst metadata 投影为 Data Analytics semantic-layer package | `RA:data-analytics-semantic-export` |
 
 ### 产物归属
 
@@ -134,6 +135,7 @@ python3 skills/metadata/scripts/metadata.py context --dataset-id demo.retail.ord
 | 业务报告 Markdown | `RA:report` |
 | `verification.json` | `RA:report-verify` |
 | refine reference pack | `RA:metadata-refine` |
+| Data Analytics semantic-layer package | `RA:data-analytics-semantic-export` |
 
 ## 分层设计
 

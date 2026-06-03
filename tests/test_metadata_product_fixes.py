@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import importlib.util
 import builtins
+import contextlib
+import io
 import os
 import subprocess
 import sys
@@ -40,6 +42,7 @@ TABLEAU_LEGACY_REPORTER = REPO / "skills" / "metadata" / "adapters" / "tableau" 
 TABLEAU_BOOTSTRAP = REPO / "skills" / "metadata" / "adapters" / "tableau" / "scripts" / "_bootstrap.py"
 SYNC_REGISTRY = REPO / "skills" / "metadata" / "scripts" / "sync_registry.py"
 SQLITE_STORE = REPO / "runtime" / "tableau" / "sqlite_store.py"
+DATA_ANALYTICS_SEMANTIC_EXPORTER = REPO / "skills" / "data-analytics-semantic-export" / "scripts" / "export_semantic_layer.py"
 
 
 def load_script(path: Path, module_name: str):
@@ -1881,6 +1884,117 @@ class MetadataProductFixTests(unittest.TestCase):
             expected.mkdir(parents=True)
 
             self.assertEqual(module._find_tableau_scripts_dir(workspace), expected)
+
+    def test_data_analytics_semantic_export_generates_package(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            write_dataset(workspace, metric_field_count=1, metric_count=1)
+            output_dir = workspace / "semantic_package"
+
+            proc = self.run_cmd(
+                [
+                    sys.executable,
+                    str(DATA_ANALYTICS_SEMANTIC_EXPORTER),
+                    "--workspace",
+                    str(workspace),
+                    "--area",
+                    "Test Retail",
+                    "--dataset-id",
+                    "test.dataset",
+                    "--output-dir",
+                    str(output_dir),
+                ]
+            )
+
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            payload = json.loads(proc.stdout)
+            self.assertTrue(payload["success"])
+            self.assertEqual(Path(payload["output_path"]).resolve(), output_dir.resolve())
+            self.assertEqual(len(payload["files_written"]), 3)
+            self.assertIn("suggested_user_context_entry", payload)
+            self.assertIn("data_analytics_validation_prompt", payload)
+            self.assertIn("Data Analytics semantic-layer", payload["data_analytics_validation_prompt"])
+            self.assertIn("metadata/datasets/test.dataset.yaml", payload["suggested_user_context_entry"] + (output_dir / "references" / "semantic-layer.md").read_text(encoding="utf-8"))
+
+            skill = (output_dir / "SKILL.md").read_text(encoding="utf-8")
+            semantic = (output_dir / "references" / "semantic-layer.md").read_text(encoding="utf-8")
+            inventory = (output_dir / "references" / "source-inventory.md").read_text(encoding="utf-8")
+            self.assertIn("name: test-retail-semantic-layer", skill)
+            for heading in [
+                "## Key Metrics",
+                "## Field Mapping",
+                "## Standard Filters And Dimensions",
+                "## Key Tables",
+                "## Open Questions",
+            ]:
+                self.assertIn(heading, semantic)
+            self.assertIn("metric_field_0", semantic)
+            self.assertIn("本地确认口径", semantic)
+            self.assertIn("runtime registry not registered", semantic)
+            self.assertIn("# Source Inventory", inventory)
+            self.assertIn("## Source Priority", inventory)
+            self.assertIn("Data Analytics user-context was not written automatically", inventory)
+
+    def test_data_analytics_semantic_export_defaults_to_codex_home_and_redacts_sensitive_locators(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ra_project_") as tmp:
+            workspace = Path(tmp)
+            write_dataset(workspace, metric_field_count=1, metric_count=1)
+            dataset_path = workspace / "metadata" / "datasets" / "test.dataset.yaml"
+            dataset = yaml.safe_load(dataset_path.read_text(encoding="utf-8"))
+            dataset["source"]["object"] = "mysql://user:password@example/db?token=abc123&api_key=sk_live"
+            dataset_path.write_text(yaml.safe_dump(dataset, allow_unicode=True), encoding="utf-8")
+
+            codex_home = workspace / "codex-home"
+            env = os.environ.copy()
+            env["CODEX_HOME"] = str(codex_home)
+            proc = subprocess.run(
+                [
+                    sys.executable,
+                    str(DATA_ANALYTICS_SEMANTIC_EXPORTER),
+                    "--workspace",
+                    str(workspace),
+                    "--area",
+                    "Sensitive Area",
+                    "--dataset-id",
+                    "test.dataset",
+                ],
+                cwd=REPO,
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            payload = json.loads(proc.stdout)
+            output_path = Path(payload["output_path"]).resolve()
+            self.assertEqual(output_path.parent, (codex_home / "skills").resolve())
+            self.assertEqual(output_path.name, "sensitive-area-semantic-layer")
+            self.assertFalse((codex_home / "state" / "plugins" / "data-analytics" / "user-context.md").exists())
+
+            generated_text = proc.stdout + "\n".join(path.read_text(encoding="utf-8") for path in output_path.rglob("*.md"))
+            self.assertIn("[redacted-sensitive-locator]", generated_text)
+            for secret_fragment in ("mysql://user", "password@example", "abc123", "sk_live"):
+                self.assertNotIn(secret_fragment, generated_text)
+
+    def test_data_analytics_semantic_export_auto_discovery_failure_is_json(self) -> None:
+        module = load_script(DATA_ANALYTICS_SEMANTIC_EXPORTER, "data_analytics_semantic_export_error_test")
+        old_argv = sys.argv
+        old_finder = module._find_workspace
+        module._find_workspace = lambda start: (_ for _ in ()).throw(module.ExportError("workspace unavailable"))
+        stdout = io.StringIO()
+        try:
+            sys.argv = [str(DATA_ANALYTICS_SEMANTIC_EXPORTER), "--area", "Test Retail", "--dataset-id", "test.dataset"]
+            with contextlib.redirect_stdout(stdout):
+                exit_code = module.main()
+        finally:
+            sys.argv = old_argv
+            module._find_workspace = old_finder
+
+        self.assertEqual(exit_code, 1)
+        payload = json.loads(stdout.getvalue())
+        self.assertFalse(payload["success"])
+        self.assertEqual(payload["error_code"], "SEMANTIC_EXPORT_INPUT_INVALID")
+        self.assertIn("workspace unavailable", payload["error"])
 
 
 if __name__ == "__main__":

@@ -90,7 +90,7 @@ flowchart TB
 │                  ├── Phase 4: 报告撰写                │
 │                  └── Phase 5: 交付门禁                │
 ├─────────────────────────────────────────────────────┤
-│  能力层          14 个独立 skill                      │
+│  能力层          15 个独立 skill                      │
 │                  getting-started · metadata ·         │
 │                  analysis-run · analysis-plan ·        │
 │                  data-export ·                        │
@@ -98,7 +98,8 @@ flowchart TB
 │                  report-verify · artifact-fusion ·    │
 │                  analysis-reference · metadata-search · │
 │                  metadata-report ·                      │
-│                  metadata-refine · reference-lookup   │
+│                  metadata-refine · data-analytics-     │
+│                  semantic-export · reference-lookup   │
 ├─────────────────────────────────────────────────────┤
 │  Core 层         metadata/   含义                       │
 │                  runtime/    能不能取                   │
@@ -174,6 +175,7 @@ flowchart TB
 | `RA:report` | 流程内 | `RA:analysis-run` 的报告写作阶段 |
 | `RA:metadata-search` | 辅助 | 只想查字段/指标/术语/dataset 是否已维护时使用 |
 | `RA:artifact-fusion` | 高级 | 多源 union / join / passthrough |
+| `RA:data-analytics-semantic-export` | 高级/交接 | 把 RealAnalyst metadata 导出为 Data Analytics semantic-layer package |
 | `RA:analysis-reference` | 高级/流程内 | 查询报告模板和分析框架 |
 | `RA:reference-lookup` | 兼容 | legacy compatibility entrypoint，保留给旧调用 |
 
@@ -191,6 +193,7 @@ flowchart TB
 | 业务报告 Markdown | `RA:report` |
 | `verification.json` | `RA:report-verify` |
 | refine reference pack | `RA:metadata-refine` |
+| Data Analytics semantic-layer package | `RA:data-analytics-semantic-export` |
 
 ---
 
