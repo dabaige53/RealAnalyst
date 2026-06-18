@@ -35,7 +35,19 @@ class ProjectContractAuditTests(unittest.TestCase):
         payload = json.loads(proc.stdout)
         self.assertTrue(payload["success"])
         self.assertEqual(payload["summary"]["findings"]["error"], 0)
+        self.assertEqual(payload["summary"]["findings"]["warning"], 0)
         self.assertGreaterEqual(payload["summary"]["skills_checked"], 10)
+
+    def test_audit_inventory_covers_delivery_chain_contracts(self) -> None:
+        audit = _load_audit_module()
+        payload = audit.run_audit()
+        inventory = payload["inventory"]
+        skills = {item["id"]: item for item in inventory["skills"]}
+        self.assertEqual(inventory["delivery_chain"], audit.EXPECTED_PIPELINE_SKILLS)
+        self.assertIn("data-export", skills)
+        self.assertTrue(skills["data-export"]["has_input_output_section"])
+        self.assertTrue(skills["data-export"]["has_next_step_row"])
+        self.assertTrue(all(skills["data-export"]["delivery_tokens"].values()))
 
     def test_test_sh_runs_project_contract_audit(self) -> None:
         script = (REPO / "test.sh").read_text(encoding="utf-8")

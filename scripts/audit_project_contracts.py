@@ -39,6 +39,16 @@ EXPECTED_PIPELINE_SKILLS = [
     "report",
     "report-verify",
 ]
+SKILL_DELIVERY_TOKENS = {
+    "getting-started": ["doctor.py", "RA:metadata"],
+    "metadata": ["context", "registry"],
+    "analysis-run": ["job_manifest", "data-export", "data-profile", "report-verify"],
+    "analysis-plan": ["analysis_plan", "selected_report_template", "job_manifest"],
+    "data-export": ["export_summary", "job_manifest"],
+    "data-profile": ["profile/manifest.json", "profile/profile.json", "job_manifest"],
+    "report": ["job_manifest", "输出文件清单", "report-verify"],
+    "report-verify": ["verification.json", "failed", "passed"],
+}
 
 
 def rel(path: Path) -> str:
@@ -157,6 +167,34 @@ def audit_skills(findings: list[dict[str, Any]]) -> None:
         readme = skill_dir / "README.md"
         if not readme.exists():
             finding(findings, severity="warning", check="skill_readme", path=skill_dir, message="Skill 缺少 README.md")
+        elif skill_dir.name in EXPECTED_PIPELINE_SKILLS:
+            readme_text = read_text(readme)
+            if "## 输入与输出" not in readme_text:
+                finding(
+                    findings,
+                    severity="warning",
+                    check="skill_readme",
+                    path=readme,
+                    message="核心交付链 Skill README 缺少“输入与输出”章节",
+                )
+            if "| 下一步 |" not in readme_text:
+                finding(
+                    findings,
+                    severity="warning",
+                    check="skill_readme",
+                    path=readme,
+                    message="核心交付链 Skill README 缺少下一步交付说明",
+                )
+            combined = text + "\n" + readme_text
+            for token in SKILL_DELIVERY_TOKENS.get(skill_dir.name, []):
+                if token not in combined:
+                    finding(
+                        findings,
+                        severity="warning",
+                        check="skill_delivery_token",
+                        path=skill_dir,
+                        message=f"核心交付链 Skill 文档未覆盖关键交付物或下游 token: {token}",
+                    )
         completion_count = len(re.findall(r"(?m)^## Completion Summary\b", text))
         if completion_count != 1:
             finding(
@@ -276,6 +314,45 @@ def audit_delivery_chain(findings: list[dict[str, Any]]) -> None:
         )
 
 
+def build_inventory() -> dict[str, Any]:
+    skills: list[dict[str, Any]] = []
+    for skill_file in sorted((REPO / "skills").glob("*/SKILL.md")):
+        skill_dir = skill_file.parent
+        text = read_text(skill_file)
+        readme = skill_dir / "README.md"
+        readme_text = read_text(readme) if readme.exists() else ""
+        frontmatter = parse_frontmatter(text)
+        skills.append(
+            {
+                "id": skill_dir.name,
+                "declared_name": frontmatter.get("name", ""),
+                "description": frontmatter.get("description", ""),
+                "has_readme": readme.exists(),
+                "has_input_output_section": "## 输入与输出" in readme_text,
+                "has_next_step_row": "| 下一步 |" in readme_text,
+                "completion_summary_count": len(re.findall(r"(?m)^## Completion Summary\b", text)),
+                "script_count": len(list((skill_dir / "scripts").glob("**/*.py"))) if (skill_dir / "scripts").exists() else 0,
+                "reference_count": len([p for p in (skill_dir / "references").glob("**/*") if p.is_file()]) if (skill_dir / "references").exists() else 0,
+                "delivery_tokens": {
+                    token: token in (text + "\n" + readme_text)
+                    for token in SKILL_DELIVERY_TOKENS.get(skill_dir.name, [])
+                },
+            }
+        )
+
+    metadata_files = {
+        "datasets": sorted(rel(path) for path in (REPO / "metadata" / "datasets").glob("*.yaml")),
+        "dictionaries": sorted(rel(path) for path in (REPO / "metadata" / "dictionaries").glob("*.yaml")),
+        "mappings": sorted(rel(path) for path in (REPO / "metadata" / "mappings").glob("*.yaml")),
+        "generated_index": sorted(rel(path) for path in (REPO / "metadata" / "index").glob("*") if path.is_file()),
+    }
+    return {
+        "skills": skills,
+        "metadata_files": metadata_files,
+        "delivery_chain": EXPECTED_PIPELINE_SKILLS,
+    }
+
+
 def run_audit() -> dict[str, Any]:
     findings: list[dict[str, Any]] = []
     audit_test_layout(findings)
@@ -293,6 +370,7 @@ def run_audit() -> dict[str, Any]:
             "dataset_files_checked": len(list((REPO / "metadata" / "datasets").glob("*.yaml"))),
             "findings": counts,
         },
+        "inventory": build_inventory(),
         "findings": findings,
     }
 

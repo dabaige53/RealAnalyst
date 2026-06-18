@@ -8,6 +8,7 @@
 
 - 每个 `skills/*/SKILL.md` 的介绍信息、README、脚本目录、references 目录之间有基础一致性检查。
 - 每个 Skill 声明的脚本、references、交付物契约能被脚本化审计到，不只靠人工记忆。
+- 审计 JSON 必须输出 Skill inventory、metadata 文件清单和核心交付链顺序，方便后续排查 Skill 介绍、代码入口和交付物是否断档。
 - metadata 目录中不应出现明显分层污染、生成层手工内容、未被入口引用的脏文件或旧报告冒充真源。
 - 代码审计至少覆盖 Python 语法、测试收集、核心回归、schema JSON、CI workflow 与 `test.sh` 一致性。
 - 审计输出是结构化 JSON，并能作为后续修复任务的输入。
@@ -49,15 +50,17 @@
 ```bash
 python3 scripts/audit_project_contracts.py
 python3 -m unittest tests.test_project_contract_audit
+python3 scripts/run_manifest_workflow_regression.py
 bash test.sh
 ```
 
 ## 9. 实际结果
 
-- 已通过：`python3 scripts/audit_project_contracts.py`，检查 15 个 Skill、9 个 schema、1 个 dataset 文件，error/warning 均为 0。
-- 已通过：`python3 -m unittest tests.test_project_contract_audit`。
+- 已通过：`python3 scripts/audit_project_contracts.py`，检查 15 个 Skill、9 个 schema、1 个 dataset 文件，error/warning 均为 0；输出包含 Skill inventory、metadata 文件清单和核心交付链。
+- 已通过：`python3 -m unittest tests.test_project_contract_audit`，5 个测试覆盖 JSON 输出、0 warning、`test.sh` 接入、RA skill 前缀、pytest 收集边界和 `data-export` 交付链契约。
+- 已通过：`python3 scripts/run_manifest_workflow_regression.py`，覆盖 manifest 工作流 focused regression。
 - 已通过：`bash test.sh`，包括 plugin manifest JSON、metadata validate、项目契约审计、全仓 unittest discover（86 个测试）、manifest workflow regression（32 个 focused tests + 9 个 subtests）。
 
 ## 10. 验收结论
 
-本轮脚本化审计入口验收通过：已建立可复跑的项目契约审计脚本、对应单元测试，并接入 `test.sh` 与 focused regression。它证明当前基础结构没有发现硬错误；更深层的业务 bug、交付链断点和 metadata 脏内容仍需要后续按审计结果与专项测试继续扩展，不声明全项目总目标完成。
+本轮脚本化审计入口验收通过：已建立可复跑的项目契约审计脚本、对应单元测试，并接入 `test.sh` 与 focused regression。它证明当前基础结构没有发现硬错误，并且核心交付链已经有可复查 inventory；更深层的业务 bug、交付链断点和 metadata 脏内容仍需要后续按审计结果与专项测试继续扩展，不声明全项目总目标完成。
