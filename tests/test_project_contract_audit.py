@@ -126,6 +126,36 @@ class ProjectContractAuditTests(unittest.TestCase):
         self.assertIn("skills/data-export/scripts/sql/common_sql_export.py", code_files["potentially_internal_or_unreferenced_skill_scripts"])
         self.assertIn("test.sh", code_files["shell_entrypoints"])
 
+    def test_audit_inventory_covers_code_surface_test_document_matrix(self) -> None:
+        audit = _load_audit_module()
+        payload = audit.run_audit()
+        matrix = payload["inventory"]["code_surface_matrix"]
+        surfaces = {item["id"]: item for item in matrix}
+
+        expected_surfaces = {
+            "one_click_test_entry",
+            "project_contract_audit",
+            "job_manifest_runtime",
+            "analysis_run_job_lifecycle",
+            "analysis_plan_contract",
+            "artifact_registration",
+            "report_manifest_delivery",
+            "report_verify_user_surface",
+            "legacy_migration_archive",
+            "metadata_layering_and_references",
+        }
+        self.assertEqual(set(surfaces), expected_surfaces)
+        for surface in matrix:
+            for path in surface["implementation_paths"] + surface["test_paths"] + surface["report_paths"]:
+                self.assertTrue((REPO / path).exists(), f"{surface['id']} missing {path}")
+
+        self.assertIn("runtime/job_manifest.py", surfaces["job_manifest_runtime"]["implementation_paths"])
+        self.assertIn("tests/test_job_manifest.py", surfaces["job_manifest_runtime"]["test_paths"])
+        self.assertIn(
+            "tests/reports/2026-06-18-code-surface-coverage.md",
+            surfaces["job_manifest_runtime"]["report_paths"],
+        )
+
     def test_metadata_reference_audit_has_no_missing_source_evidence(self) -> None:
         audit = _load_audit_module()
         findings: list[dict] = []

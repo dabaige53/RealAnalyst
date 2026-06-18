@@ -107,6 +107,81 @@ HANDOFF_CONTRACTS = [
         "state_update": [["job_manifest.json"], ["verification.json"], ["delivery_manifest.json"]],
     },
 ]
+CODE_SURFACE_CONTRACTS = [
+    {
+        "id": "one_click_test_entry",
+        "implementation_paths": ["test.sh", ".github/workflows/ci.yml"],
+        "test_paths": ["tests/test_ci_workflows.py"],
+        "report_paths": ["tests/reports/2026-06-18-code-surface-coverage.md"],
+    },
+    {
+        "id": "project_contract_audit",
+        "implementation_paths": ["scripts/audit_project_contracts.py"],
+        "test_paths": ["tests/test_project_contract_audit.py"],
+        "report_paths": ["tests/reports/2026-06-18-code-surface-coverage.md"],
+    },
+    {
+        "id": "job_manifest_runtime",
+        "implementation_paths": ["runtime/job_manifest.py", "schemas/job_manifest.schema.json"],
+        "test_paths": ["tests/test_job_manifest.py"],
+        "report_paths": ["tests/reports/2026-06-18-code-surface-coverage.md"],
+    },
+    {
+        "id": "analysis_run_job_lifecycle",
+        "implementation_paths": [
+            "skills/analysis-run/scripts/init_or_resume_job.py",
+            "skills/analysis-run/scripts/render_user_reply.py",
+        ],
+        "test_paths": ["tests/test_analysis_run_manifest_integration.py"],
+        "report_paths": ["tests/reports/2026-06-18-code-surface-coverage.md"],
+    },
+    {
+        "id": "analysis_plan_contract",
+        "implementation_paths": [
+            "skills/analysis-plan/scripts/validate_plan.py",
+            "skills/analysis-reference/scripts/query_config.py",
+            "skills/reference-lookup/scripts/query_config.py",
+            "schemas/analysis_plan_decision.schema.json",
+        ],
+        "test_paths": ["tests/test_analysis_plan_contract.py", "tests/test_analysis_reference_frameworks.py"],
+        "report_paths": ["tests/reports/2026-06-18-code-surface-coverage.md"],
+    },
+    {
+        "id": "artifact_registration",
+        "implementation_paths": ["scripts/update_artifact_index.py", "schemas/manifest.schema.json"],
+        "test_paths": ["tests/test_export_profile_manifest_registration.py"],
+        "report_paths": ["tests/reports/2026-06-18-code-surface-coverage.md"],
+    },
+    {
+        "id": "report_manifest_delivery",
+        "implementation_paths": ["skills/report/scripts/append_report_update.py"],
+        "test_paths": ["tests/test_report_manifest_deliverables.py"],
+        "report_paths": ["tests/reports/2026-06-18-code-surface-coverage.md"],
+    },
+    {
+        "id": "report_verify_user_surface",
+        "implementation_paths": ["skills/report-verify/scripts/verify.py", "schemas/verification.schema.json"],
+        "test_paths": ["tests/test_report_verify_user_surface.py"],
+        "report_paths": ["tests/reports/2026-06-18-code-surface-coverage.md"],
+    },
+    {
+        "id": "legacy_migration_archive",
+        "implementation_paths": ["scripts/legacy_job_manifest_migration.py", "scripts/finalize_job_archive.py"],
+        "test_paths": ["tests/test_legacy_job_manifest_migration.py", "tests/test_finalize_job_archive.py"],
+        "report_paths": ["tests/reports/2026-06-18-code-surface-coverage.md"],
+    },
+    {
+        "id": "metadata_layering_and_references",
+        "implementation_paths": [
+            "skills/metadata/scripts/validate_metadata.py",
+            "metadata/datasets/demo.retail.orders.yaml",
+            "metadata/mappings/demo.retail.orders.mapping.yaml",
+            "metadata/dictionaries/demo.retail.dictionary.yaml",
+        ],
+        "test_paths": ["tests/test_metadata_product_fixes.py", "tests/test_project_contract_audit.py"],
+        "report_paths": ["tests/reports/2026-06-18-code-surface-coverage.md"],
+    },
+]
 
 
 def rel(path: Path) -> str:
@@ -664,6 +739,48 @@ def audit_handoff_contracts(findings: list[dict[str, Any]]) -> None:
             )
 
 
+def _report_mentions_contract(report_path: Path, contract: dict[str, Any]) -> bool:
+    if not report_path.exists():
+        return False
+    text = read_text(report_path)
+    required_tokens = [contract["id"]]
+    required_tokens.extend(Path(path).name for path in contract["test_paths"])
+    return all(token in text for token in required_tokens)
+
+
+def audit_code_surface_contracts(findings: list[dict[str, Any]]) -> None:
+    for contract in CODE_SURFACE_CONTRACTS:
+        for path_text in contract["implementation_paths"]:
+            path = REPO / path_text
+            if not path.exists():
+                finding(
+                    findings,
+                    severity="error",
+                    check="code_surface_contract",
+                    path=path_text,
+                    message=f"{contract['id']} 缺少实现文件: {path_text}",
+                )
+        for path_text in contract["test_paths"]:
+            path = REPO / path_text
+            if not path.exists():
+                finding(
+                    findings,
+                    severity="error",
+                    check="code_surface_contract",
+                    path=path_text,
+                    message=f"{contract['id']} 缺少测试文件: {path_text}",
+                )
+        report_paths = [REPO / path_text for path_text in contract["report_paths"]]
+        if not any(_report_mentions_contract(path, contract) for path in report_paths):
+            finding(
+                findings,
+                severity="error",
+                check="code_surface_contract",
+                path=contract["report_paths"][0],
+                message=f"{contract['id']} 缺少包含 surface id 与测试文件名的测试需求报告",
+            )
+
+
 def build_inventory() -> dict[str, Any]:
     skills: list[dict[str, Any]] = []
     for skill_file in sorted((REPO / "skills").glob("*/SKILL.md")):
@@ -708,6 +825,7 @@ def build_inventory() -> dict[str, Any]:
         "code_files": build_code_inventory(skills),
         "delivery_chain": EXPECTED_PIPELINE_SKILLS,
         "handoff_matrix": build_handoff_matrix(),
+        "code_surface_matrix": CODE_SURFACE_CONTRACTS,
     }
 
 
@@ -720,6 +838,7 @@ def run_audit() -> dict[str, Any]:
     audit_metadata(findings)
     audit_delivery_chain(findings)
     audit_handoff_contracts(findings)
+    audit_code_surface_contracts(findings)
     counts = {severity: sum(1 for item in findings if item["severity"] == severity) for severity in SEVERITY_ORDER}
     return {
         "success": counts["error"] == 0,
