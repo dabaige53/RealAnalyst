@@ -166,6 +166,28 @@ class ProjectContractAuditTests(unittest.TestCase):
             surfaces["job_manifest_runtime"]["report_paths"],
         )
 
+    def test_audit_inventory_classifies_every_python_file_with_test_strategy(self) -> None:
+        audit = _load_audit_module()
+        payload = audit.run_audit()
+        code_files = payload["inventory"]["code_files"]
+        coverage = code_files["code_file_coverage"]
+
+        self.assertEqual(len(coverage), code_files["python_file_count"])
+        self.assertFalse([item for item in coverage if item["category"] == "unclassified"])
+        for item in coverage:
+            self.assertTrue(item["test_paths"], item["path"])
+            self.assertTrue(item["report_paths"], item["path"])
+            for path in item["test_paths"] + item["report_paths"]:
+                self.assertTrue((REPO / path).exists(), f"{item['path']} references missing {path}")
+
+        categories = {item["category"] for item in coverage}
+        self.assertIn("code_surface", categories)
+        self.assertIn("documented_skill_script", categories)
+        self.assertIn("internal_or_unreferenced_skill_script", categories)
+        self.assertIn("metadata_adapter_script", categories)
+        self.assertIn("platform_integration_support", categories)
+        self.assertIn("trellis_runtime_support", categories)
+
     def test_metadata_reference_audit_has_no_missing_source_evidence(self) -> None:
         audit = _load_audit_module()
         findings: list[dict] = []

@@ -182,6 +182,10 @@ CODE_SURFACE_CONTRACTS = [
         "report_paths": ["tests/reports/2026-06-18-code-surface-coverage.md"],
     },
 ]
+DEFAULT_COVERAGE_REPORTS = [
+    "tests/reports/2026-06-18-code-surface-coverage.md",
+    "tests/reports/2026-06-18-project-audit-gates.md",
+]
 
 
 def rel(path: Path) -> str:
@@ -652,7 +656,7 @@ def build_code_inventory(skill_inventory: list[dict[str, Any]]) -> dict[str, Any
         for path in python_files
         if Path(path).name.startswith("test_") and not path.startswith("tests/")
     )
-    return {
+    inventory = {
         "python_file_count": len(python_files),
         "test_file_count": len(test_files),
         "skill_script_count": len(skill_scripts),
@@ -669,6 +673,119 @@ def build_code_inventory(skill_inventory: list[dict[str, Any]]) -> dict[str, Any
         "manual_smoke_scripts_outside_tests": manual_smoke_scripts,
         "shell_entrypoints": shell_entrypoints,
     }
+    inventory["code_file_coverage"] = build_code_file_coverage(inventory)
+    return inventory
+
+
+def build_code_file_coverage(code_inventory: dict[str, Any]) -> list[dict[str, Any]]:
+    """Assign every Python file a review/test strategy.
+
+    This is a coverage map for project stewardship, not a claim that every
+    helper has its own business-unit test. Unknown files are treated as audit
+    failures so new code cannot silently sit outside the test/documentation map.
+    """
+
+    surface_by_path: dict[str, dict[str, Any]] = {}
+    for contract in CODE_SURFACE_CONTRACTS:
+        for path in contract["implementation_paths"]:
+            surface_by_path[path] = contract
+
+    mentioned_skill_scripts = set(code_inventory["mentioned_skill_scripts"])
+    internal_skill_scripts = set(code_inventory["potentially_internal_or_unreferenced_skill_scripts"])
+    skill_libs = set(code_inventory["skill_libs_and_bootstraps"])
+    runtime_files = set(code_inventory["runtime_files"])
+    project_scripts = set(code_inventory["project_scripts"])
+    manual_smoke_scripts = set(code_inventory["manual_smoke_scripts_outside_tests"])
+
+    coverage: list[dict[str, Any]] = []
+    for path in code_inventory["python_files"]:
+        if path in surface_by_path:
+            contract = surface_by_path[path]
+            category = "code_surface"
+            owner = contract["id"]
+            test_paths = contract["test_paths"]
+            report_paths = contract["report_paths"]
+        elif path.startswith("tests/test_"):
+            category = "automated_test"
+            owner = "tests"
+            test_paths = [path]
+            report_paths = ["tests/reports/2026-06-18-test-sh-and-testing-layout.md"]
+        elif path in mentioned_skill_scripts:
+            category = "documented_skill_script"
+            owner = path.split("/", 2)[1] if path.startswith("skills/") else ""
+            test_paths = ["tests/test_project_contract_audit.py"]
+            report_paths = DEFAULT_COVERAGE_REPORTS
+        elif path in internal_skill_scripts:
+            category = "internal_or_unreferenced_skill_script"
+            owner = path.split("/", 2)[1] if path.startswith("skills/") else ""
+            test_paths = ["tests/test_project_contract_audit.py"]
+            report_paths = DEFAULT_COVERAGE_REPORTS
+        elif path in skill_libs:
+            category = "skill_library_or_bootstrap"
+            owner = path.split("/", 2)[1] if path.startswith("skills/") else ""
+            test_paths = ["tests/test_project_contract_audit.py"]
+            report_paths = DEFAULT_COVERAGE_REPORTS
+        elif path in manual_smoke_scripts:
+            category = "manual_smoke_script"
+            owner = "manual-smoke"
+            test_paths = ["tests/test_project_contract_audit.py"]
+            report_paths = DEFAULT_COVERAGE_REPORTS
+        elif path in runtime_files:
+            category = "runtime_support"
+            owner = "runtime"
+            test_paths = ["tests/test_project_contract_audit.py"]
+            report_paths = DEFAULT_COVERAGE_REPORTS
+        elif path in project_scripts:
+            category = "project_script"
+            owner = "scripts"
+            test_paths = ["tests/test_project_contract_audit.py"]
+            report_paths = DEFAULT_COVERAGE_REPORTS
+        elif path.startswith(".trellis/"):
+            category = "trellis_runtime_support"
+            owner = "trellis"
+            test_paths = ["tests/test_project_contract_audit.py"]
+            report_paths = DEFAULT_COVERAGE_REPORTS
+        elif path.startswith(".codex/"):
+            category = "platform_integration_support"
+            owner = "codex"
+            test_paths = ["tests/test_project_contract_audit.py"]
+            report_paths = DEFAULT_COVERAGE_REPORTS
+        elif path.startswith(".claude/"):
+            category = "platform_integration_support"
+            owner = "claude"
+            test_paths = ["tests/test_project_contract_audit.py"]
+            report_paths = DEFAULT_COVERAGE_REPORTS
+        elif path.startswith("skills/metadata/adapters/"):
+            category = "metadata_adapter_script"
+            parts = path.split("/")
+            owner = parts[3] if len(parts) > 3 else "metadata-adapter"
+            test_paths = ["tests/test_project_contract_audit.py", "tests/test_metadata_product_fixes.py"]
+            report_paths = DEFAULT_COVERAGE_REPORTS
+        elif path.startswith("lib/"):
+            category = "shared_library_support"
+            owner = "lib"
+            test_paths = ["tests/test_project_contract_audit.py"]
+            report_paths = DEFAULT_COVERAGE_REPORTS
+        elif path.startswith("examples/"):
+            category = "example_support"
+            owner = "examples"
+            test_paths = ["tests/test_project_contract_audit.py"]
+            report_paths = DEFAULT_COVERAGE_REPORTS
+        else:
+            category = "unclassified"
+            owner = ""
+            test_paths = []
+            report_paths = []
+        coverage.append(
+            {
+                "path": path,
+                "category": category,
+                "owner": owner,
+                "test_paths": test_paths,
+                "report_paths": report_paths,
+            }
+        )
+    return coverage
 
 
 def build_metadata_inventory() -> dict[str, Any]:
@@ -781,6 +898,38 @@ def audit_code_surface_contracts(findings: list[dict[str, Any]]) -> None:
             )
 
 
+def audit_code_file_coverage(findings: list[dict[str, Any]], code_inventory: dict[str, Any]) -> None:
+    for item in code_inventory["code_file_coverage"]:
+        path = item["path"]
+        if item["category"] == "unclassified":
+            finding(
+                findings,
+                severity="error",
+                check="code_file_coverage",
+                path=path,
+                message="Python 文件未归入任何测试/文档覆盖策略",
+            )
+            continue
+        for test_path in item["test_paths"]:
+            if not (REPO / test_path).exists():
+                finding(
+                    findings,
+                    severity="error",
+                    check="code_file_coverage",
+                    path=path,
+                    message=f"覆盖策略引用不存在的测试文件: {test_path}",
+                )
+        for report_path in item["report_paths"]:
+            if not (REPO / report_path).exists():
+                finding(
+                    findings,
+                    severity="error",
+                    check="code_file_coverage",
+                    path=path,
+                    message=f"覆盖策略引用不存在的测试报告: {report_path}",
+                )
+
+
 def build_inventory() -> dict[str, Any]:
     skills: list[dict[str, Any]] = []
     for skill_file in sorted((REPO / "skills").glob("*/SKILL.md")):
@@ -831,6 +980,7 @@ def build_inventory() -> dict[str, Any]:
 
 def run_audit() -> dict[str, Any]:
     findings: list[dict[str, Any]] = []
+    inventory = build_inventory()
     audit_test_layout(findings)
     audit_skills(findings)
     audit_python_collection(findings)
@@ -839,6 +989,7 @@ def run_audit() -> dict[str, Any]:
     audit_delivery_chain(findings)
     audit_handoff_contracts(findings)
     audit_code_surface_contracts(findings)
+    audit_code_file_coverage(findings, inventory["code_files"])
     counts = {severity: sum(1 for item in findings if item["severity"] == severity) for severity in SEVERITY_ORDER}
     return {
         "success": counts["error"] == 0,
@@ -848,7 +999,7 @@ def run_audit() -> dict[str, Any]:
             "dataset_files_checked": len(list((REPO / "metadata" / "datasets").glob("*.yaml"))),
             "findings": counts,
         },
-        "inventory": build_inventory(),
+        "inventory": inventory,
         "findings": findings,
     }
 
