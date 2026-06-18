@@ -4,7 +4,7 @@
 
 自动化代码测试也统一放在本目录：Python 测试文件使用 `tests/test_*.py` 命名；排查、复跑和测试需求报告放在 `tests/reports/*.md`。不要再创建 `Test/`、`test/`、`docs/testing/` 或其它第二套测试目录。
 
-当前项目主体是 Python CLI、schema、metadata、runtime registry 和 Codex skill 工作流，推荐以 Python 测试为主，包括 `unittest`、`pytest` 和脚本 smoke。JavaScript 只用于浏览器、Playwright、Node、前端交互、网页渲染或 CI JS harness 是真实 source of truth 的场景。如果本次未使用 JS，测试报告必须写明原因，并列出实际替代测试命令。
+当前项目主体是 Python CLI、schema、metadata、runtime registry 和 Codex skill 工作流，默认全部使用 Python 测试，包括 `unittest`、`pytest` 和脚本 smoke。JavaScript 只在未来任务真实修改 Node、Playwright、Browser/Chrome 自动化、前端交互或网页渲染时作为例外补充，不是默认测试要求。
 
 ## 命名
 
@@ -26,9 +26,9 @@ tests/reports/2026-06-18-manifest-fail-closed.md
 
 - 测试需求报告：背景、目标行为、风险等级、覆盖范围、环境前提、验收标准。
 - 排查记录：真实 source of truth、发现的问题、失败路径、边界条件。
-- 完整 JS 代码：如果使用 JavaScript、Node、Playwright、Browser/Chrome 自动化或 CI JS harness，贴完整可运行代码。
-- 完整 JS 测试代码：如果写了 JS 测试，贴完整测试文件或测试函数，不只贴片段。
-- 未使用 JS 的说明：如果本次没有 JS，写明原因，并列出实际使用的 Python、shell、pytest、unittest 或其它复跑方式。
+- 完整 Python 复现代码：贴可运行的最小复现、fixture 生成或脚本调用代码。
+- 完整 Python 测试代码：贴新增或修改的 `unittest` / `pytest` 测试代码，不只贴片段。
+- 例外说明：只有任务真实涉及 Node、Playwright、Browser/Chrome 自动化、前端交互或网页渲染时，才补充 JS 代码和 JS 测试代码。
 - 复跑命令：依赖安装、输入 fixture、执行命令、预期输出、实际输出摘要。
 - 修复验收：哪些测试已通过，哪些未跑，未跑原因和剩余风险。
 
@@ -64,34 +64,16 @@ tests/reports/2026-06-18-manifest-fail-closed.md
 - 环境变量：
 - 依赖：
 
-#### 6. 完整 JS 代码
+#### 6. 完整 Python 复现代码
 
-如果本次未使用 JS，写：
-
-```text
-本次未使用 JS。原因：...
-替代复跑方式：...
+```python
+# runnable Python reproduction code
 ```
 
-如果使用 JS，贴完整代码：
+#### 7. 完整 Python 测试代码
 
-```javascript
-// runnable JS reproduction code
-```
-
-#### 7. 完整 JS 测试代码
-
-如果本次未使用 JS 测试，写：
-
-```text
-本次未使用 JS 测试。原因：...
-替代测试：...
-```
-
-如果使用 JS 测试，贴完整测试代码：
-
-```javascript
-// runnable JS test code
+```python
+# runnable unittest/pytest code
 ```
 
 #### 8. 复跑命令

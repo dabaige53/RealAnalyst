@@ -9,7 +9,7 @@
 - 根目录提供 `test.sh`，本地和 CI 可复用同一组公开测试命令。
 - 代码自动化测试只放在 `tests/`。
 - 测试需求报告、排查记录、复跑材料只放在 `tests/reports/`，测试文档规范写在 `tests/README.md`。
-- `AGENTS.md` 明确 Python/JS 测试边界，避免后续重复创建 `Test/`、`test/` 或其它测试文档目录。
+- `AGENTS.md` 明确全 Python 测试优先，避免后续重复创建 `Test/`、`test/` 或其它测试文档目录。
 
 ## 3. 风险等级
 
@@ -28,18 +28,40 @@
 - 依赖：调用者应先安装 `requirements.txt`；CI 仍负责安装依赖。
 - 数据：只使用公开仓库内 demo metadata 和测试 fixture，不读取真实私有 job 数据。
 
-## 6. 完整 JS 代码
+## 6. 完整 Python 复现代码
 
-```text
-本次未使用 JS。原因：当前 RealAnalyst 主体是 Python CLI、schema、skill 和 metadata 工作流；本次调整的是 shell 一键测试入口与 Python/unittest/pytest 回归门禁。JS 不适合作为默认测试语言。
-替代复跑方式：bash test.sh
+```python
+from pathlib import Path
+
+repo = Path(__file__).resolve().parents[2]
+assert (repo / "test.sh").is_file()
+assert (repo / "tests").is_dir()
+assert (repo / "tests" / "README.md").is_file()
+assert (repo / "tests" / "reports").is_dir()
+assert not (repo / "Test").exists()
+assert not (repo / "test").is_dir()
 ```
 
-## 7. 完整 JS 测试代码
+## 7. 完整 Python 测试代码
 
-```text
-本次未使用 JS 测试。原因：CI workflow 与 test.sh 的契约已有 Python unittest 覆盖，项目没有 Node package 或前端运行时作为本次变更对象。
-替代测试：python3 -m unittest tests.test_ci_workflows
+```python
+def test_test_sh_runs_public_unit_and_manifest_regression_gates(self) -> None:
+    script = TEST_SH.read_text(encoding="utf-8")
+
+    expected_order = [
+        "-m json.tool .codex-plugin/plugin.json",
+        "skills/metadata/scripts/metadata.py validate",
+        "scripts/audit_project_contracts.py",
+        "-m unittest tests.test_ci_workflows",
+        "-m unittest discover -s tests",
+        "scripts/run_manifest_workflow_regression.py",
+        "git diff --check",
+    ]
+    positions = []
+    for token in expected_order:
+        self.assertIn(token, script)
+        positions.append(script.index(token))
+    self.assertEqual(positions, sorted(positions))
 ```
 
 ## 8. 复跑命令
@@ -56,7 +78,7 @@ git diff --check
 - 覆盖命令：plugin manifest JSON 校验、metadata validate、project contract audit、CI workflow unittest、全仓 unittest discover、manifest workflow regression、`git diff --check`。
 - 实际结果：`python3 -m unittest discover -s tests` 为 `Ran 91 tests ... OK`；`python3 scripts/run_manifest_workflow_regression.py` 为 `33 passed, 9 subtests passed`。
 - 未通过：无。
-- 未运行：未运行 JS/Node/Playwright 测试；本次没有前端、浏览器或 Node 运行时变更。
+- 未运行：未运行 Node/Playwright/浏览器测试；本次没有前端、浏览器或 Node 运行时变更。
 - 备注：`unittest discover` 输出了两个 sqlite connection 的 `ResourceWarning`，不影响本次测试入口验收；后续可以单独清理资源关闭问题。
 
 ## 10. 验收结论

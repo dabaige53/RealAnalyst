@@ -31,18 +31,48 @@
 - 数据：只使用仓库内公开 demo metadata、schema、Skill 文档和临时 fixture。
 - 输出：审计脚本默认只读；如需要保存报告，应写到 `tests/reports/` 或明确的临时输出目录。
 
-## 6. 完整 JS 代码
+## 6. 完整 Python 复现代码
 
-```text
-本次未使用 JS。原因：RealAnalyst 当前主体是 Python CLI、Markdown/YAML/JSON 契约、metadata 文件和 Codex skill 工作流；审计目标不是浏览器渲染、Node 包或前端交互。Python 能直接复用项目路径、schema、YAML/JSON parser 和现有测试入口。
-替代复跑方式：python3 scripts/audit_project_contracts.py
+```python
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+repo = Path(__file__).resolve().parents[2]
+proc = subprocess.run(
+    [sys.executable, "scripts/audit_project_contracts.py"],
+    cwd=repo,
+    text=True,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+    check=False,
+)
+assert proc.returncode == 0, proc.stdout + proc.stderr
+payload = json.loads(proc.stdout)
+assert payload["success"] is True
+assert payload["summary"]["findings"]["error"] == 0
+assert payload["summary"]["findings"]["warning"] == 0
 ```
 
-## 7. 完整 JS 测试代码
+## 7. 完整 Python 测试代码
 
-```text
-本次未使用 JS 测试。原因：项目没有 Node package 或前端测试 harness；CI workflow 和项目审计入口使用 Python unittest/pytest 覆盖更贴合真实 source of truth。
-替代测试：python3 -m unittest tests.test_project_contract_audit
+```python
+def test_audit_script_outputs_json_and_no_errors(self) -> None:
+    proc = subprocess.run(
+        [sys.executable, str(AUDIT_SCRIPT)],
+        cwd=REPO,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+    payload = json.loads(proc.stdout)
+    self.assertTrue(payload["success"])
+    self.assertEqual(payload["summary"]["findings"]["error"], 0)
+    self.assertEqual(payload["summary"]["findings"]["warning"], 0)
+    self.assertGreaterEqual(payload["summary"]["skills_checked"], 10)
 ```
 
 ## 8. 复跑命令
