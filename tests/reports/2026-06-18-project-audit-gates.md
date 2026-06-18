@@ -8,6 +8,7 @@
 
 - 每个 `skills/*/SKILL.md` 的介绍信息、README、脚本目录、references 目录之间有基础一致性检查。
 - 每个 Skill 声明的脚本、references、交付物契约能被脚本化审计到，不只靠人工记忆；审计 inventory 要列出每个 Skill 的脚本和 reference 文件。
+- 核心交付链 `getting-started -> metadata -> analysis-run -> analysis-plan -> data-export -> data-profile -> report -> report-verify` 的相邻 handoff 必须被脚本化审计；每条相邻链路都要验证 producer outputs、consumer inputs、trigger/next step 和 state update 能在对应 Skill 文档中找到。
 - 审计 JSON 必须输出 Skill inventory、metadata 文件清单和核心交付链顺序，方便后续排查 Skill 介绍、代码入口和交付物是否断档。
 - metadata 目录中不应出现明显分层污染、生成层手工内容、断裂 source evidence、未被入口引用的脏文件或旧报告冒充真源。
 - 代码审计至少覆盖 Python 语法、测试收集、核心回归、schema JSON、CI workflow 与 `test.sh` 一致性。
@@ -53,6 +54,22 @@ payload = json.loads(proc.stdout)
 assert payload["success"] is True
 assert payload["summary"]["findings"]["error"] == 0
 assert payload["summary"]["findings"]["warning"] == 0
+
+handoff_matrix = payload["inventory"]["handoff_matrix"]
+expected_chain = [
+    "getting-started",
+    "metadata",
+    "analysis-run",
+    "analysis-plan",
+    "data-export",
+    "data-profile",
+    "report",
+    "report-verify",
+]
+assert [(edge["from"], edge["to"]) for edge in handoff_matrix] == list(
+    zip(expected_chain, expected_chain[1:])
+)
+assert all(edge["complete"] for edge in handoff_matrix)
 ```
 
 ## 7. 完整 Python 测试代码
@@ -73,6 +90,48 @@ def test_audit_script_outputs_json_and_no_errors(self) -> None:
     self.assertEqual(payload["summary"]["findings"]["error"], 0)
     self.assertEqual(payload["summary"]["findings"]["warning"], 0)
     self.assertGreaterEqual(payload["summary"]["skills_checked"], 10)
+
+def test_audit_inventory_covers_handoff_matrix(self) -> None:
+    audit = _load_audit_module()
+    payload = audit.run_audit()
+    matrix = payload["inventory"]["handoff_matrix"]
+
+    self.assertEqual(len(matrix), len(audit.EXPECTED_PIPELINE_SKILLS) - 1)
+    self.assertEqual(
+        [(edge["from"], edge["to"]) for edge in matrix],
+        list(zip(audit.EXPECTED_PIPELINE_SKILLS, audit.EXPECTED_PIPELINE_SKILLS[1:])),
+    )
+    self.assertTrue(all(edge["complete"] for edge in matrix))
+
+def test_data_export_to_data_profile_handoff_has_required_contract_tokens(self) -> None:
+    audit = _load_audit_module()
+    matrix = audit.build_handoff_matrix()
+    edge = next(item for item in matrix if item["from"] == "data-export" and item["to"] == "data-profile")
+
+    checks = edge["checks"]
+    self.assertTrue(checks["producer_outputs"]["found"])
+    self.assertTrue(checks["consumer_inputs"]["found"])
+    self.assertTrue(checks["trigger_or_next_step"]["found"])
+    self.assertTrue(checks["state_update"]["found"])
+    self.assertIn(["export_summary"], [item["tokens"] for item in checks["producer_outputs"]["token_groups"]])
+    self.assertIn(["duckdb_export_summary.json"], [item["tokens"] for item in checks["consumer_inputs"]["token_groups"]])
+    self.assertIn(["RA:data-profile"], [item["tokens"] for item in checks["trigger_or_next_step"]["token_groups"]])
+    self.assertIn(["job_manifest 更新"], [item["tokens"] for item in checks["state_update"]["token_groups"]])
+
+def test_report_to_report_verify_handoff_has_required_contract_tokens(self) -> None:
+    audit = _load_audit_module()
+    matrix = audit.build_handoff_matrix()
+    edge = next(item for item in matrix if item["from"] == "report" and item["to"] == "report-verify")
+
+    checks = edge["checks"]
+    self.assertTrue(checks["producer_outputs"]["found"])
+    self.assertTrue(checks["consumer_inputs"]["found"])
+    self.assertTrue(checks["trigger_or_next_step"]["found"])
+    self.assertTrue(checks["state_update"]["found"])
+    self.assertIn(["输出文件清单"], [item["tokens"] for item in checks["producer_outputs"]["token_groups"]])
+    self.assertIn(["report_md"], [item["tokens"] for item in checks["consumer_inputs"]["token_groups"]])
+    self.assertIn(["RA:report-verify"], [item["tokens"] for item in checks["trigger_or_next_step"]["token_groups"]])
+    self.assertIn(["verification.json"], [item["tokens"] for item in checks["state_update"]["token_groups"]])
 ```
 
 ## 8. 复跑命令
@@ -86,9 +145,9 @@ bash test.sh
 
 ## 9. 实际结果
 
-- 已通过：`python3 scripts/audit_project_contracts.py`，检查 15 个 Skill、9 个 schema、1 个 dataset 文件，error/warning 均为 0；输出包含 Skill inventory、每个 Skill 的脚本和 references、metadata 文件清单、source evidence 清单和核心交付链。
+- 已通过：`python3 scripts/audit_project_contracts.py`，检查 15 个 Skill、9 个 schema、1 个 dataset 文件，error/warning 均为 0；输出包含 Skill inventory、每个 Skill 的脚本和 references、metadata 文件清单、source evidence 清单、核心交付链和 handoff matrix。
 - 已修复并验证：`metadata/dictionaries/demo.retail.dictionary.yaml` 原本引用 `metadata/sources/demo.md`，审计升级后发现该 evidence 文件缺失；已补 `metadata/sources/demo.md` 并通过 `metadata_source_evidence` 检查。
-- 已通过：`python3 -m unittest tests.test_project_contract_audit`，7 个测试覆盖 JSON 输出、0 warning、`test.sh` 接入、RA skill 前缀、pytest 收集边界、Skill 脚本 inventory、metadata model/mapping/dictionary/source 引用完整性和 `data-export` 交付链契约。
+- 已通过：`python3 -m unittest tests.test_project_contract_audit`，10 个测试覆盖 JSON 输出、0 warning、`test.sh` 接入、RA skill 前缀、pytest 收集边界、Skill 脚本 inventory、metadata model/mapping/dictionary/source 引用完整性、完整 handoff matrix，以及 `data-export -> data-profile`、`report -> report-verify` 两条关键链路的 outputs / inputs / next step / state tokens。
 - 已通过：`python3 scripts/run_manifest_workflow_regression.py`，`35 passed, 9 subtests passed`。
 - 已通过：`bash test.sh`，包含 plugin manifest JSON、metadata validate、项目契约审计、CI workflow unittest、全仓 unittest discover（93 个测试）、manifest workflow regression（35 个 focused tests + 9 个 subtests）和 `git diff --check`。
 

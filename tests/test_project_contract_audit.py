@@ -57,6 +57,48 @@ class ProjectContractAuditTests(unittest.TestCase):
         )
         self.assertIn("skills/report/references/output-contract.md", skills["report"]["references"])
 
+    def test_audit_inventory_covers_handoff_matrix(self) -> None:
+        audit = _load_audit_module()
+        payload = audit.run_audit()
+        matrix = payload["inventory"]["handoff_matrix"]
+
+        self.assertEqual(len(matrix), len(audit.EXPECTED_PIPELINE_SKILLS) - 1)
+        self.assertEqual(
+            [(edge["from"], edge["to"]) for edge in matrix],
+            list(zip(audit.EXPECTED_PIPELINE_SKILLS, audit.EXPECTED_PIPELINE_SKILLS[1:])),
+        )
+        self.assertTrue(all(edge["complete"] for edge in matrix))
+
+    def test_data_export_to_data_profile_handoff_has_required_contract_tokens(self) -> None:
+        audit = _load_audit_module()
+        matrix = audit.build_handoff_matrix()
+        edge = next(item for item in matrix if item["from"] == "data-export" and item["to"] == "data-profile")
+
+        checks = edge["checks"]
+        self.assertTrue(checks["producer_outputs"]["found"])
+        self.assertTrue(checks["consumer_inputs"]["found"])
+        self.assertTrue(checks["trigger_or_next_step"]["found"])
+        self.assertTrue(checks["state_update"]["found"])
+        self.assertIn(["export_summary"], [item["tokens"] for item in checks["producer_outputs"]["token_groups"]])
+        self.assertIn(["duckdb_export_summary.json"], [item["tokens"] for item in checks["consumer_inputs"]["token_groups"]])
+        self.assertIn(["RA:data-profile"], [item["tokens"] for item in checks["trigger_or_next_step"]["token_groups"]])
+        self.assertIn(["job_manifest 更新"], [item["tokens"] for item in checks["state_update"]["token_groups"]])
+
+    def test_report_to_report_verify_handoff_has_required_contract_tokens(self) -> None:
+        audit = _load_audit_module()
+        matrix = audit.build_handoff_matrix()
+        edge = next(item for item in matrix if item["from"] == "report" and item["to"] == "report-verify")
+
+        checks = edge["checks"]
+        self.assertTrue(checks["producer_outputs"]["found"])
+        self.assertTrue(checks["consumer_inputs"]["found"])
+        self.assertTrue(checks["trigger_or_next_step"]["found"])
+        self.assertTrue(checks["state_update"]["found"])
+        self.assertIn(["输出文件清单"], [item["tokens"] for item in checks["producer_outputs"]["token_groups"]])
+        self.assertIn(["report_md"], [item["tokens"] for item in checks["consumer_inputs"]["token_groups"]])
+        self.assertIn(["RA:report-verify"], [item["tokens"] for item in checks["trigger_or_next_step"]["token_groups"]])
+        self.assertIn(["verification.json"], [item["tokens"] for item in checks["state_update"]["token_groups"]])
+
     def test_audit_inventory_covers_metadata_relationships(self) -> None:
         audit = _load_audit_module()
         payload = audit.run_audit()

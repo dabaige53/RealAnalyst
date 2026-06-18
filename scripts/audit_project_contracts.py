@@ -49,6 +49,64 @@ SKILL_DELIVERY_TOKENS = {
     "report": ["job_manifest", "输出文件清单", "report-verify"],
     "report-verify": ["verification.json", "failed", "passed"],
 }
+HANDOFF_CONTRACTS = [
+    {
+        "producer": "getting-started",
+        "consumer": "metadata",
+        "producer_outputs": [["doctor.py"], ["推荐路径", "metadata 初始化命令"]],
+        "consumer_inputs": [["doctor 输出"], ["metadata/sources", "metadata/datasets"]],
+        "trigger_or_next_step": [["RA:metadata"]],
+        "state_update": [["不创建目录", "不写 metadata"], ["metadata/datasets", "runtime/registry.db"]],
+    },
+    {
+        "producer": "metadata",
+        "consumer": "analysis-run",
+        "producer_outputs": [["context pack"], ["registry", "index", "context"]],
+        "consumer_inputs": [["metadata context"], ["runtime registry"]],
+        "trigger_or_next_step": [["RA:analysis-run"]],
+        "state_update": [["metadata_index"], ["runtime_registry"], ["export_ready"]],
+    },
+    {
+        "producer": "analysis-run",
+        "consumer": "analysis-plan",
+        "producer_outputs": [["normalized_request.json"], ["metadata context"]],
+        "consumer_inputs": [["normalized_request.json"], ["metadata context pack"]],
+        "trigger_or_next_step": [["RA:analysis-plan"]],
+        "state_update": [["analysis_plan.md"], ["job_manifest.json"]],
+    },
+    {
+        "producer": "analysis-plan",
+        "consumer": "data-export",
+        "producer_outputs": [["analysis_plan.md"], ["job_manifest planning"], ["下一步取数动作"]],
+        "consumer_inputs": [["source_id"], ["取数字段"], ["过滤条件"], ["SESSION_ID"]],
+        "trigger_or_next_step": [["正式取数前"], ["下一步取数动作"]],
+        "state_update": [["job_manifest.json"], ["job_manifest"]],
+    },
+    {
+        "producer": "data-export",
+        "consumer": "data-profile",
+        "producer_outputs": [["正式 CSV"], ["export_summary"], ["duckdb_export_summary"], ["job_manifest"]],
+        "consumer_inputs": [["正式 CSV"], ["export_summary.json"], ["duckdb_export_summary.json"], ["SESSION_ID"]],
+        "trigger_or_next_step": [["RA:data-profile"]],
+        "state_update": [["artifact index 更新"], ["job_manifest 更新"], ["acquisition_log.jsonl"]],
+    },
+    {
+        "producer": "data-profile",
+        "consumer": "report",
+        "producer_outputs": [["profile/manifest.json"], ["profile/profile.json"], ["job_manifest"]],
+        "consumer_inputs": [["profile/manifest.json"], ["profile/profile.json"], ["job_manifest.json"]],
+        "trigger_or_next_step": [["RA:report"], ["analysis-run"]],
+        "state_update": [["artifact_index.json"], ["job_manifest.json"], ["analysis_journal.md"]],
+    },
+    {
+        "producer": "report",
+        "consumer": "report-verify",
+        "producer_outputs": [["报告 Markdown"], ["输出文件清单"], ["job_manifest"]],
+        "consumer_inputs": [["report_md"], ["analysis_json"], ["data_csv"], ["output_dir"]],
+        "trigger_or_next_step": [["RA:report-verify"]],
+        "state_update": [["job_manifest.json"], ["verification.json"], ["delivery_manifest.json"]],
+    },
+]
 
 
 def rel(path: Path) -> str:
@@ -418,6 +476,92 @@ def audit_delivery_chain(findings: list[dict[str, Any]]) -> None:
         )
 
 
+def _skill_docs(skill_name: str) -> str:
+    skill_dir = REPO / "skills" / skill_name
+    docs: list[str] = []
+    for path in (skill_dir / "SKILL.md", skill_dir / "README.md"):
+        if path.exists():
+            docs.append(read_text(path))
+    return "\n".join(docs)
+
+
+def _token_group_found(text: str, group: list[str]) -> bool:
+    return all(token in text for token in group)
+
+
+def _handoff_category_status(contract: dict[str, Any], category: str, producer_docs: str, consumer_docs: str) -> dict[str, Any]:
+    docs = consumer_docs if category == "consumer_inputs" else producer_docs
+    if category == "state_update":
+        docs = producer_docs + "\n" + consumer_docs
+    groups = contract[category]
+    group_statuses = [
+        {
+            "tokens": group,
+            "found": _token_group_found(docs, group),
+        }
+        for group in groups
+    ]
+    return {
+        "found": any(item["found"] for item in group_statuses),
+        "token_groups": group_statuses,
+    }
+
+
+def build_handoff_matrix() -> list[dict[str, Any]]:
+    matrix: list[dict[str, Any]] = []
+    for contract in HANDOFF_CONTRACTS:
+        producer = contract["producer"]
+        consumer = contract["consumer"]
+        producer_docs = _skill_docs(producer)
+        consumer_docs = _skill_docs(consumer)
+        categories = {
+            category: _handoff_category_status(contract, category, producer_docs, consumer_docs)
+            for category in (
+                "producer_outputs",
+                "consumer_inputs",
+                "trigger_or_next_step",
+                "state_update",
+            )
+        }
+        matrix.append(
+            {
+                "from": producer,
+                "to": consumer,
+                "producer_doc": f"skills/{producer}/SKILL.md",
+                "consumer_doc": f"skills/{consumer}/SKILL.md",
+                "checks": categories,
+                "complete": all(item["found"] for item in categories.values()),
+            }
+        )
+    return matrix
+
+
+def audit_handoff_contracts(findings: list[dict[str, Any]]) -> None:
+    for edge in build_handoff_matrix():
+        producer_dir = REPO / "skills" / edge["from"]
+        consumer_dir = REPO / "skills" / edge["to"]
+        if not producer_dir.exists() or not consumer_dir.exists():
+            finding(
+                findings,
+                severity="error",
+                check="skill_handoff_contract",
+                path="skills",
+                message=f"核心交付链 handoff 指向不存在的 Skill: {edge['from']} -> {edge['to']}",
+            )
+            continue
+        for category, status in edge["checks"].items():
+            if status["found"]:
+                continue
+            finding(
+                findings,
+                severity="warning",
+                check="skill_handoff_contract",
+                path=producer_dir if category != "consumer_inputs" else consumer_dir,
+                message=f"核心交付链 {edge['from']} -> {edge['to']} 缺少 {category} 契约证据",
+                evidence=json.dumps(status["token_groups"], ensure_ascii=False),
+            )
+
+
 def build_inventory() -> dict[str, Any]:
     skills: list[dict[str, Any]] = []
     for skill_file in sorted((REPO / "skills").glob("*/SKILL.md")):
@@ -469,6 +613,7 @@ def build_inventory() -> dict[str, Any]:
         "skills": skills,
         "metadata_files": metadata_files,
         "delivery_chain": EXPECTED_PIPELINE_SKILLS,
+        "handoff_matrix": build_handoff_matrix(),
     }
 
 
@@ -480,6 +625,7 @@ def run_audit() -> dict[str, Any]:
     audit_schemas(findings)
     audit_metadata(findings)
     audit_delivery_chain(findings)
+    audit_handoff_contracts(findings)
     counts = {severity: sum(1 for item in findings if item["severity"] == severity) for severity in SEVERITY_ORDER}
     return {
         "success": counts["error"] == 0,
