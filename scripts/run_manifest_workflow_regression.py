@@ -18,6 +18,7 @@ FOCUSED_TESTS = [
     "tests/test_analysis_reference_frameworks.py",
     "tests/test_analysis_plan_contract.py",
     "tests/test_ci_workflows.py",
+    "tests/test_project_contract_audit.py",
     "tests/test_legacy_job_manifest_migration.py",
     "tests/test_finalize_job_archive.py",
 ]

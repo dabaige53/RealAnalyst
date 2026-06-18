@@ -1,0 +1,317 @@
+#!/usr/bin/env python3
+"""Audit RealAnalyst project contracts across skills, code, metadata, and tests."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+try:
+    import yaml
+except ModuleNotFoundError:  # pragma: no cover - dependency is installed in CI.
+    yaml = None  # type: ignore[assignment]
+
+
+REPO = Path(__file__).resolve().parents[1]
+SEVERITY_ORDER = {"info": 0, "warning": 1, "error": 2}
+FORBIDDEN_DATASET_KEYS = {
+    "sample_profile",
+    "sample_values",
+    "top_values",
+    "enum_values",
+    "source_mapping",
+    "duckdb_type",
+    "nullable",
+    "definition_source",
+}
+EXPECTED_PIPELINE_SKILLS = [
+    "getting-started",
+    "metadata",
+    "analysis-run",
+    "analysis-plan",
+    "data-export",
+    "data-profile",
+    "report",
+    "report-verify",
+]
+
+
+def rel(path: Path) -> str:
+    try:
+        return path.relative_to(REPO).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def finding(
+    findings: list[dict[str, Any]],
+    *,
+    severity: str,
+    check: str,
+    message: str,
+    path: Path | str | None = None,
+    evidence: str = "",
+) -> None:
+    findings.append(
+        {
+            "severity": severity,
+            "check": check,
+            "path": rel(path) if isinstance(path, Path) else path,
+            "message": message,
+            "evidence": evidence,
+        }
+    )
+
+
+def read_text(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+
+
+def audit_test_layout(findings: list[dict[str, Any]]) -> None:
+    if not (REPO / "tests").is_dir():
+        finding(findings, severity="error", check="test_layout", path="tests", message="缺少唯一代码测试目录 tests/")
+    if (REPO / "Test").exists() or (REPO / "test").is_dir():
+        finding(
+            findings,
+            severity="error",
+            check="test_layout",
+            message="不应存在第二套顶层 Test/test 目录；测试文档应放入 docs/testing/",
+        )
+    if not (REPO / "docs" / "testing").is_dir():
+        finding(
+            findings,
+            severity="error",
+            check="test_layout",
+            path="docs/testing",
+            message="缺少测试需求报告目录 docs/testing/",
+        )
+    test_sh = REPO / "test.sh"
+    if not test_sh.exists():
+        finding(findings, severity="error", check="test_sh", path=test_sh, message="缺少根目录一键测试入口 test.sh")
+        return
+    script = read_text(test_sh)
+    required_tokens = [
+        "-m json.tool .codex-plugin/plugin.json",
+        "skills/metadata/scripts/metadata.py validate",
+        "-m unittest discover -s tests",
+        "scripts/run_manifest_workflow_regression.py",
+        "scripts/audit_project_contracts.py",
+    ]
+    for token in required_tokens:
+        if token not in script:
+            finding(findings, severity="error", check="test_sh", path=test_sh, message=f"test.sh 缺少测试命令: {token}")
+    ci = REPO / ".github" / "workflows" / "ci.yml"
+    if ci.exists() and "bash test.sh" not in read_text(ci):
+        finding(findings, severity="error", check="ci_alignment", path=ci, message="CI 未调用 bash test.sh")
+
+
+def parse_frontmatter(text: str) -> dict[str, str]:
+    if not text.startswith("---\n"):
+        return {}
+    end = text.find("\n---", 4)
+    if end == -1:
+        return {}
+    payload: dict[str, str] = {}
+    for line in text[4:end].splitlines():
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        payload[key.strip()] = value.strip().strip('"')
+    return payload
+
+
+def audit_skills(findings: list[dict[str, Any]]) -> None:
+    skills_dir = REPO / "skills"
+    skill_files = sorted(skills_dir.glob("*/SKILL.md"))
+    if not skill_files:
+        finding(findings, severity="error", check="skills", path=skills_dir, message="未发现任何 Skill")
+        return
+
+    skill_names = {path.parent.name for path in skill_files}
+    for expected in EXPECTED_PIPELINE_SKILLS:
+        if expected not in skill_names:
+            finding(findings, severity="error", check="skill_pipeline", path=skills_dir, message=f"核心交付链缺少 skill: {expected}")
+
+    for skill_file in skill_files:
+        skill_dir = skill_file.parent
+        text = read_text(skill_file)
+        frontmatter = parse_frontmatter(text)
+        name = frontmatter.get("name", "")
+        description = frontmatter.get("description", "")
+        if not name or not description:
+            finding(findings, severity="error", check="skill_frontmatter", path=skill_file, message="SKILL.md frontmatter 必须包含 name 和 description")
+        normalized_name = name.removeprefix("RA:")
+        if name and normalized_name != skill_dir.name:
+            finding(
+                findings,
+                severity="warning",
+                check="skill_frontmatter",
+                path=skill_file,
+                message=f"Skill name 与目录名不一致: {name} != {skill_dir.name}",
+            )
+        readme = skill_dir / "README.md"
+        if not readme.exists():
+            finding(findings, severity="warning", check="skill_readme", path=skill_dir, message="Skill 缺少 README.md")
+        completion_count = len(re.findall(r"(?m)^## Completion Summary\b", text))
+        if completion_count != 1:
+            finding(
+                findings,
+                severity="warning",
+                check="skill_completion_summary",
+                path=skill_file,
+                message=f"SKILL.md 应有且仅有一个 Completion Summary，当前为 {completion_count}",
+            )
+        for match in re.finditer(r"(?<![\w.-])([A-Za-z0-9_./-]+\.py)\b", text):
+            candidate = match.group(1)
+            if candidate.startswith(("http", "/")):
+                continue
+            path = (skill_dir / candidate).resolve() if not candidate.startswith("skills/") else (REPO / candidate).resolve()
+            if "scripts/" in candidate and not path.exists():
+                finding(
+                    findings,
+                    severity="warning",
+                    check="skill_script_reference",
+                    path=skill_file,
+                    message=f"SKILL.md 引用了不存在的脚本: {candidate}",
+                )
+
+
+def audit_python_collection(findings: list[dict[str, Any]]) -> None:
+    ignored_roots = {".git", ".venv", "venv", "node_modules", "__pycache__"}
+    for path in sorted(REPO.glob("**/test_*.py")):
+        relative = path.relative_to(REPO)
+        if any(part in ignored_roots for part in relative.parts) or relative.parts[0] == "tests":
+            continue
+        text = read_text(path)
+        if "__test__ = False" not in text:
+            finding(
+                findings,
+                severity="error",
+                check="pytest_collection",
+                path=path,
+                message="tests/ 外的 test_*.py 必须设置 __test__ = False，避免被 pytest 误收集",
+            )
+
+
+def audit_schemas(findings: list[dict[str, Any]]) -> None:
+    for path in sorted((REPO / "schemas").glob("*.json")):
+        try:
+            json.loads(read_text(path))
+        except json.JSONDecodeError as exc:
+            finding(findings, severity="error", check="schema_json", path=path, message="JSON schema 语法错误", evidence=str(exc))
+
+
+def walk_mapping(value: Any) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    if isinstance(value, dict):
+        out.append(value)
+        for item in value.values():
+            out.extend(walk_mapping(item))
+    elif isinstance(value, list):
+        for item in value:
+            out.extend(walk_mapping(item))
+    return out
+
+
+def audit_metadata(findings: list[dict[str, Any]]) -> None:
+    if yaml is None:
+        finding(findings, severity="error", check="metadata_yaml", message="PyYAML 不可用，无法审计 metadata YAML")
+        return
+    for path in sorted((REPO / "metadata" / "datasets").glob("*.yaml")):
+        try:
+            payload = yaml.safe_load(read_text(path))
+        except Exception as exc:  # pragma: no cover - defensive reporting.
+            finding(findings, severity="error", check="metadata_yaml", path=path, message="dataset YAML 无法解析", evidence=str(exc))
+            continue
+        for mapping in walk_mapping(payload):
+            forbidden = sorted(FORBIDDEN_DATASET_KEYS.intersection(mapping.keys()))
+            if forbidden:
+                finding(
+                    findings,
+                    severity="error",
+                    check="metadata_layering",
+                    path=path,
+                    message=f"dataset YAML 包含禁止字段: {', '.join(forbidden)}",
+                )
+    index_dir = REPO / "metadata" / "index"
+    if index_dir.exists():
+        for path in sorted(index_dir.iterdir()):
+            if path.name == "README.md":
+                continue
+            if path.suffix not in {".jsonl", ".db"}:
+                finding(
+                    findings,
+                    severity="warning",
+                    check="metadata_index",
+                    path=path,
+                    message="metadata/index 是生成层，应只包含预期生成文件",
+                )
+
+
+def audit_delivery_chain(findings: list[dict[str, Any]]) -> None:
+    readme = read_text(REPO / "skills" / "README.md") if (REPO / "skills" / "README.md").exists() else ""
+    for expected in EXPECTED_PIPELINE_SKILLS:
+        marker = f"RA:{expected}"
+        if marker not in readme:
+            finding(
+                findings,
+                severity="warning",
+                check="skill_delivery_chain",
+                path="skills/README.md",
+                message=f"skills/README.md 未提及核心入口或流程节点 {marker}",
+            )
+    report_contract = REPO / "skills" / "report" / "references" / "output-contract.md"
+    if report_contract.exists() and "job_manifest" not in read_text(report_contract):
+        finding(
+            findings,
+            severity="warning",
+            check="report_contract",
+            path=report_contract,
+            message="report output contract 未提及 job_manifest 用户可见交付物来源",
+        )
+
+
+def run_audit() -> dict[str, Any]:
+    findings: list[dict[str, Any]] = []
+    audit_test_layout(findings)
+    audit_skills(findings)
+    audit_python_collection(findings)
+    audit_schemas(findings)
+    audit_metadata(findings)
+    audit_delivery_chain(findings)
+    counts = {severity: sum(1 for item in findings if item["severity"] == severity) for severity in SEVERITY_ORDER}
+    return {
+        "success": counts["error"] == 0,
+        "summary": {
+            "skills_checked": len(list((REPO / "skills").glob("*/SKILL.md"))),
+            "schemas_checked": len(list((REPO / "schemas").glob("*.json"))),
+            "dataset_files_checked": len(list((REPO / "metadata" / "datasets").glob("*.yaml"))),
+            "findings": counts,
+        },
+        "findings": findings,
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Audit RealAnalyst project contracts.")
+    parser.add_argument(
+        "--fail-on",
+        choices=sorted(SEVERITY_ORDER),
+        default="error",
+        help="Exit non-zero when findings at or above this severity exist.",
+    )
+    args = parser.parse_args()
+    payload = run_audit()
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    threshold = SEVERITY_ORDER[args.fail_on]
+    should_fail = any(SEVERITY_ORDER[item["severity"]] >= threshold for item in payload["findings"])
+    return 1 if should_fail else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
