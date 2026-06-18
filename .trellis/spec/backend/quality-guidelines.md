@@ -32,10 +32,12 @@
 | DuckDB export | 使用 `skills/data-export/scripts/duckdb/run_tests.py` 或最小 export smoke |
 | release / installer | `python3 scripts/check_release_alignment.py --allow-network-failure`，并检查 `scripts/install_codex_plugin.py` 的 dry-run 或 smoke path |
 | 全仓回归 | `python3 -m pytest tests/test_metadata_product_fixes.py` |
+| GitHub Actions / regression gate | `python3 -m unittest tests/test_ci_workflows.py`，再跑 `python3 scripts/run_manifest_workflow_regression.py` |
 
 用户态输出改动还应运行或补充相应 leak 检查，例如 `tests/test_analysis_run_manifest_integration.py`、`tests/test_report_manifest_deliverables.py`、`tests/test_report_verify_user_surface.py`。
 
 CI 里已有 `.github/workflows/ci.yml` 运行 `python skills/metadata/scripts/metadata.py validate`。不要把本地未通过的 metadata validation 留给 CI。
+修改 `.github/workflows/*.yml` 或 `scripts/run_manifest_workflow_regression.py` 时，必须同步 `tests/test_ci_workflows.py` 和 `.github/workflows/README.md`，确保触发条件、权限、Python 版本和测试命令都有回归断言。
 
 ---
 
