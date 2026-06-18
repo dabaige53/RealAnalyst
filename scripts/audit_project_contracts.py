@@ -275,12 +275,16 @@ def audit_metadata(findings: list[dict[str, Any]]) -> None:
     if yaml is None:
         finding(findings, severity="error", check="metadata_yaml", message="PyYAML 不可用，无法审计 metadata YAML")
         return
+    dataset_ids: dict[str, Path] = {}
+
     for path in sorted((REPO / "metadata" / "datasets").glob("*.yaml")):
         try:
             payload = yaml.safe_load(read_text(path))
         except Exception as exc:  # pragma: no cover - defensive reporting.
             finding(findings, severity="error", check="metadata_yaml", path=path, message="dataset YAML 无法解析", evidence=str(exc))
             continue
+        if isinstance(payload, dict) and isinstance(payload.get("id"), str):
+            dataset_ids[payload["id"]] = path
         for mapping in walk_mapping(payload):
             forbidden = sorted(FORBIDDEN_DATASET_KEYS.intersection(mapping.keys()))
             if forbidden:
@@ -291,6 +295,74 @@ def audit_metadata(findings: list[dict[str, Any]]) -> None:
                     path=path,
                     message=f"dataset YAML 包含禁止字段: {', '.join(forbidden)}",
                 )
+        if isinstance(payload, dict):
+            mapping_ref = payload.get("mapping_ref")
+            if isinstance(mapping_ref, str) and mapping_ref:
+                mapping_path = REPO / "metadata" / "mappings" / f"{mapping_ref}.yaml"
+                if not mapping_path.exists():
+                    finding(
+                        findings,
+                        severity="error",
+                        check="metadata_reference",
+                        path=path,
+                        message=f"dataset mapping_ref 指向不存在的 mapping: {mapping_ref}",
+                    )
+            for dictionary_ref in payload.get("dictionary_refs") or []:
+                if isinstance(dictionary_ref, str):
+                    dictionary_path = REPO / "metadata" / "dictionaries" / f"{dictionary_ref}.yaml"
+                    if not dictionary_path.exists():
+                        finding(
+                            findings,
+                            severity="error",
+                            check="metadata_reference",
+                            path=path,
+                            message=f"dataset dictionary_refs 指向不存在的 dictionary: {dictionary_ref}",
+                        )
+
+    for path in sorted((REPO / "metadata" / "mappings").glob("*.yaml")):
+        try:
+            payload = yaml.safe_load(read_text(path))
+        except Exception as exc:  # pragma: no cover - defensive reporting.
+            finding(findings, severity="error", check="metadata_yaml", path=path, message="mapping YAML 无法解析", evidence=str(exc))
+            continue
+        if isinstance(payload, dict):
+            source_id = payload.get("source_id")
+            if isinstance(source_id, str) and source_id not in dataset_ids:
+                finding(
+                    findings,
+                    severity="error",
+                    check="metadata_reference",
+                    path=path,
+                    message=f"mapping source_id 指向不存在的 dataset: {source_id}",
+                )
+            _audit_source_evidence_paths(findings, path, payload)
+
+    for path in sorted((REPO / "metadata" / "dictionaries").glob("*.yaml")):
+        try:
+            payload = yaml.safe_load(read_text(path))
+        except Exception as exc:  # pragma: no cover - defensive reporting.
+            finding(findings, severity="error", check="metadata_yaml", path=path, message="dictionary YAML 无法解析", evidence=str(exc))
+            continue
+        if isinstance(payload, dict):
+            _audit_source_evidence_paths(findings, path, payload)
+
+    for path in sorted((REPO / "metadata" / "models").glob("*.yaml")):
+        try:
+            payload = yaml.safe_load(read_text(path))
+        except Exception as exc:  # pragma: no cover - defensive reporting.
+            finding(findings, severity="error", check="metadata_yaml", path=path, message="model YAML 无法解析", evidence=str(exc))
+            continue
+        if isinstance(payload, dict):
+            for dataset_id in payload.get("datasets") or []:
+                if isinstance(dataset_id, str) and dataset_id not in dataset_ids:
+                    finding(
+                        findings,
+                        severity="error",
+                        check="metadata_reference",
+                        path=path,
+                        message=f"model datasets 指向不存在的 dataset: {dataset_id}",
+                    )
+
     index_dir = REPO / "metadata" / "index"
     if index_dir.exists():
         for path in sorted(index_dir.iterdir()):
@@ -304,6 +376,23 @@ def audit_metadata(findings: list[dict[str, Any]]) -> None:
                     path=path,
                     message="metadata/index 是生成层，应只包含预期生成文件",
                 )
+
+
+def _audit_source_evidence_paths(findings: list[dict[str, Any]], owner_path: Path, payload: Any) -> None:
+    for mapping in walk_mapping(payload):
+        source = mapping.get("source") if isinstance(mapping, dict) else None
+        if not isinstance(source, str) or not source.startswith("metadata/"):
+            continue
+        if any(ch in source for ch in "*?[]"):
+            continue
+        if not (REPO / source).exists():
+            finding(
+                findings,
+                severity="error",
+                check="metadata_source_evidence",
+                path=owner_path,
+                message=f"source_evidence 指向不存在的文件: {source}",
+            )
 
 
 def audit_delivery_chain(findings: list[dict[str, Any]]) -> None:
@@ -336,7 +425,10 @@ def build_inventory() -> dict[str, Any]:
         text = read_text(skill_file)
         readme = skill_dir / "README.md"
         readme_text = read_text(readme) if readme.exists() else ""
+        combined_docs = text + "\n" + readme_text
         frontmatter = parse_frontmatter(text)
+        script_paths = sorted(rel(path) for path in (skill_dir / "scripts").glob("**/*.py")) if (skill_dir / "scripts").exists() else []
+        reference_paths = sorted(rel(path) for path in (skill_dir / "references").glob("**/*") if path.is_file()) if (skill_dir / "references").exists() else []
         skills.append(
             {
                 "id": skill_dir.name,
@@ -346,8 +438,17 @@ def build_inventory() -> dict[str, Any]:
                 "has_input_output_section": "## 输入与输出" in readme_text,
                 "has_next_step_row": "| 下一步 |" in readme_text,
                 "completion_summary_count": len(re.findall(r"(?m)^## Completion Summary\b", text)),
-                "script_count": len(list((skill_dir / "scripts").glob("**/*.py"))) if (skill_dir / "scripts").exists() else 0,
-                "reference_count": len([p for p in (skill_dir / "references").glob("**/*") if p.is_file()]) if (skill_dir / "references").exists() else 0,
+                "script_count": len(script_paths),
+                "scripts": [
+                    {
+                        "path": script_path,
+                        "mentioned_in_skill_or_readme": Path(script_path).name in combined_docs
+                        or script_path in combined_docs,
+                    }
+                    for script_path in script_paths
+                ],
+                "reference_count": len(reference_paths),
+                "references": reference_paths,
                 "delivery_tokens": {
                     token: token in (text + "\n" + readme_text)
                     for token in SKILL_DELIVERY_TOKENS.get(skill_dir.name, [])
@@ -359,6 +460,9 @@ def build_inventory() -> dict[str, Any]:
         "datasets": sorted(rel(path) for path in (REPO / "metadata" / "datasets").glob("*.yaml")),
         "dictionaries": sorted(rel(path) for path in (REPO / "metadata" / "dictionaries").glob("*.yaml")),
         "mappings": sorted(rel(path) for path in (REPO / "metadata" / "mappings").glob("*.yaml")),
+        "models": sorted(rel(path) for path in (REPO / "metadata" / "models").glob("*.yaml")),
+        "sources": sorted(rel(path) for path in (REPO / "metadata" / "sources").glob("*") if path.is_file()),
+        "sync_examples": sorted(rel(path) for path in (REPO / "metadata" / "sync").glob("**/*") if path.is_file() and path.name != "README.md"),
         "generated_index": sorted(rel(path) for path in (REPO / "metadata" / "index").glob("*") if path.is_file()),
     }
     return {

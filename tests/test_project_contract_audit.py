@@ -48,6 +48,36 @@ class ProjectContractAuditTests(unittest.TestCase):
         self.assertTrue(skills["data-export"]["has_input_output_section"])
         self.assertTrue(skills["data-export"]["has_next_step_row"])
         self.assertTrue(all(skills["data-export"]["delivery_tokens"].values()))
+        self.assertIn(
+            {
+                "path": "skills/data-export/scripts/duckdb/export_duckdb_source.py",
+                "mentioned_in_skill_or_readme": True,
+            },
+            skills["data-export"]["scripts"],
+        )
+        self.assertIn("skills/report/references/output-contract.md", skills["report"]["references"])
+
+    def test_audit_inventory_covers_metadata_relationships(self) -> None:
+        audit = _load_audit_module()
+        payload = audit.run_audit()
+        metadata_files = payload["inventory"]["metadata_files"]
+
+        self.assertIn("metadata/datasets/demo.retail.orders.yaml", metadata_files["datasets"])
+        self.assertIn("metadata/mappings/demo.retail.orders.mapping.yaml", metadata_files["mappings"])
+        self.assertIn("metadata/dictionaries/demo.retail.dictionary.yaml", metadata_files["dictionaries"])
+        self.assertIn("metadata/models/demo_retail.yaml", metadata_files["models"])
+        self.assertIn("metadata/sources/demo.md", metadata_files["sources"])
+
+    def test_metadata_reference_audit_has_no_missing_source_evidence(self) -> None:
+        audit = _load_audit_module()
+        findings: list[dict] = []
+        audit.audit_metadata(findings)
+        source_evidence_errors = [
+            item
+            for item in findings
+            if item["check"] in {"metadata_reference", "metadata_source_evidence"}
+        ]
+        self.assertEqual(source_evidence_errors, [])
 
     def test_test_sh_runs_project_contract_audit(self) -> None:
         script = (REPO / "test.sh").read_text(encoding="utf-8")
