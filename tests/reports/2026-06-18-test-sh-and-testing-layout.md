@@ -52,11 +52,12 @@ git diff --check
 
 ## 9. 实际结果
 
-- 历史验收曾通过：`bash test.sh`，当时入口包含全仓 unittest discover、plugin manifest JSON 校验、manifest workflow regression 和 metadata validate。
-- 本轮入口已调整为当前推荐命令：`python3 scripts/run_manifest_workflow_regression.py`、`python3 -m unittest tests.test_ci_workflows`、`python3 skills/metadata/scripts/metadata.py validate`、`git diff --check`。
+- 已通过：`bash test.sh`。
+- 覆盖命令：plugin manifest JSON 校验、metadata validate、project contract audit、CI workflow unittest、全仓 unittest discover、manifest workflow regression、`git diff --check`。
+- 实际结果：`python3 -m unittest discover -s tests` 为 `Ran 91 tests ... OK`；`python3 scripts/run_manifest_workflow_regression.py` 为 `33 passed, 9 subtests passed`。
 - 未通过：无。
 - 未运行：未运行 JS/Node/Playwright 测试；本次没有前端、浏览器或 Node 运行时变更。
-- 备注：`unittest discover` 输出了两个 sqlite connection 的 `ResourceWarning`，不影响本次测试入口验收，但后续可单独清理资源关闭问题。
+- 备注：`unittest discover` 输出了两个 sqlite connection 的 `ResourceWarning`，不影响本次测试入口验收；后续可以单独清理资源关闭问题。
 
 ## 10. 验收结论
 
