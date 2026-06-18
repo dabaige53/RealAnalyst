@@ -1,6 +1,6 @@
 # Verification Check Rules
 
-`verify.py` 执行 10 类检查，每类检查的判定标准如下。
+`verify.py` 执行 11 类检查，每类检查的判定标准如下。
 
 ## 检查项详解
 
@@ -53,7 +53,7 @@
 **目标**：报告包含 `## 口径说明（本次新增/临时）` 附录。
 
 - 检查报告中是否存在该章节标题（精确或近似匹配）
-- 缺失 → `warning`
+- 缺失 → `failed`
 
 ### 7. `metric_term_consistency`
 
@@ -66,7 +66,7 @@
 
 **目标**：`## 数据来源` 章节位于报告上方（前 30% 内容以内）。
 
-- 若章节存在但位置靠后 → `warning`
+- 若章节存在但位置靠后 → `failed`
 - 若章节不存在 → `failed`
 
 ### 9. `data_source_display_name`
@@ -74,13 +74,24 @@
 **目标**：数据来源展示使用中文业务名，不暴露英文 source_key。
 
 - 检查 `## 数据来源` 章节内容是否包含英文 source_key 形式的标识符
-- 若包含 → `warning`
+- 若包含 → `failed`
 
 ### 10. `output_file_list_section`
 
 **目标**：报告包含 `## 输出文件清单` 章节。
 
-- 缺失 → `warning`
+- 缺失 → `failed`
+
+### 11. `user_surface_leakage`
+
+**目标**：普通用户报告不暴露内部路径、系统文件名、脚本名、source key 或内部术语。
+
+- 检查本地绝对路径、`jobs/` / `.meta/` / `profile/` / `data/` 等内部路径
+- 检查 `job_manifest.json`、`artifact_index.json`、`verification.json`、`analysis.json` 等系统文件名
+- 检查 `skills/...`、`scripts/...`、`*.py` 等脚本线索
+- 检查反引号或括号中的英文 source key
+- 普通报告命中上述内容 → `failed`
+- 用户明确要求技术详情时，仅 `RA:technical-details` 标记段落可在 `--allow-technical-details` 下豁免；未标记正文仍检查
 
 ## 状态定义
 

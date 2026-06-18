@@ -13,6 +13,9 @@
 | `setup_venv.sh` | 初始化虚拟环境 |
 | `log_acquisition.py` | 记录取数动作到 job 元数据 |
 | `update_artifact_index.py` | 更新 job 内产物索引 |
+| `legacy_job_manifest_migration.py` | 只读扫描旧 job，输出候选 `job_manifest.json` 和迁移 review；默认不写、不移动、不删除 |
+| `finalize_job_archive.py` | 对 delivered job 生成内部归档候选；只有 `--apply --confirm-delivered` 才移动内部文件并更新 manifest 恢复索引 |
+| `run_manifest_workflow_regression.py` | 运行 manifest / 用户态输出 / schema / framework lookup 的 focused 回归门禁 |
 
 ---
 
@@ -48,5 +51,5 @@ flowchart TD
 | --- | --- |
 | 不知道脚本放哪里 | 先问“是否跨 skill 复用” |
 | 脚本需要真实密钥 | 从 `.env` 读取，不写进脚本 |
-| 脚本输出没人能追溯 | 写入 `artifact_index.json` 或相应 summary |
+| 脚本输出没人能追溯 | 新流程写入 `job_manifest.json`，旧兼容路径可同步 `artifact_index.json` 或相应 summary |
 | 用户找不到脚本入口 | 在对应 README 写清命令和预期输出 |

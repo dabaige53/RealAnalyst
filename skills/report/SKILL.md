@@ -17,9 +17,11 @@ description: |
 
 撰写报告前，必须先读取以下文件，不得猜测或补写：
 
-- `jobs/{SESSION_ID}/.meta/analysis_plan.md`：唯一的 plan 契约来源，`artifact` / `filename` / `params` 优先于默认阈值规则。
+- `jobs/{SESSION_ID}/job_manifest.json` 的 `planning`：框架、分析模式、交付方式和报告模板锁定结果；报告阶段优先读取这里，不得重新选模板。
+- `jobs/{SESSION_ID}/.meta/analysis_plan.md`：plan 正文证据来源，`artifact` / `filename` / `params` 优先于默认阈值规则。
 - `jobs/{SESSION_ID}/.meta/acquisition_log.jsonl`：本 job 每次下载动作的时间线；用于写清“这批数据怎么来的”。
-- `jobs/{SESSION_ID}/.meta/artifact_index.json`：job 内正式产物索引；用于确认当前有哪些正式文件、它们分别来自哪一轮。
+- `jobs/{SESSION_ID}/job_manifest.json`：job 内产物、用户可见交付物、验证状态与用户回复口径的统一索引；用于确认哪些内容能对用户展示。
+- `jobs/{SESSION_ID}/.meta/artifact_index.json`：旧 job 的兼容线索；仅在 `job_manifest.json` 缺失时辅助回填，不作为新 job 的用户态真源。
 - `jobs/{SESSION_ID}/.meta/analysis_journal.md`：每轮分析动作、使用文件与新增结论摘要来源。
 - `jobs/{SESSION_ID}/.meta/user_request_timeline.md`：用户需求演进来源；用于整理报告中的需求时间线。
 - `jobs/{SESSION_ID}/export_summary.json`：Tableau 导出产物清单来源，优先用于确认可用 CSV，禁止猜测固定文件名。
@@ -119,11 +121,11 @@ description: |
 2. 同一 job 若后续因用户追加需求引入新 source，必须在 `## 数据来源`、`需求时间线`、`报告更新时间线` 中显式写清是哪一轮新增的。
 3. 数据源展示必须中文化，只展示业务名或 `display_name`，禁止在正文暴露系统英文命名。
 4. **每一轮分析默认只引用一个主 source。** 同一 job 若跨轮次出现多个 source，也必须按轮次分开记录，禁止无说明混写。
-5. `acquisition_log.jsonl` 与 `artifact_index.json` 是报告中“下载方式 / 文件来源 / 轮次关系”的直接依据，不得凭记忆补写。
+5. `job_manifest.json` 与 `acquisition_log.jsonl` 是报告中“用户可见交付物 / 下载方式 / 文件来源 / 轮次关系”的直接依据；旧 job 只在 manifest 缺失时兼容读取 `artifact_index.json`，不得凭记忆补写。
 
 ## 模板执行（必须）
 
-1. 先从 `analysis_plan.md` 读取 `selected_analysis_mode`、`selected_delivery_mode`、`selected_report_template`
+1. 先从 `job_manifest.json.planning` 读取 `selected_analysis_mode`、`selected_delivery_mode`、`selected_report_template`；manifest 缺失时才回退读取 `analysis_plan.md`
 2. 再结合 `skills/report/references/template-system-v2.md` 确认这三者是否匹配
 3. 若 `selected_report_template` 是旧模板 ID，先在 `skills/report/references/template-system-v2.md` 的 alias 说明中解析核心模板
 4. 再从 report references 读取该核心模板的结构、阅读目标、关键证据要求
@@ -134,17 +136,13 @@ description: |
 ## 输出与命名（必须）
 
 1. 首轮报告路径固定为 `jobs/{SESSION_ID}/报告_{主题}_{时间}.md`，且文件名必须使用中文；**同一 job 后续轮次继续更新同一路径，不另起新的主报告文件。**
-2. 报告正文内必须补齐 `## 输出文件清单`；文件列表只能基于实际生成的产物或 `artifact_index.json` 精确写入，禁止猜写、补想或引用未产出的文件。若文件已同步到 Drive/外部存储，优先在清单中直接写可点击超链接。
+2. 报告正文内必须补齐 `## 输出文件清单`；文件列表优先来自 `job_manifest.json` 中用户可见的交付物和附件，禁止猜写、补想、扫描后暴露内部文件或引用未产出的文件。若文件已同步到 Drive/外部存储，优先在清单中直接写可点击超链接。
 3. 所有输出 CSV 的列名必须映射回中文，计算派生字段同样不能保留英文列名。
 4. 所有输出 CSV 必须按 `jobs/{SESSION_ID}/profile/manifest.json` 执行格式化。
 5. 报告内必须保留 `需求时间线` 与 `报告更新时间线`；每轮追加时，都要把新增需求、数据、分析、结论补进报告，而不是另写一份平行报告。
 6. 默认行数阈值、`artifact: csv` 优先规则、清单格式、命名示例见 `{baseDir}/skills/report/references/output-contract.md`。
 
-推荐扫描命令：
-
-```bash
-ls -1 jobs/{SESSION_ID}/*.csv jobs/{SESSION_ID}/*.md 2>/dev/null
-```
+旧 job 没有 `job_manifest.json` 时才允许 legacy fallback；fallback 必须在脚本 JSON 输出里返回 warning，供后续迁移补账。
 
 ## 引用文件
 
@@ -158,14 +156,14 @@ ls -1 jobs/{SESSION_ID}/*.csv jobs/{SESSION_ID}/*.md 2>/dev/null
 
 ## 推荐执行顺序
 
-1. 读取 `jobs/{SESSION_ID}/.meta/analysis_plan.md`、`jobs/{SESSION_ID}/.meta/acquisition_log.jsonl`、`jobs/{SESSION_ID}/.meta/artifact_index.json`、`jobs/{SESSION_ID}/.meta/analysis_journal.md`、`jobs/{SESSION_ID}/.meta/user_request_timeline.md`，先确认这轮是在既有 job 上追加什么。
+1. 读取 `jobs/{SESSION_ID}/job_manifest.json`、`jobs/{SESSION_ID}/.meta/analysis_plan.md`、`jobs/{SESSION_ID}/.meta/acquisition_log.jsonl`、`jobs/{SESSION_ID}/.meta/analysis_journal.md`、`jobs/{SESSION_ID}/.meta/user_request_timeline.md`，先确认这轮是在既有 job 上追加什么；旧 job manifest 缺失时才读取 `.meta/artifact_index.json` 做兼容回填。
 2. 再按主数据源后端读取 `jobs/{SESSION_ID}/export_summary.json` 或 `jobs/{SESSION_ID}/duckdb_export_summary.json`，以及 `jobs/{SESSION_ID}/profile/manifest.json`、`jobs/{SESSION_ID}/profile/profile.json`。
-3. 从 `analysis_plan.md` 读取 `selected_analysis_mode`、`selected_delivery_mode`、`selected_report_template`，并先对照 `{baseDir}/skills/report/references/template-system-v2.md`。
+3. 从 `job_manifest.json.planning` 读取 `selected_analysis_mode`、`selected_delivery_mode`、`selected_report_template`，并先对照 `{baseDir}/skills/report/references/template-system-v2.md`；旧 job manifest 缺失时才回退读取 `analysis_plan.md`。
 4. 再读取 report references 中具体模板的章节结构与写作要求。
 5. 若 `analysis_plan.md` 中的模板选择理由不足以指导写作，再按需读取 `{baseDir}/skills/report/references/template-matrix.md`。
 6. 先判断当前 job 是否已存在主报告：有则追加，无则创建；不得整篇重写旧报告。
 7. 按本页硬规范撰写正文，确保所有结论都有证据链，并把本轮新增需求/数据/分析/结论补进时间线。
-8. 按 `{baseDir}/skills/report/references/output-contract.md` 决定哪些表嵌入报告、哪些表导出为 CSV；报告落盘后基于实际产物补齐 `## 输出文件清单`。
+8. 按 `{baseDir}/skills/report/references/output-contract.md` 决定哪些表嵌入报告、哪些表导出为 CSV；报告落盘后注册到 `job_manifest.json`，再基于 manifest 中的用户可见产物补齐 `## 输出文件清单`。
 9. 在报告结尾追加 `## 阅读提示（关键点与注意事项）`，至少说明数据边界、指标口径、是否可外推、适合/不适合用于什么判断。
 10. 在报告结尾追加 `## 一段话结论（便于后续看/转述）`，用 1 段话总结最关键结论与使用边界。
 11. 只要正文出现本次新增或临时口径，就按 `{baseDir}/skills/report/references/appendix-template.md` 补齐附录。
@@ -192,9 +190,9 @@ ls -1 jobs/{SESSION_ID}/*.csv jobs/{SESSION_ID}/*.md 2>/dev/null
 
 ```text
 完成情况：
-- 报告已写入：`jobs/{SESSION_ID}/报告_{主题}_{时间}.md`
+- 报告已生成：<面向用户的报告名称>
 - 已生成/追加章节：<章节清单>
-- 已更新：<口径说明附录、输出文件清单、artifact index，按实际保留>
+- 已更新：<口径说明附录、输出文件清单、job manifest，按实际保留>
 
 下一步建议：
 - 最推荐下一步：/skill RA:report-verify ...（做交付前门禁检查）
@@ -204,4 +202,5 @@ ls -1 jobs/{SESSION_ID}/*.csv jobs/{SESSION_ID}/*.md 2>/dev/null
 边界提醒：
 - 本 skill 是流程内报告写作阶段，没有执行取数、画像或验证。
 - 报告中的 metadata 问题只记录为线索；正式 YAML 写回需用户主动走 /skill RA:metadata-refine 和 /skill RA:metadata。
+- 默认不要向普通用户暴露本地路径、脚本名、内部目录或英文系统字段；只有用户明确需要技术细节、排障或复核路径时再补充。
 ```

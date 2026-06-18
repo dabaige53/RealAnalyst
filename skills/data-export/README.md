@@ -17,6 +17,9 @@
 
 - `jobs/{SESSION_ID}/.meta/acquisition_log.jsonl`
 - `jobs/{SESSION_ID}/.meta/artifact_index.json`
+- `jobs/{SESSION_ID}/job_manifest.json`
+
+原始导出和导出摘要默认登记为内部材料，不进入普通用户回复或报告输出清单。用户附件必须显式登记，不能靠文件名推断。
 
 ## 最小流程
 

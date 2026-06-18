@@ -21,3 +21,12 @@ Before sending polished writing or important replies, do a quick self-check:
 - Did I use simple verbs where simple verbs work?
 - Did I cut empty transition phrases and fake-deep analysis?
 - Did I keep the tone human, a little alive, and not overproduced?
+
+## User Surface Rules
+
+analysis-run 的默认回复从 `job_manifest.json` 的 `user_surface` 渲染。
+
+- 默认只说业务摘要、可查看交付物、验证状态、风险和下一步。
+- 不默认展示内部目录、脚本名、source key、过程文件、profile JSON、审计日志。
+- 可见交付物只来自 manifest 中 `user_visible=true` 且角色为 `user_deliverable` 或 `user_attachment` 的条目。
+- 用户明确要求技术细节、排障信息或文件明细时，才补充内部相对路径。

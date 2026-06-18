@@ -22,13 +22,23 @@ It prints the updated .meta/artifact_index.json payload.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 WORKSPACE_DIR = Path(os.environ.get("ANALYST_WORKSPACE_DIR") or Path(__file__).resolve().parents[1]).expanduser().resolve()
+if str(WORKSPACE_DIR) not in sys.path:
+    sys.path.insert(0, str(WORKSPACE_DIR))
+
+try:
+    from runtime import job_manifest as JOB_MANIFEST_HELPER
+except ImportError:
+    JOB_MANIFEST_HELPER = None
 
 
 def _now_iso() -> str:
@@ -146,6 +156,102 @@ def _write_root_summary(session_id: str, meta_index: dict[str, Any]) -> None:
 
     out = job / "artifact_index.json"
     out.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _job_relative_path(session_id: str, raw_path: str) -> str | None:
+    if not raw_path.strip():
+        return None
+    job = _job_dir(session_id).resolve()
+    path = Path(raw_path)
+    candidate = path.resolve() if path.is_absolute() else (WORKSPACE_DIR / path).resolve()
+    try:
+        return candidate.relative_to(job).as_posix()
+    except ValueError:
+        return None
+
+
+def _artifact_id(item: dict[str, Any], relative_path: str) -> str:
+    kind = str(item.get("kind") or "artifact").strip() or "artifact"
+    stem = re.sub(r"[^A-Za-z0-9_]+", "_", Path(relative_path).stem).strip("_")[:36] or "item"
+    digest = hashlib.sha1(relative_path.encode("utf-8")).hexdigest()[:10]
+    return f"{kind}_{stem}_{digest}"
+
+
+def _manifest_kind(item: dict[str, Any], relative_path: str) -> str:
+    kind = str(item.get("kind") or "").strip()
+    suffix = Path(relative_path).suffix.lower()
+    if kind == "report" or suffix in {".docx", ".pptx"}:
+        return "report" if suffix in {"", ".md", ".docx"} else "other"
+    if suffix == ".csv":
+        return "csv"
+    if suffix == ".json":
+        return "json"
+    if suffix in {".md", ".markdown"}:
+        return "markdown"
+    if suffix in {".log", ".jsonl"}:
+        return "log"
+    return "other"
+
+
+def _manifest_role(item: dict[str, Any]) -> str:
+    kind = str(item.get("kind") or "").strip()
+    role = str(item.get("role") or "").strip()
+    if kind == "report" or (role == "user" and str(item.get("path") or "").endswith(".md")):
+        return "user_deliverable"
+    if role == "user":
+        return "user_attachment"
+    if kind == "raw_data":
+        return "raw_input"
+    if kind in {"profile", "profile_manifest", "context"}:
+        return "derived_internal"
+    if kind in {"audit", "export_manifest", "export_assertions"} or role == "system":
+        return "audit_log"
+    return "derived_internal"
+
+
+def _sync_job_manifest(session_id: str, index_items: list[dict[str, Any]]) -> list[str]:
+    if JOB_MANIFEST_HELPER is None:
+        return ["job_manifest_helper_unavailable"]
+
+    job = _job_dir(session_id)
+    JOB_MANIFEST_HELPER.create_manifest(job, job_id=session_id, title=session_id, owner_skill="analysis-run")
+
+    warnings: list[str] = []
+    for item in index_items:
+        if not isinstance(item, dict):
+            continue
+        raw_path = str(item.get("path") or "")
+        relative_path = _job_relative_path(session_id, raw_path)
+        if relative_path is None:
+            continue
+
+        role = _manifest_role(item)
+        user_visible = role in {"user_deliverable", "user_attachment"}
+        artifact = {
+            "id": _artifact_id(item, relative_path),
+            "role": role,
+            "kind": _manifest_kind(item, relative_path),
+            "display_name": str(item.get("display_name") or Path(relative_path).stem),
+            "path": relative_path,
+            "producer": str(item.get("source_backend") or "artifact-index"),
+            "user_visible": user_visible,
+            "internal_only": not user_visible,
+            "safe_to_archive": not user_visible,
+            "safe_to_delete": False,
+            "status": "ready",
+            "created_at": str(item.get("created_at") or _now_iso()),
+            "validation": {"status": "not_run"},
+        }
+        if item.get("row_count") is not None:
+            artifact["row_count"] = item.get("row_count")
+        if item.get("source_id") is not None:
+            artifact["source_id"] = item.get("source_id")
+        try:
+            JOB_MANIFEST_HELPER.register_artifact(job, artifact)
+        except Exception as exc:
+            warnings.append(f"manifest_register_failed:{relative_path}:{type(exc).__name__}")
+
+    return warnings
 
 
 def _from_duckdb_summary(path: Path, *, event_id: str | None) -> list[dict[str, Any]]:
@@ -282,6 +388,10 @@ def main() -> int:
     index["updated_at"] = _now_iso()
     _write_json(index_path, index)
     _write_root_summary(session_id, index)
+    manifest_warnings = _sync_job_manifest(session_id, items)
+    if manifest_warnings:
+        index["manifest_warnings"] = manifest_warnings
+        _write_json(index_path, index)
 
     print(json.dumps(index, ensure_ascii=False, indent=2))
     return 0

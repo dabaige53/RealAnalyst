@@ -1,6 +1,6 @@
 # Report Verify Skill
 
-交付前检查报告是否有证据链、是否误用口径、排名趋势是否一致、是否包含必备章节。
+交付前检查报告是否有证据链、是否误用口径、排名趋势是否一致、是否包含必备章节，并拦截普通用户报告里的内部路径和系统术语泄露。
 
 ---
 
@@ -9,6 +9,7 @@
 - 报告交付前
 - 需要机器可读 verification.json
 - 报告中有 needs_review 口径
+- 报告交付前需要确认没有暴露内部路径、source key、脚本名或系统 JSON 文件名
 - 需要判断是否能通过最终门禁
 
 ---
@@ -18,7 +19,7 @@
 | 类型 | 内容 |
 | --- | --- |
 | 输入 | 正式 CSV<br/>analysis.json<br/>report.md<br/>output_dir |
-| 输出 | verification.json<br/>stdout JSON 状态<br/>passed/warning/failed 检查清单 |
+| 输出 | verification.json<br/>stdout JSON 状态<br/>manifest 验证状态<br/>passed/warning/failed 检查清单 |
 | 下一步 | `交付给用户，或返回 report 修正` |
 
 ---
@@ -27,7 +28,7 @@
 
 ```mermaid
 flowchart LR
-    Report[报告] --> Check[证据/数字/口径/章节] --> Status{passed/warning/failed} --> Fix[修报告或交付]
+    Report[报告] --> Check[证据/数字/口径/章节/用户态] --> Status{passed/warning/failed} --> Fix[修报告或交付]
 ```
 
 ---
@@ -46,6 +47,7 @@ python3 skills/report-verify/scripts/verify.py jobs/job_001/data/xxx.csv jobs/jo
 - 哪些结论缺少证据、哪些口径需要复核。
 - 可以回到 report 修正的具体问题。
 - 交付前是否可以放行的判断依据。
+- manifest 中同步更新后的验证状态。
 
 ---
 
@@ -57,4 +59,5 @@ python3 skills/report-verify/scripts/verify.py jobs/job_001/data/xxx.csv jobs/jo
 | 找不到输入文件 | 回到上游 skill，确认是否已经生成正式产物 |
 | 输出和预期不一致 | 检查报告、分析 JSON 和 CSV 是否来自同一个 job |
 | 涉及 `needs_review` | 报告里必须标注为待确认或推断口径 |
+| 技术详情必须保留 | 使用显式技术段落标记，并通过 `--allow-technical-details` 运行 |
 | 涉及新增数据源 | 先让用户确认，再执行 |

@@ -21,6 +21,9 @@ from auth import get_auth  # noqa: E402  # type: ignore[import-not-found]
 
 TEST_OUTPUT_DIR = WORKSPACE_DIR / "jobs" / "test_views"
 
+# This is a credentialed manual smoke script, not a pytest module.
+__test__ = False
+
 
 def export_view_data(auth, view_luid: str, filters: dict[str, Any] | None = None) -> tuple[int, str]:
     filter_params = ""

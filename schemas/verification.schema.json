@@ -26,12 +26,17 @@
     },
     "summary": {
       "type": "object",
+      "required": ["total_checks", "passed", "failed", "warnings"],
       "properties": {
         "total_checks": {"type": "integer"},
         "passed": {"type": "integer"},
         "failed": {"type": "integer"},
         "warnings": {"type": "integer"}
       }
+    },
+    "check_categories": {
+      "type": "object",
+      "additionalProperties": {"type": "integer"}
     },
     "errors": {
       "type": "array",
@@ -48,17 +53,22 @@
       "properties": {
         "check_id": {
           "type": "string",
-          "pattern": "^chk_[0-9]{3}$"
+          "pattern": "^[A-Za-z]{2,4}_[A-Za-z0-9_.-]+$"
         },
         "check_type": {
           "type": "string",
           "enum": [
-            "value_existence",
-            "ranking_accuracy",
-            "numeric_consistency",
-            "entity_existence",
-            "trend_direction",
-            "percentage_validity"
+            "evidence_completeness",
+            "ranking_consistency",
+            "trend_consistency",
+            "numeric_traceability",
+            "confidence_threshold",
+            "metric_definition_appendix",
+            "metric_term_consistency",
+            "data_source_section_position",
+            "data_source_display_name",
+            "output_file_list_section",
+            "user_surface_leakage"
           ],
           "description": "检查类型"
         },
@@ -83,6 +93,10 @@
         "message": {
           "type": "string",
           "description": "检查结果说明"
+        },
+        "details": {
+          "type": "object",
+          "description": "结构化检查上下文"
         }
       }
     },

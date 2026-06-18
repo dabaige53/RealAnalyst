@@ -144,6 +144,12 @@ def search_framework(name: str) -> dict[str, Any]:
             str(framework.get("name_en", "")).lower(),
             str(framework.get("name_cn", "")).lower(),
             *[str(alias).lower() for alias in framework.get("aliases", [])],
+        }
+        if query in searchable:
+            return build_framework_hit(name, framework)
+
+    for framework in frameworks:
+        searchable = {
             *[str(mode).lower() for mode in framework.get("analysis_modes", [])],
             *[str(scenario).lower() for scenario in framework.get("applicable_scenarios", [])],
             *[str(scenario).lower() for scenario in framework.get("best_for", [])],

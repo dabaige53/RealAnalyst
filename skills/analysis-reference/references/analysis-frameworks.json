@@ -6,7 +6,7 @@
       "id": "mece_issue_tree",
       "name": "MECE 问题树",
       "name_en": "MECE Issue Tree",
-      "aliases": ["mece", "issue_tree", "logic_tree", "structure", "overview", "structural_breakdown"],
+      "aliases": ["mece", "issue_tree", "logic_tree", "structure", "overview", "monitoring", "reporting", "structural_breakdown"],
       "description": "把一个宽泛业务问题拆成互斥且穷尽的子问题，用于建立总览、结构拆解和分析边界。",
       "applicable_scenarios": ["overview", "structure analysis", "business review", "scope clarification"],
       "not_suitable_for": ["已知异常的深度归因", "明确流程转化问题", "需要长期留存观察的问题"],

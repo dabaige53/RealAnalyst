@@ -259,6 +259,14 @@ python3 {baseDir}/skills/analysis-reference/scripts/query_config.py --framework 
 - `关键证据展示要求`
 - `结论级证据块设计`
 
+写入 `analysis_plan.md` 后，必须运行 validator 做结构检查，并把锁定结果同步到 `job_manifest.json`：
+
+```bash
+python3 {baseDir}/skills/analysis-plan/scripts/validate_plan.py --session-id $SESSION_ID --update-manifest
+```
+
+`schemas/analysis_plan.schema.json` 是旧 JSON operator plan schema，不约束 Markdown `analysis_plan.md`。Markdown plan 的结构门禁由 `validate_plan.py` 执行；三项模板锁定结果的结构契约见 `schemas/analysis_plan_decision.schema.json`，并落入 `job_manifest.planning` 供 report 阶段读取。report 阶段只能消费这些锁定结果，不得重新选模板。
+
 ---
 
 ## Phase 2: 业务假设推演（MUST - 禁止跳过）

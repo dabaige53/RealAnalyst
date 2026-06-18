@@ -22,3 +22,5 @@ jobs:
         run: python skills/metadata/scripts/metadata.py validate
       - name: Run product fix tests
         run: python -m unittest discover -s tests
+      - name: Run manifest workflow regression gates
+        run: python scripts/run_manifest_workflow_regression.py

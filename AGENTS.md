@@ -10,6 +10,14 @@
 - 禁止交叉文件污染：一个文件只保存属于该层的内容；发现内容放错层时，应迁回正确层，而不是继续在错误位置追加字段。
 - 程序应主动限制职责漂移和无限增长。能用 validate、schema、测试或脚本门禁拦截的，不依赖人工提醒。
 
+## 用户态输出边界
+
+- 普通分析交付、阶段汇报、报告正文和聊天回复默认只展示业务摘要、可查看交付物名称、验证状态、风险和下一步，不展示本地路径、内部目录、脚本名、系统 JSON 文件名、source key、dataset id、profile 文件、审计日志或英文工程字段。
+- 技术任务例外：代码实现、测试结果、PR/commit、排障、复跑命令、用户明确要求“路径/文件明细/技术细节/怎么复核”时，可以给必要路径和命令，但必须只给与当前问题相关的最小集合。
+- 分析类回复优先从 `job_manifest.json` 的 `user_surface` 和用户可见 artifacts 渲染；`data/`、`profile/`、`.meta/`、`internal/`、`artifact_index.json`、`verification.json` 默认属于内部证据，不进入普通用户清单。
+- 报告和普通用户回复不得把内部术语当成解释正文。需要解释系统状态时，用业务化说法，例如“已完成数据画像”“报告已通过验证”，不要写“profile/manifest.json 已生成”“artifact_index 已更新”。
+- 技术详情需要保留在报告内时，必须放入显式技术详情段落并通过 report-verify 的技术详情豁免；未标记正文仍按普通用户报告检查。
+
 ## 元数据分层核心准则
 
 - RealAnalyst 的 metadata 不是单个 YAML 仓库，而是分层系统：`datasets` 是语义入口，`mappings` 是字段映射，`dictionaries` 是稳定公共定义，`sources` 是证据和 profile 归档，`audit` 是审计与关联记录，`runtime/registry.db` 是运行态值域和物理结构，`index` 是生成检索层，`reports` 是同步/注册输出。
@@ -57,14 +65,6 @@ If a Trellis command is available on your platform (e.g. `/trellis:finish-work`,
 If you're using Codex or another agent-capable tool, additional project-scoped helpers may live in:
 - `.agents/skills/` — reusable Trellis skills
 - `.codex/agents/` — optional custom subagents
-
-## Subagents
-
-- ALWAYS wait for all subagents to complete before yielding.
-- Spawn subagents automatically when:
-  - Parallelizable work (e.g., install + verify, npm test + typecheck, multiple tasks from plan)
-  - Long-running or blocking tasks where a worker can run independently.
-  - Isolation for risky changes or checks
 
 Managed by Trellis. Edits outside this block are preserved; edits inside may be overwritten by a future `trellis update`.
 

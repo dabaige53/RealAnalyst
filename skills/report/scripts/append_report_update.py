@@ -6,7 +6,7 @@ What it does:
 - Ensure timeline sections exist: "## 需求时间线" and "## 报告更新时间线"
 - Append one bullet to each timeline for this round
 - Append a new markdown block at the end (append-only)
-- Refresh "## 输出文件清单" by scanning job directory (excludes data/, profile/, .meta/, and audit/system files)
+- Refresh "## 输出文件清单" from job_manifest user-visible artifacts; legacy jobs fall back to directory scan with warning.
 - Optionally append to .meta/user_request_timeline.md and .meta/analysis_journal.md
 
 This script is intentionally conservative: it never deletes existing report content.
@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -30,6 +31,13 @@ def _find_workspace_root(start: Path) -> Path:
 
 
 WORKSPACE_DIR = _find_workspace_root(Path(__file__).resolve())
+if str(WORKSPACE_DIR) not in sys.path:
+    sys.path.insert(0, str(WORKSPACE_DIR))
+
+try:
+    from runtime import job_manifest as JOB_MANIFEST_HELPER
+except ImportError:
+    JOB_MANIFEST_HELPER = None
 
 
 def _now_iso() -> str:
@@ -182,23 +190,73 @@ def _scan_output_files(job_dir: Path) -> tuple[list[str], list[str]]:
     return analysis_products, raw_data
 
 
-def _refresh_output_file_list(text: str, job_dir: Path) -> str:
+def _manifest_output_file_list(job_dir: Path) -> list[str] | None:
+    if JOB_MANIFEST_HELPER is None:
+        return None
+    try:
+        artifacts = JOB_MANIFEST_HELPER.user_visible_artifacts(job_dir)
+    except Exception:
+        return None
+    return [str(item.get("display_name") or item.get("id") or "交付物").strip() for item in artifacts]
+
+
+def _register_report_artifact(job_dir: Path, report_path: Path) -> bool:
+    if JOB_MANIFEST_HELPER is None:
+        return False
+    try:
+        relative = report_path.resolve().relative_to(job_dir.resolve()).as_posix()
+    except ValueError:
+        return False
+    display_name = report_path.stem
+    try:
+        JOB_MANIFEST_HELPER.register_artifact(
+            job_dir,
+            {
+                "id": "report_main",
+                "role": "user_deliverable",
+                "kind": "report",
+                "display_name": display_name,
+                "path": relative,
+                "producer": "report",
+                "user_visible": True,
+                "internal_only": False,
+                "safe_to_archive": False,
+                "safe_to_delete": False,
+            },
+        )
+        return True
+    except Exception:
+        return False
+
+
+def _refresh_output_file_list(text: str, job_dir: Path, warnings: list[str]) -> str:
     heading = "## 输出文件清单"
-    analysis_products, raw_data = _scan_output_files(job_dir)
+    manifest_deliverables = _manifest_output_file_list(job_dir)
 
-    block_lines = [heading, "", "### 分析产物(已附邮件)"]
-    if analysis_products:
-        block_lines += [f"- {p}" for p in analysis_products]
+    if manifest_deliverables is not None:
+        block_lines = [heading, "", "### 用户可见交付物"]
+        if manifest_deliverables:
+            block_lines += [f"- {name}" for name in manifest_deliverables]
+        else:
+            block_lines += ["- （暂无）"]
+        block = "\n".join(block_lines).rstrip() + "\n"
     else:
-        block_lines += ["- （暂无）"]
+        warnings.append("legacy_file_list_fallback")
+        analysis_products, raw_data = _scan_output_files(job_dir)
 
-    block_lines += ["", "### 原始数据(仅存档)"]
-    if raw_data:
-        block_lines += [f"- {p}" for p in raw_data]
-    else:
-        block_lines += ["- （暂无）"]
+        block_lines = [heading, "", "### 分析产物(已附邮件)"]
+        if analysis_products:
+            block_lines += [f"- {p}" for p in analysis_products]
+        else:
+            block_lines += ["- （暂无）"]
 
-    block = "\n".join(block_lines).rstrip() + "\n"
+        block_lines += ["", "### 原始数据(仅存档)"]
+        if raw_data:
+            block_lines += [f"- {p}" for p in raw_data]
+        else:
+            block_lines += ["- （暂无）"]
+
+        block = "\n".join(block_lines).rstrip() + "\n"
 
     if heading not in text:
         return text.rstrip() + "\n\n" + block
@@ -268,6 +326,10 @@ def main() -> int:
             raise SystemExit("REPORT_NOT_FOUND")
         report_path.write_text(f"# {args.title}\n\n", encoding="utf-8")
 
+    warnings: list[str] = []
+    if not _register_report_artifact(job, report_path):
+        warnings.append("report_manifest_registration_skipped")
+
     text = report_path.read_text(encoding="utf-8")
 
     # Ensure timeline sections exist
@@ -299,7 +361,7 @@ def main() -> int:
         text = text.rstrip() + block
 
     if args.refresh_file_list:
-        text = _refresh_output_file_list(text, job)
+        text = _refresh_output_file_list(text, job, warnings)
 
     report_path.write_text(text.rstrip() + "\n", encoding="utf-8")
 
@@ -342,6 +404,7 @@ def main() -> int:
                 "session_id": session_id,
                 "report_path": _relpath(report_path),
                 "updated_at": _now_iso(),
+                "warnings": warnings,
             },
             ensure_ascii=False,
             indent=2,

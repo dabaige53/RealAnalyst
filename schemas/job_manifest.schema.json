@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://realanalyst.dev/schemas/job_manifest.schema.json",
+  "title": "RealAnalyst Job Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "job", "user_surface", "inputs", "steps", "artifacts", "verification", "provenance", "reply_policy", "archive", "legacy"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0" },
+    "job": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "title", "status", "created_at", "updated_at"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["planning", "running", "ready_for_review", "delivered", "failed", "archived"]
+        },
+        "created_at": { "type": "string" },
+        "updated_at": { "type": "string" },
+        "owner_skill": { "type": "string" },
+        "business_context": { "type": "string" }
+      }
+    },
+    "user_surface": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["summary", "deliverables", "verification_status", "risks", "next_actions", "display_language", "technical_details_available"],
+      "properties": {
+        "summary": { "type": "string" },
+        "primary_deliverable_id": { "type": ["string", "null"] },
+        "deliverables": { "type": "array", "items": { "type": "string" } },
+        "verification_status": {
+          "type": "string",
+          "enum": ["passed", "warning", "failed", "not_run"]
+        },
+        "risks": { "type": "array", "items": { "type": "string" } },
+        "next_actions": { "type": "array", "items": { "type": "string" } },
+        "display_language": { "type": "string" },
+        "technical_details_available": { "type": "boolean" }
+      }
+    },
+    "inputs": { "type": "array", "items": { "type": "object" } },
+    "steps": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/step" }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/artifact" }
+    },
+    "verification": { "type": "object", "additionalProperties": true },
+    "planning": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "selected_framework_id": { "type": ["string", "null"] },
+        "framework_selection_reason": { "type": ["string", "null"] },
+        "selected_analysis_mode": { "type": ["string", "null"] },
+        "analysis_mode_selection_reason": { "type": ["string", "null"] },
+        "selected_delivery_mode": { "type": ["string", "null"] },
+        "delivery_mode_selection_reason": { "type": ["string", "null"] },
+        "selected_report_template": { "type": ["string", "null"] },
+        "template_selection_reason": { "type": ["string", "null"] },
+        "plan_artifact_id": { "type": ["string", "null"] }
+      }
+    },
+    "provenance": { "type": "object", "additionalProperties": true },
+    "reply_policy": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["default_mode", "hide_internal_paths", "hide_source_keys", "hide_script_names", "allow_technical_details_when_requested", "redaction_notes"],
+      "properties": {
+        "default_mode": { "type": "string", "enum": ["business", "technical"] },
+        "hide_internal_paths": { "type": "boolean" },
+        "hide_source_keys": { "type": "boolean" },
+        "hide_script_names": { "type": "boolean" },
+        "allow_technical_details_when_requested": { "type": "boolean" },
+        "redaction_notes": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "archive": { "type": "object", "additionalProperties": true },
+    "legacy": { "type": "object", "additionalProperties": true }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "role", "kind", "display_name", "path", "user_visible", "internal_only", "producer", "created_at", "status", "safe_to_archive", "safe_to_delete"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "role": {
+          "type": "string",
+          "enum": ["user_deliverable", "user_attachment", "supporting_evidence", "raw_input", "derived_internal", "audit_log", "legacy", "deprecated", "unknown_legacy"]
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["report", "csv", "json", "markdown", "log", "archive", "directory", "other"]
+        },
+        "display_name": { "type": "string" },
+        "path": { "type": "string", "minLength": 1 },
+        "user_visible": { "type": "boolean" },
+        "internal_only": { "type": "boolean" },
+        "producer": { "type": "string" },
+        "consumers": { "type": "array", "items": { "type": "string" } },
+        "created_at": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["ready", "superseded", "failed", "archived"]
+        },
+        "validation": { "type": "object", "additionalProperties": true },
+        "safe_to_archive": { "type": "boolean" },
+        "safe_to_delete": { "type": "boolean" },
+        "checksum": { "type": "string" }
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "name", "owner_skill", "status", "input_artifacts", "output_artifacts"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "owner_skill": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["success", "warning", "failed", "skipped", "running"]
+        },
+        "started_at": { "type": ["string", "null"] },
+        "finished_at": { "type": ["string", "null"] },
+        "input_artifacts": { "type": "array", "items": { "type": "string" } },
+        "output_artifacts": { "type": "array", "items": { "type": "string" } },
+        "error_code": { "type": ["string", "null"] },
+        "user_visible_summary": { "type": "string" }
+      }
+    }
+  }
+}

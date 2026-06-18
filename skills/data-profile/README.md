@@ -18,7 +18,7 @@
 | 类型 | 内容 |
 | --- | --- |
 | 输入 | 正式 CSV<br/>export_summary.json 或 duckdb_export_summary.json<br/>SESSION_ID |
-| 输出 | profile/manifest.json<br/>profile/profile.json<br/>artifact_index 更新 |
+| 输出 | 内部 profile manifest<br/>内部 profile details<br/>artifact_index 与 job_manifest 更新 |
 | 下一步 | `RA:report` |
 
 ---
@@ -27,7 +27,7 @@
 
 ```mermaid
 flowchart LR
-    CSV[正式 CSV] --> Profile[run.py] --> Manifest[manifest.json] --> Quality[profile.json] --> Report[report 使用画像]
+    CSV[正式 CSV] --> Profile[run.py] --> Manifest[内部画像登记] --> Quality[质量摘要] --> Report[report 使用画像]
 ```
 
 ---
@@ -43,7 +43,7 @@ python3 skills/data-profile/scripts/run.py --data-csv jobs/$SESSION_ID/data/<正
 ## 用户会得到什么？
 
 - 数据规模、字段类型、缺失、异常和分布摘要。
-- `profile/manifest.json` 和 `profile/profile.json`。
+- 内部画像登记与质量摘要。
 - 对报告写作有用的质量提醒。
 - 是否需要重新取数或补充字段的判断依据。
 

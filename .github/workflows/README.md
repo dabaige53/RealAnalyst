@@ -14,6 +14,8 @@ flowchart LR
     Py --> Install[pip install -r requirements.txt]
     Install --> Manifest[校验 plugin.json]
     Manifest --> Metadata[校验 demo metadata]
+    Metadata --> UnitTests[运行公开单元测试]
+    UnitTests --> Regression[运行 manifest workflow regression gates]
 ```
 
 ---
@@ -22,7 +24,7 @@ flowchart LR
 
 | 文件 | 作用 |
 | --- | --- |
-| `ci.yml` | 运行轻量公开校验：安装依赖、校验插件声明、校验 demo metadata |
+| `ci.yml` | 运行轻量公开校验：安装依赖、校验插件声明、校验 demo metadata、公开单元测试和 manifest workflow regression gates |
 | `issue-spam-moderation.yml` | 监听 issue / issue comment，命中 `Payment Address` 垃圾内容时自动处理；评论会删除，issue 正文会被清理并关闭 |
 
 ---
@@ -51,7 +53,7 @@ flowchart LR
 - 真实 metadata sync 快照
 - `jobs/` 运行产物
 
-因此 CI 只运行不依赖私有环境的检查。真实连接、取数、报告生成建议在本地或私有 CI 中验证。
+因此 CI 只运行不依赖私有环境的检查，包括 `python -m unittest discover -s tests` 和 `python scripts/run_manifest_workflow_regression.py`。真实连接、取数、报告生成建议在本地或私有 CI 中验证。
 
 ---
 
@@ -61,7 +63,7 @@ flowchart LR
 | --- | --- |
 | README 链接检查 | 防止文档路径失效 |
 | Markdown lint | 让表格、标题层级更稳定 |
-| Schema 校验样例 | 确认 `schemas/` 与 demo 输出一致 |
+| 更多 schema 样例 | 确认新增 artifact schema 与 demo 输出一致 |
 | Skill frontmatter 检查 | 确认每个 `SKILL.md` 都有 name 和 description |
 | README 同步检查 | 防止 `skills/README.md` 漏掉新增 skill |
 

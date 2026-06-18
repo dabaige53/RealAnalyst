@@ -37,6 +37,8 @@ def _find_workspace_root(start: Path) -> Path:
 
 WORKSPACE_ROOT = _find_workspace_root(Path(__file__).resolve())
 LIB_DIR = WORKSPACE_ROOT / "lib"
+if str(WORKSPACE_ROOT) not in sys.path:
+    sys.path.insert(0, str(WORKSPACE_ROOT))
 if str(LIB_DIR) not in sys.path:
     sys.path.insert(0, str(LIB_DIR))
 try:
@@ -55,6 +57,11 @@ except Exception:  # pragma: no cover - only used in incomplete project-local in
                 f.write(line + "\n")
         except OSError:
             pass
+
+try:
+    from runtime import job_manifest as JOB_MANIFEST_HELPER
+except ImportError:
+    JOB_MANIFEST_HELPER = None
 
 
 def log(output_dir: str, msg: str) -> None:
@@ -520,14 +527,170 @@ def check_output_file_list_section(report: str) -> list[dict[str, Any]]:
 
     if not has_section:
         check["status"] = "failed"
-        check["message"] = "报告缺少“输出文件清单”章节。请补充分析产物与原始数据清单。"
+        check["message"] = "报告缺少“输出文件清单”章节。请基于 job manifest 补充用户可见交付物清单。"
 
     checks.append(check)
     return checks
 
 
+def _strip_allowed_technical_sections(report: str, allow_technical_details: bool) -> tuple[str, int]:
+    if not allow_technical_details:
+        return report, 0
+    pattern = re.compile(
+        r"<!--\s*RA:technical-details:start\s*-->.*?<!--\s*RA:technical-details:end\s*-->",
+        flags=re.DOTALL | re.IGNORECASE,
+    )
+    return pattern.sub("", report), len(pattern.findall(report))
+
+
+def _line_number_at(text: str, offset: int) -> int:
+    return text.count("\n", 0, max(0, offset)) + 1
+
+
+def _add_leak_match(
+    matches: list[dict[str, Any]],
+    *,
+    report: str,
+    leak_type: str,
+    value: str,
+    offset: int,
+    max_matches: int = 20,
+) -> None:
+    if len(matches) >= max_matches:
+        return
+    cleaned = value.strip("` \t\n\r.,;，。；)")
+    if not cleaned:
+        return
+    item = {
+        "type": leak_type,
+        "value": cleaned[:120],
+        "line": _line_number_at(report, offset),
+    }
+    if item not in matches:
+        matches.append(item)
+
+
+def check_user_surface_leakage(
+    report: str, *, allow_technical_details: bool = False
+) -> list[dict[str, Any]]:
+    """Fail normal user reports that expose internal paths, source keys, or system files."""
+
+    scanned_report, allowed_sections = _strip_allowed_technical_sections(report, allow_technical_details)
+    matches: list[dict[str, Any]] = []
+
+    regex_checks = [
+        ("local_path", r"/(?:Users|private|tmp|var|Volumes)/[^\s)`，。；；]+"),
+        ("job_path", r"(?<![\w/.-])(?:jobs|temp|outputs|logs)/[A-Za-z0-9_.\-/\u4e00-\u9fff]+"),
+        ("internal_path", r"(?<![\w/.-])(?:\.meta|profile|data|internal|metadata/(?:audit|sources))/[^\s)`，。；；]+"),
+        (
+            "system_file",
+            r"\b(?:job_manifest|artifact_index|verification|export_summary|duckdb_export_summary|analysis|profile|manifest)\.json\b",
+        ),
+        ("script_name", r"(?<![\w/.-])(?:skills|scripts)/[^\s)`，。；；]+|\b[A-Za-z0-9_.-]+\.py\b"),
+        ("internal_term", r"\b(?:source_key|dataset_id|job_manifest|artifact_index|verification\.json|analysis\.json|profile\.json)\b"),
+    ]
+
+    for leak_type, pattern in regex_checks:
+        for match in re.finditer(pattern, scanned_report):
+            _add_leak_match(
+                matches,
+                report=scanned_report,
+                leak_type=leak_type,
+                value=match.group(0),
+                offset=match.start(),
+            )
+
+    for match in re.finditer(r"`([^`]+)`", scanned_report):
+        token = match.group(1)
+        if _looks_like_system_source_key(token):
+            _add_leak_match(
+                matches,
+                report=scanned_report,
+                leak_type="source_key",
+                value=token,
+                offset=match.start(1),
+            )
+
+    for match in re.finditer(r"[（(]([^()（）]+)[）)]", scanned_report):
+        token = match.group(1)
+        if _looks_like_system_source_key(token):
+            _add_leak_match(
+                matches,
+                report=scanned_report,
+                leak_type="source_key",
+                value=token,
+                offset=match.start(1),
+            )
+
+    check: dict[str, Any] = {
+        "check_id": "us_001",
+        "check_type": "user_surface_leakage",
+        "target": "用户态报告正文",
+        "status": "passed",
+        "details": {
+            "allow_technical_details": allow_technical_details,
+            "allowed_technical_sections": allowed_sections,
+            "matches": matches,
+        },
+    }
+
+    if matches:
+        check["status"] = "failed"
+        check["message"] = (
+            "报告包含内部路径、系统文件名、脚本名或 source key。普通用户报告只应展示业务名称、"
+            "交付物名称和必要口径；技术细节需放入显式技术段落并在验证时启用技术详情豁免。"
+        )
+
+    return [check]
+
+
+def _manifest_allows_technical_details(output_dir: str) -> bool:
+    if JOB_MANIFEST_HELPER is None:
+        return False
+    try:
+        manifest = JOB_MANIFEST_HELPER.load_manifest(output_dir)
+    except Exception:
+        return False
+    user_surface = manifest.get("user_surface") if isinstance(manifest, dict) else {}
+    reply_policy = manifest.get("reply_policy") if isinstance(manifest, dict) else {}
+    verification = manifest.get("verification") if isinstance(manifest, dict) else {}
+    return bool(
+        isinstance(user_surface, dict)
+        and user_surface.get("technical_details_requested")
+        or isinstance(reply_policy, dict)
+        and reply_policy.get("default_mode") == "technical"
+        or isinstance(verification, dict)
+        and verification.get("allow_user_surface_technical_details")
+    )
+
+
+def _update_manifest_verification_status(output_dir: str, status: str, verification_path: Path) -> bool:
+    if JOB_MANIFEST_HELPER is None:
+        return False
+    try:
+        if not JOB_MANIFEST_HELPER.manifest_path(output_dir).exists():
+            return False
+        JOB_MANIFEST_HELPER.update_user_surface(output_dir, {"verification_status": status})
+        payload = JOB_MANIFEST_HELPER.load_manifest(output_dir)
+        payload["verification"] = {
+            **(payload.get("verification") if isinstance(payload.get("verification"), dict) else {}),
+            "status": status,
+            "path": verification_path.name,
+            "updated_at": datetime.now().isoformat(),
+        }
+        JOB_MANIFEST_HELPER.save_manifest(output_dir, payload)
+        return True
+    except Exception:
+        return False
+
+
 def verify_report(
-    csv_path: str, analysis_path: str, report_path: str, output_dir: str
+    csv_path: str,
+    analysis_path: str,
+    report_path: str,
+    output_dir: str,
+    *,
+    allow_technical_details: bool = False,
 ) -> dict[str, Any]:
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
@@ -548,6 +711,7 @@ def verify_report(
     log(output_dir, f"[Verify] 数据: {len(df)} 行, 分析: {len(findings)} 条发现")
 
     all_checks: list[dict[str, Any]] = []
+    effective_allow_technical_details = allow_technical_details or _manifest_allows_technical_details(output_dir)
 
     evidence_checks = check_evidence_completeness(findings)
     all_checks.extend(evidence_checks)
@@ -588,6 +752,12 @@ def verify_report(
     all_checks.extend(output_file_list_checks)
     log(output_dir, f"[Verify] 输出文件清单章节检查: {len(output_file_list_checks)} 项")
 
+    user_surface_checks = check_user_surface_leakage(
+        report, allow_technical_details=effective_allow_technical_details
+    )
+    all_checks.extend(user_surface_checks)
+    log(output_dir, f"[Verify] 用户态泄露检查: {len(user_surface_checks)} 项")
+
     passed = sum(1 for c in all_checks if c["status"] == "passed")
     failed = sum(1 for c in all_checks if c["status"] == "failed")
     warnings = sum(1 for c in all_checks if c["status"] == "warning")
@@ -621,12 +791,14 @@ def verify_report(
             "data_source_section_position": len(data_source_position_checks),
             "data_source_display_name": len(data_source_display_checks),
             "output_file_list_section": len(output_file_list_checks),
+            "user_surface_leakage": len(user_surface_checks),
         },
     }
 
     verification_path = Path(output_dir) / "verification.json"
     with open(verification_path, "w", encoding="utf-8") as f:
         json.dump(verification, f, ensure_ascii=False, indent=2)
+    manifest_updated = _update_manifest_verification_status(output_dir, status, verification_path)
 
     log(output_dir, f"[Verify] 验证完成: {status.upper()}")
     log(output_dir, f"[Verify] 通过: {passed}, 失败: {failed}, 警告: {warnings}")
@@ -643,6 +815,7 @@ def verify_report(
         "passed": passed,
         "failed": failed,
         "warnings": warnings,
+        "manifest_updated": manifest_updated,
     }
 
 
@@ -654,6 +827,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("analysis_json", help="分析结果 JSON 路径")
     parser.add_argument("report_md", help="待验证报告路径")
     parser.add_argument("output_dir", help="输出目录，将写入 verification.json")
+    parser.add_argument(
+        "--allow-technical-details",
+        action="store_true",
+        help="允许显式 RA:technical-details 标记段落包含技术细节；未标记正文仍执行用户态泄露门禁",
+    )
     return parser
 
 
@@ -664,7 +842,13 @@ def main(argv: list[str] | None = None) -> int:
     except SystemExit as exc:
         return int(exc.code)
 
-    result = verify_report(args.data_csv, args.analysis_json, args.report_md, args.output_dir)
+    result = verify_report(
+        args.data_csv,
+        args.analysis_json,
+        args.report_md,
+        args.output_dir,
+        allow_technical_details=args.allow_technical_details,
+    )
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result["success"] else 1
 

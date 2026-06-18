@@ -15,6 +15,8 @@ description: |
 - `profile/manifest.json`：schema、lineage、profile_summary
 - `profile/profile.json`：signals、quality、statistics
 
+这两个文件默认登记为 `derived_internal`，用于后续分析、报告格式化和复核，不进入普通用户回复或报告输出清单。对用户只输出业务化质量摘要。
+
 ## 用法
 
 ```bash
@@ -72,13 +74,13 @@ python3 {baseDir}/skills/data-profile/scripts/profile.py --help
 ## 连续分析与来源绑定
 
 1. Profiling 结果必须绑定到**明确的输入 CSV**，不得出现“只有 profile，没有来源文件”的情况。
-2. 同一 job 内若多次运行 profiling，当前 `profile/manifest.json` 与 `profile/profile.json` 可以代表最新一轮，但必须在 `jobs/{SESSION_ID}/.meta/artifact_index.json` 中写清它们对应的输入 CSV、产生时间与本轮用途。
+2. 同一 job 内若多次运行 profiling，当前 `profile/manifest.json` 与 `profile/profile.json` 可以代表最新一轮，但必须在 `jobs/{SESSION_ID}/.meta/artifact_index.json` 与 `jobs/{SESSION_ID}/job_manifest.json` 中写清它们对应的输入 CSV、产生时间与本轮用途。
 3. 若本轮 profiling 是为追加分析服务，必须同时更新 `jobs/{SESSION_ID}/.meta/analysis_journal.md`，说明这轮画像支撑了什么分析。
 4. 当存在多个成功导出 CSV 时，必须显式传 `--data-csv`，不要让 profile 与错误文件绑定。
 
 ## 脚本化建议（推荐）
 
-连续分析场景下，推荐使用 wrapper，把 profiling 产物与输入 CSV 的绑定关系回写进 `artifact_index.json`：
+连续分析场景下，推荐使用 wrapper，把 profiling 产物与输入 CSV 的绑定关系回写进 `artifact_index.json` 和 `job_manifest.json`：
 
 ```bash
 ./scripts/py skills/data-profile/scripts/profiling_with_meta.py --session-id $SESSION_ID
@@ -136,8 +138,8 @@ Profiling 会自动识别以下语义类型（用于格式化）：
 
 ```text
 完成情况：
-- 已画像 CSV：<文件路径、行数、列数>
-- 已生成产物：`profile/manifest.json`、`profile/profile.json`
+- 已完成画像：<面向用户的数据名称、行数、列数>
+- 已完成内部登记：<profile manifest、profile details、job manifest，按实际保留>
 - 已记录质量信号：<缺失率、异常字段、质量评分、字段类型问题>
 
 下一步建议：
@@ -148,4 +150,5 @@ Profiling 会自动识别以下语义类型（用于格式化）：
 边界提醒：
 - 本 skill 是流程内画像阶段，没有生成业务结论、报告或正式 metadata patch。
 - 画像结果只能支持识别值域/格式/质量问题，不能替代业务定义。
+- 默认不要向普通用户展示 `profile/manifest.json`、`profile/profile.json`、本地路径或内部字段名；用户明确要求技术复核时再补路径。
 ```

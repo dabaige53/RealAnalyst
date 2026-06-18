@@ -2,14 +2,14 @@
 name: "RA:report-verify"
 description: |
   Use when: (1) Validating a report before delivery, (2) Need a machine-readable verification.json
-  summary, (3) Need to confirm evidence chain, rankings, trends, appendix, and output-file-list
+  summary, (3) Need to confirm evidence chain, rankings, trends, appendix, user-surface, and output-file-list
   compliance, (4) Need to decide whether a report can pass the final gate. Triggers: verify, 验证报告,
   交付前校验, verification.json, 一致性校验, 最终门禁.
 ---
 
 # Verify Skill
 
-交付前质量门禁。验证报告中的声明、口径和必备章节是否与数据、分析结果和输出契约一致。
+交付前质量门禁。验证报告中的声明、口径、用户可见表达和必备章节是否与数据、分析结果和输出契约一致。
 
 验证通过不等于已经交付。报告进入 Slack、邮件或 Drive 前，必须再生成 `delivery_manifest.json`，并按清单上传 Markdown 报告和用户态 CSV 附件。外部上传动作由宿主 agent / gateway 执行；本 skill 只生成可检查清单和门禁状态。
 
@@ -20,6 +20,8 @@ python3 {baseDir}/skills/report-verify/scripts/verify.py --help
 python3 {baseDir}/skills/report-verify/scripts/verify.py <data_csv> <analysis_json> <report_md> <output_dir>
 python3 {baseDir}/skills/report-verify/scripts/build_delivery_manifest.py --session-id <SESSION_ID> --platform slack
 ```
+
+普通报告默认不得暴露本地路径、内部目录、系统文件名、脚本名或 source key。若用户明确要求技术详情，必须把技术内容放在 `<!-- RA:technical-details:start -->` 与 `<!-- RA:technical-details:end -->` 标记段落内，并在命令中加 `--allow-technical-details`；未标记正文仍按普通用户报告检查。
 
 ## 参数
 
@@ -97,7 +99,8 @@ python3 {baseDir}/skills/report-verify/scripts/build_delivery_manifest.py --sess
     "metric_term_consistency": 1,
     "data_source_section_position": 1,
     "data_source_display_name": 1,
-    "output_file_list_section": 1
+    "output_file_list_section": 1,
+    "user_surface_leakage": 1
   }
 }
 ```
@@ -133,6 +136,7 @@ python3 {baseDir}/skills/report-verify/scripts/build_delivery_manifest.py --sess
 8. `data_source_section_position`：`## 数据来源` 是否位于报告前部。
 9. `data_source_display_name`：数据源展示是否保持中文业务名。
 10. `output_file_list_section`：是否包含 `## 输出文件清单`。
+11. `user_surface_leakage`：普通用户报告是否泄露内部路径、系统文件名、脚本名、source key 或内部术语。
 
 ## 最终交付门禁
 
@@ -183,4 +187,5 @@ python3 {baseDir}/skills/report-verify/scripts/verify.py \
 边界提醒：
 - 本 skill 只做交付前门禁检查，没有修改报告、数据或正式 metadata。
 - 未通过项需要回到对应 owner skill 修正后重新验证。
+- 默认不要向普通用户展示本地路径、内部目录、脚本名、系统 JSON 文件名或英文 source key；技术详情只在用户明确要求时单独标记并验证。
 ```

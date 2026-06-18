@@ -10,10 +10,12 @@ Schema 用于约束分析计划、分析结果、验证结果、metadata dataset
 | 文件 | 用途 |
 | --- | --- |
 | `analysis.schema.json` | 分析结果结构 |
-| `analysis_plan.schema.json` | 分析计划结构 |
+| `analysis_plan.schema.json` | 旧 JSON operator plan 结构；不约束 Markdown `analysis_plan.md` |
+| `analysis_plan_decision.schema.json` | 从 Markdown plan 抽取并写入 `job_manifest.planning` 的模板锁定结果 |
 | `manifest.schema.json` | 数据画像或产物 manifest |
 | `metadata_conversion_manifest.schema.json` | metadata 转换 manifest |
 | `metadata_dataset.schema.json` | dataset YAML / JSON 结构约束 |
+| `job_manifest.schema.json` | job 总账本：状态、产物、用户态清单、内部证据索引 |
 | `normalized_request.schema.json` | 用户需求画像结构 |
 | `verification.schema.json` | 报告验证结果结构 |
 
@@ -24,10 +26,13 @@ Schema 用于约束分析计划、分析结果、验证结果、metadata dataset
 ```mermaid
 flowchart LR
     Req[用户需求] --> NR[normalized_request.schema]
-    NR --> Plan[analysis_plan.schema]
+    NR --> Plan[analysis_plan.md + analysis_plan_decision.schema]
     Plan --> Analysis[analysis.schema]
     Analysis --> Report[报告]
     Report --> Verify[verification.schema]
+    Analysis --> JobManifest[job_manifest.schema]
+    Report --> JobManifest
+    Verify --> JobManifest
     Meta[metadata_dataset.schema] --> Context[metadata context]
 ```
 

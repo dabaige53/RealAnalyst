@@ -18,7 +18,7 @@
 | 类型 | 内容 |
 | --- | --- |
 | 输入 | 用户问题<br/>normalized_request.json<br/>metadata context pack<br/>runtime 查询结果 |
-| 输出 | jobs/{SESSION_ID}/.meta/analysis_plan.md<br/>业务假设<br/>分析目标<br/>模板选择<br/>风险与限制 |
+| 输出 | jobs/{SESSION_ID}/.meta/analysis_plan.md<br/>job_manifest planning 决策<br/>业务假设<br/>分析目标<br/>模板选择<br/>风险与限制 |
 | 下一步 | `RA:analysis-run` |
 
 ---
@@ -37,6 +37,12 @@ flowchart LR
 ```bash
 /skill RA:analysis-plan
 基于 metadata context，为这个问题生成分析计划。
+```
+
+Markdown plan 的结构由 `skills/analysis-plan/scripts/validate_plan.py` 检查；`schemas/analysis_plan.schema.json` 只是旧 JSON operator plan，不约束 `analysis_plan.md`。需要把模板锁定结果同步给后续阶段时，运行：
+
+```bash
+python3 skills/analysis-plan/scripts/validate_plan.py --session-id $SESSION_ID --update-manifest
 ```
 
 ---

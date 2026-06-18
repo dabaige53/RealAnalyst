@@ -14,6 +14,7 @@
 - 修改 `skills/*/SKILL.md` 时，必须保持唯一 `## Completion Summary`，并包含“完成情况 / 下一步建议 / 边界提醒”三段轻量交接。
 - 不为了修一个输出问题 hard-code 某个业务字段名、指标名或固定中文列名；报告逻辑必须按 metadata 结构、role、definition、expression、mapping、evidence 等通用规则处理。
 - 没有真实数据、真实 metadata、真实 connector 输出或真实 evidence 时，不生成占位内容撑版面。
+- 面向普通分析用户的回复和报告正文默认不展示本地路径、内部目录、脚本名、系统 JSON 文件名、source key、dataset id、profile 文件或审计日志；技术任务、排障、测试、PR/commit 和用户明确要求路径时才输出最小必要细节。
 
 ---
 
@@ -31,6 +32,8 @@
 | DuckDB export | 使用 `skills/data-export/scripts/duckdb/run_tests.py` 或最小 export smoke |
 | release / installer | `python3 scripts/check_release_alignment.py --allow-network-failure`，并检查 `scripts/install_codex_plugin.py` 的 dry-run 或 smoke path |
 | 全仓回归 | `python3 -m pytest tests/test_metadata_product_fixes.py` |
+
+用户态输出改动还应运行或补充相应 leak 检查，例如 `tests/test_analysis_run_manifest_integration.py`、`tests/test_report_manifest_deliverables.py`、`tests/test_report_verify_user_surface.py`。
 
 CI 里已有 `.github/workflows/ci.yml` 运行 `python skills/metadata/scripts/metadata.py validate`。不要把本地未通过的 metadata validation 留给 CI。
 
@@ -97,6 +100,7 @@ CI 里已有 `.github/workflows/ci.yml` 运行 `python skills/metadata/scripts/m
 - 文档同步：`README.md`、`skills/README.md`、`SKILL.md`、adapter references 是否需要同步。
 - 用户入口：README、skills README、llm-next-steps、getting-started 是否一致表达 3 个主入口、3 个补充入口和流程内 skill 弱化。
 - Completion Summary：所有 `skills/*/SKILL.md` 是否都有统一结构，下一步建议是否按本次结果动态裁剪且不自动越权执行。
+- 用户态表达：普通分析回复是否只含业务摘要、可见交付物、验证状态、风险和下一步；是否避免内部路径、系统 JSON、脚本名和 source key。
 - 测试：是否有覆盖当前行为的 focused test 或 smoke command。
 
 ---

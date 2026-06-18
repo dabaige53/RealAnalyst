@@ -365,7 +365,7 @@ jobs/{SESSION_ID}/
 | 产物 | 生产者 | 消费者 | JSON Schema |
 | --- | --- | --- | --- |
 | `normalized_request.json` | analysis-run Phase 0 | analysis-plan | `schemas/normalized_request.schema.json` |
-| `analysis_plan.md` | analysis-plan | analysis-run, report | `schemas/analysis_plan.schema.json` |
+| `analysis_plan.md` | analysis-plan | analysis-run, report | Markdown plan；锁定结果用 `schemas/analysis_plan_decision.schema.json` 并写入 `job_manifest.planning` |
 | `export_summary.json` | data-export (Tableau) | data-profile, analysis-run | — |
 | `duckdb_export_summary.json` | data-export (DuckDB) | data-profile, analysis-run | — |
 | `manifest.json` | data-profile | report | `schemas/manifest.schema.json` |
@@ -471,7 +471,8 @@ export SESSION_ID
 | Schema | 描述 | 关联 Skill |
 | --- | --- | --- |
 | `normalized_request.schema.json` | 需求画像 | analysis-run → analysis-plan |
-| `analysis_plan.schema.json` | 分析计划 | analysis-plan → report |
+| `analysis_plan.schema.json` | 旧 JSON operator plan，不约束 Markdown plan | legacy |
+| `analysis_plan_decision.schema.json` | Markdown plan 的框架/模式/交付/模板锁定结果 | analysis-plan → job_manifest → report |
 | `analysis.schema.json` | 结构化分析结果（findings + statistics） | analysis-run → report-verify |
 | `manifest.schema.json` | 数据集 manifest（schema + lineage） | data-profile → report |
 | `verification.schema.json` | 验证结果 | report-verify → 用户 |

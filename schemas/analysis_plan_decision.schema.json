@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://realanalyst.dev/schemas/analysis_plan_decision.schema.json",
+  "title": "RealAnalyst Analysis Plan Decision",
+  "description": "Structured decision fields extracted from Markdown analysis_plan.md and stored in job_manifest.planning.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "selected_framework_id",
+    "framework_selection_reason",
+    "selected_analysis_mode",
+    "selected_delivery_mode",
+    "selected_report_template"
+  ],
+  "properties": {
+    "selected_framework_id": {
+      "type": "string",
+      "enum": [
+        "mece_issue_tree",
+        "waterfall_attribution",
+        "gsm_metric_planning",
+        "funnel_conversion",
+        "cohort_retention",
+        "root_cause",
+        "benchmark_radar"
+      ]
+    },
+    "framework_selection_reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "selected_analysis_mode": {
+      "type": "string",
+      "enum": ["overview", "ranking", "attribution", "benchmark", "exploration"]
+    },
+    "analysis_mode_selection_reason": {
+      "type": "string"
+    },
+    "selected_delivery_mode": {
+      "type": "string",
+      "enum": ["executive_brief", "structured_report", "diagnosis_report", "detailed_report"]
+    },
+    "delivery_mode_selection_reason": {
+      "type": "string"
+    },
+    "selected_report_template": {
+      "type": "string",
+      "enum": [
+        "executive_onepage",
+        "summary_structured",
+        "ranking_report",
+        "attribution_report",
+        "competitor_compare",
+        "technical_detailed"
+      ]
+    },
+    "template_selection_reason": {
+      "type": "string"
+    },
+    "plan_artifact_id": {
+      "type": ["string", "null"]
+    }
+  }
+}

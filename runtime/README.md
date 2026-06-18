@@ -24,6 +24,7 @@ flowchart LR
 | 内容 | 作用 | 是否提交 |
 | --- | --- | --- |
 | `paths.py` | 统一 workspace / runtime / registry.db 路径解析（支持 `ANALYST_WORKSPACE_DIR`） | 提交 |
+| `job_manifest.py` | 读写 `jobs/{SESSION_ID}/job_manifest.json`，记录 job 状态、产物、用户态清单和内部证据索引 | 提交 |
 | `runtime_config_store.py` | `registry.db` 的 lookup 表读写入口（SQLite-backed） | 提交 |
 | `migrate_runtime_config_to_sqlite.py` | 一次性把 `runtime/*.yaml` lookup 引导进 `registry.db` | 提交 |
 | `runtime.example.yaml` | 运行时配置示例 | 提交 |
@@ -45,6 +46,8 @@ flowchart LR
 | 可用 filter / parameter 是什么？ | `runtime/tableau/query_registry.py` |
 | DuckDB 表怎么注册？ | `runtime/duckdb/register_duckdb_sources.py` |
 | 本轮分析用哪个 source？ | `analysis_plan.md` + runtime registry |
+| 旧 job 怎么迁移到 manifest？ | `scripts/legacy_job_manifest_migration.py --job-dir <job_dir>` 先 dry-run review |
+| delivered job 怎么收缩目录？ | `scripts/finalize_job_archive.py --job-dir <job_dir>` 先 review；确认后才允许 `--apply --confirm-delivered` |
 
 ---
 

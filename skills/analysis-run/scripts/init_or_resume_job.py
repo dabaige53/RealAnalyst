@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import secrets
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -32,9 +33,18 @@ def _find_workspace_root(start: Path) -> Path:
 
 
 WORKSPACE_DIR = _find_workspace_root(Path(__file__).resolve())
+if str(WORKSPACE_DIR) not in sys.path:
+    sys.path.insert(0, str(WORKSPACE_DIR))
+
+try:
+    from runtime import job_manifest as JOB_MANIFEST_HELPER
+except ImportError:
+    JOB_MANIFEST_HELPER = None
+
 JOBS_DIR = WORKSPACE_DIR / "jobs"
 STATE_DIR = JOBS_DIR / "_state"
 STATE_PATH = STATE_DIR / "session_map.json"
+MANIFEST_NAME = "job_manifest.json"
 
 
 def _now_iso() -> str:
@@ -139,6 +149,122 @@ def _ensure_job_skeleton(job_dir: Path, session_id: str) -> None:
         )
 
 
+def _ensure_manifest(job_dir: Path, session_id: str) -> None:
+    if JOB_MANIFEST_HELPER is not None:
+        JOB_MANIFEST_HELPER.create_manifest(
+            job_dir,
+            job_id=session_id,
+            title=session_id,
+            owner_skill="analysis-run",
+        )
+        JOB_MANIFEST_HELPER.register_artifact(
+            job_dir,
+            {
+                "id": "legacy_artifact_index",
+                "role": "legacy",
+                "kind": "json",
+                "display_name": "旧版产物索引",
+                "path": ".meta/artifact_index.json",
+                "producer": "analysis-run",
+                "user_visible": False,
+                "internal_only": True,
+                "safe_to_archive": True,
+                "safe_to_delete": False,
+            },
+        )
+        JOB_MANIFEST_HELPER.register_step(
+            job_dir,
+            {
+                "id": "analysis_run_init_or_resume",
+                "name": "初始化或恢复分析任务",
+                "owner_skill": "analysis-run",
+                "status": "success",
+                "output_artifacts": ["legacy_artifact_index"],
+                "user_visible_summary": "已准备本次分析任务。",
+            },
+        )
+        return
+
+    manifest_path = job_dir / MANIFEST_NAME
+    if manifest_path.exists():
+        return
+    now = _now_iso()
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "job": {
+                    "id": session_id,
+                    "title": session_id,
+                    "status": "planning",
+                    "created_at": now,
+                    "updated_at": now,
+                    "owner_skill": "analysis-run",
+                    "business_context": "",
+                },
+                "user_surface": {
+                    "summary": "",
+                    "primary_deliverable_id": None,
+                    "deliverables": [],
+                    "verification_status": "not_run",
+                    "risks": [],
+                    "next_actions": [],
+                    "display_language": "zh-CN",
+                    "technical_details_available": True,
+                },
+                "inputs": [],
+                "steps": [
+                    {
+                        "id": "analysis_run_init_or_resume",
+                        "name": "初始化或恢复分析任务",
+                        "owner_skill": "analysis-run",
+                        "status": "success",
+                        "started_at": None,
+                        "finished_at": now,
+                        "input_artifacts": [],
+                        "output_artifacts": ["legacy_artifact_index"],
+                        "error_code": None,
+                        "user_visible_summary": "已准备本次分析任务。",
+                    }
+                ],
+                "artifacts": [
+                    {
+                        "id": "legacy_artifact_index",
+                        "role": "legacy",
+                        "kind": "json",
+                        "display_name": "旧版产物索引",
+                        "path": ".meta/artifact_index.json",
+                        "producer": "analysis-run",
+                        "consumers": [],
+                        "created_at": now,
+                        "status": "ready",
+                        "validation": {"status": "not_run"},
+                        "user_visible": False,
+                        "internal_only": True,
+                        "safe_to_archive": True,
+                        "safe_to_delete": False,
+                    }
+                ],
+                "verification": {},
+                "provenance": {},
+                "reply_policy": {
+                    "default_mode": "business",
+                    "hide_internal_paths": True,
+                    "hide_source_keys": True,
+                    "hide_script_names": True,
+                    "allow_technical_details_when_requested": True,
+                    "redaction_notes": ["created_without_runtime_helper"],
+                },
+                "archive": {},
+                "legacy": {},
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Init or resume a job for a conversation key")
     ap.add_argument("--key", required=True, help="Conversation key (e.g. channel:xxxx)")
@@ -196,6 +322,7 @@ def main() -> int:
     job_dir = JOBS_DIR / session_id
     job_dir.mkdir(parents=True, exist_ok=True)
     _ensure_job_skeleton(job_dir, session_id)
+    _ensure_manifest(job_dir, session_id)
 
     _write_state(state)
 

@@ -25,22 +25,22 @@ python3 {baseDir}/skills/getting-started/scripts/doctor.py --intent analyze
 - **优先复用当前 job 已有数据。** 当前数据足够回答问题时，直接继续分析，不要为了“求稳”重复取数。
 - **允许在同一 job 内补下同一数据源的数据**，但必须记录补数原因、筛选条件、输出文件与时间。
 - **若需要新增数据源，必须先向用户确认。** 未确认前，只能停留在解释原因、展示新增数据计划、等待点头。
-- **每轮结束后必须明确告诉用户**：当前已获取哪些数据、已做了哪些分析、基于当前数据还能继续做什么、若继续扩展是否需要确认新数据源。
-- **job 内必须保留操作元数据。** 至少维护 `.meta/acquisition_log.jsonl`、`.meta/artifact_index.json`、`.meta/analysis_journal.md`、`.meta/user_request_timeline.md`。
+- **每轮结束后必须明确告诉用户**：当前业务结论、可查看交付物、验证状态、风险和下一步。默认回复必须从 `job_manifest.json` 的 `user_surface` 渲染，不裸露内部目录、脚本名、source key 或过程文件；用户明确要求技术详情时才补充。
+- **job 内必须维护统一 manifest。** `job_manifest.json` 是 job 生命周期、产物、验证和用户可见内容的主索引；`.meta/artifact_index.json` 仅保留为旧流程兼容索引，必须在 manifest 中登记为 `legacy`，不得作为用户回复的默认来源。
 - **metadata 问题只记录，不治理。** 字段定义不清、指标口径待修、证据不足、真实数据与 YAML 不一致时，只追加 `.meta/metadata_feedback.jsonl`；后续交给 `RA:metadata-refine` 生成参考材料，再由 `RA:metadata` 维护 YAML。
 - **展示层字段名不触发 metadata 维护。** 用户要求 CSV 表头、字段展示名或导出列名中文化时，交给 `RA:data-export` 的 export/display layer；不要把 `metadata/datasets/*.yaml` 的 `fields[].name` 改成展示名。
 - **长内容继续走文件交付。** 报告过长时，仍然发文件，不把整篇报告直接贴进聊天框。
 
 **脚本化入口（推荐）**：
 
-- 会话开始时先用脚本“初始化或续用当前 job”，避免同一会话误开多个 job：
+- 会话开始时先用脚本“初始化或续用当前 job”，避免同一会话误开多个 job；脚本会自动创建或补齐 `job_manifest.json`：
 
 ```bash
 SESSION_ID=$(./scripts/py skills/analysis-run/scripts/init_or_resume_job.py --key "<conversation_key>" --prefix discord)
 export SESSION_ID
 ```
 
-- 取数与写报告阶段，推荐使用对应 skill 内的脚本更新 job 审计元数据和产物索引（见 `skills/data-export/scripts/duckdb/duckdb_export_with_meta.py`、`skills/data-export/scripts/tableau/tableau_export_with_meta.py`、`skills/report/scripts/append_report_update.py`）；这些脚本不写正式 metadata YAML。
+- 取数与写报告阶段，推荐使用对应 skill 内的脚本更新 job 审计元数据和产物索引（见 `skills/data-export/scripts/duckdb/duckdb_export_with_meta.py`、`skills/data-export/scripts/tableau/tableau_export_with_meta.py`、`skills/report/scripts/append_report_update.py`）；这些脚本不写正式 metadata YAML。新流程应优先同步 `job_manifest.json`，旧 `.meta/artifact_index.json` 只做兼容。
 - 发现 metadata 问题时，使用 `skills/metadata-refine/scripts/collect_feedback.py` 追加反馈记录，不在分析流程中修 YAML：
 
 ```bash
@@ -483,7 +483,7 @@ data_source:
 #### 元数据留痕（每次下载 / 画像后必须）
 
 - 每次导出后，必须向 `jobs/{SESSION_ID}/.meta/acquisition_log.jsonl` 追加一条记录，至少写明：时间戳、`source_key`、`display_name`、`source_backend`、触发原因、`filters`、`parameters`、`date_range`、输出文件路径、是否为新增数据源、是否已获用户确认。
-- 每次导出、画像、汇总表生成、报告更新后，必须同步更新 `jobs/{SESSION_ID}/.meta/artifact_index.json`，登记文件路径、文件类型、来源数据源、生成步骤、与哪一轮分析相关。
+- 每次导出、画像、汇总表生成、报告更新后，必须同步更新 `jobs/{SESSION_ID}/job_manifest.json`，登记产物角色、是否用户可见、验证状态和归档策略。旧 `.meta/artifact_index.json` 可以继续写入兼容信息，但不能替代 manifest。
 - 每轮用户追问都要更新 `jobs/{SESSION_ID}/.meta/user_request_timeline.md`；每轮分析完成都要更新 `jobs/{SESSION_ID}/.meta/analysis_journal.md`。
 - 若本轮分析发现 metadata 维护问题，必须追加 `jobs/{SESSION_ID}/.meta/metadata_feedback.jsonl`，但不得在分析流程内修改 metadata YAML。
 - 若同一 job 内多次运行 profiling，即使当前 `profile/manifest.json` 与 `profile/profile.json` 被新结果覆盖，也必须在 `artifact_index.json` 中保留它们绑定的输入 CSV 路径与本轮用途，避免来源断链。
@@ -564,17 +564,18 @@ echo "phase2_complete" > jobs/{SESSION_ID}/phase2_complete.flag
 3. **禁止自创第二个会话级 job 目录**：严禁在同一会话里再创建新的 job 目录。
 4. **SESSION_ID 来源**：从 Prompt 头部 `[session:xxx]` 提取。
 5. **报告文件复用**：首轮创建报告文件；后续轮次继续更新同一路径，不重写新的主报告文件。
-6. **元数据文件必须保留**：至少维护 `.meta/analysis_plan.md`、`.meta/normalized_request.json`、`.meta/acquisition_log.jsonl`、`.meta/artifact_index.json`、`.meta/analysis_journal.md`、`.meta/user_request_timeline.md`、`.meta/metadata_feedback.jsonl`。
+6. **元数据文件必须保留**：至少维护 `job_manifest.json`、`.meta/analysis_plan.md`、`.meta/normalized_request.json`、`.meta/acquisition_log.jsonl`、`.meta/artifact_index.json`、`.meta/analysis_journal.md`、`.meta/user_request_timeline.md`、`.meta/metadata_feedback.jsonl`。
 
 ```text
 jobs/{SESSION_ID}/
+├── job_manifest.json             # job 主索引：用户可见交付、内部证据、验证和归档状态
 ├── data/                         # 数据文件（tableau 导出或 duckdb 落盘结果）
 ├── profile/                      # 数据画像（profiling skill 自动创建）
 ├── .meta/
 │   ├── analysis_plan.md          # 分析计划
 │   ├── normalized_request.json   # 需求归一化结果
 │   ├── acquisition_log.jsonl     # 每次下载动作留痕
-│   ├── artifact_index.json       # job 内正式产物索引
+│   ├── artifact_index.json       # 旧版产物索引，仅兼容使用
 │   ├── analysis_journal.md       # 每轮分析日志
 │   ├── user_request_timeline.md  # 用户需求时间线
 │   └── metadata_feedback.jsonl   # metadata 问题线索，只供 refine 使用
@@ -634,7 +635,7 @@ jobs/{SESSION_ID}/
 - 数据来源说明（置于报告上方；包含数据源名称、筛选条件、采集时间）
 - **需求时间线**（至少说明用户是怎么一步步追加问题的）
 - **报告更新时间线**（至少说明每轮在什么时间追加了什么内容）
-- **输出文件清单**（必须放在正文内；可基于实际产物或 `artifact_index.json` 精确生成，若已同步到 Drive/外部存储，则优先附超链接；禁止猜写）
+- **输出文件清单**（必须基于 `job_manifest.json` 的用户可见交付物生成，若已同步到 Drive/外部存储，则优先附超链接；禁止猜写。默认不展示内部过程文件路径）
 - **阅读提示 / 注意事项**（至少说明数据使用边界、指标口径、可外推范围）
 - **一段话结论**（便于用户转发、复盘、后续快速回看）
 - **假设验证章节**（逐项回应规划阶段的假设）
@@ -667,13 +668,22 @@ jobs/{SESSION_ID}/
 
 ## Completion Summary
 
+默认使用以下脚本从 manifest 渲染用户回复：
+
+```bash
+python3 {baseDir}/skills/analysis-run/scripts/render_user_reply.py --job-dir jobs/$SESSION_ID
+```
+
+默认 completion summary 只包含业务摘要、可查看交付物、验证状态、风险和下一步。内部路径、脚本名、source key、过程文件、profile JSON、审计日志只在用户明确要求“技术细节 / 文件明细 / 排障信息”时输出。
+
 每个 Phase 完成后，用下面结构向用户汇报，并按本次结果动态裁剪：
 
 ```text
 完成情况：
 - 已完成 Phase：<0 需求画像 / 0.1 规划 / 1 取数 / 2 画像 / 3 分析 / 4 报告 / 5 验证>
-- 已生成产物：<normalized_request.json、analysis_plan.md、CSV/export_summary、profile、analysis.json、report、verification.json>
-- 已记录线索：<metadata feedback / refine 线索 / artifact index，若有>
+- 可查看交付物：<报告名称、用户附件名称；没有则写“暂无用户可见交付物”>
+- 当前验证状态：<未验证 / 已通过 / 有警告 / 未通过>
+- 已记录线索：<业务化描述 metadata feedback / refine 线索；不要列内部文件名>
 
 下一步建议：
 - 最推荐下一步：/skill RA:report-verify ...（报告已生成但未验证）
@@ -684,4 +694,5 @@ jobs/{SESSION_ID}/
 - 本 skill 没有自动注册正式 metadata；缺 source 或口径时先回到 /skill RA:metadata。
 - 本 skill 不把分析中的 metadata 推断直接写回 YAML；正式写回需用户主动走 /skill RA:metadata-refine 和 /skill RA:metadata。
 - 长期任务目标和阶段管理不属于 RealAnalyst job，交给外部 continuity layer。
+- 默认不展示内部路径、脚本名、source key、过程文件、profile JSON 或审计日志；用户明确要求技术细节、文件明细或排障信息时才补充最小必要路径。
 ```

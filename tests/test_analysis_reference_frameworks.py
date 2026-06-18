@@ -29,9 +29,13 @@ class AnalysisReferenceFrameworkTests(unittest.TestCase):
     def test_analysis_reference_framework_aliases_return_real_config(self) -> None:
         cases = {
             "mece": "mece_issue_tree",
+            "monitoring": "mece_issue_tree",
             "waterfall": "waterfall_attribution",
             "osm": "gsm_metric_planning",
+            "diagnosis": "root_cause",
             "radar": "benchmark_radar",
+            "benchmark": "benchmark_radar",
+            "exploration": "mece_issue_tree",
             "funnel": "funnel_conversion",
         }
 

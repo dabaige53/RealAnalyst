@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "http://dataagent.ai/schemas/analysis_plan.json",
-  "title": "DataAgent Analysis Plan",
-  "description": "定义 LLM 生成的分析计划结构，用于驱动 Plan Executor 执行业务分析",
+  "title": "Legacy DataAgent Operator Plan",
+  "description": "Legacy JSON operator plan schema for the old Plan Executor. It does not validate jobs/{SESSION_ID}/.meta/analysis_plan.md Markdown plans. Markdown plan decisions are covered by analysis_plan_decision.schema.json and skills/analysis-plan/scripts/validate_plan.py.",
   "type": "object",
   "required": ["version", "job_id", "dataset", "operators"],
   "additionalProperties": false,
