@@ -126,6 +126,16 @@ class ProjectContractAuditTests(unittest.TestCase):
         self.assertIn("skills/data-export/scripts/sql/common_sql_export.py", code_files["potentially_internal_or_unreferenced_skill_scripts"])
         self.assertIn("test.sh", code_files["shell_entrypoints"])
 
+    def test_project_audit_report_lists_internal_script_candidates(self) -> None:
+        audit = _load_audit_module()
+        payload = audit.run_audit()
+        candidates = payload["inventory"]["code_files"]["potentially_internal_or_unreferenced_skill_scripts"]
+        report = (REPO / "tests" / "reports" / "2026-06-18-project-audit-gates.md").read_text(encoding="utf-8")
+
+        self.assertGreaterEqual(len(candidates), 20)
+        for script_path in candidates:
+            self.assertIn(script_path, report)
+
     def test_audit_inventory_covers_code_surface_test_document_matrix(self) -> None:
         audit = _load_audit_module()
         payload = audit.run_audit()

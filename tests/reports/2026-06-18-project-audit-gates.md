@@ -15,6 +15,7 @@
 - metadata 目录中不应出现明显分层污染、生成层手工内容、断裂 source evidence、未被入口引用的脏文件或旧报告冒充真源。
 - 代码审计至少覆盖 Python 语法、测试收集、核心回归、schema JSON、CI workflow 与 `test.sh` 一致性。
 - 审计输出是结构化 JSON，并能作为后续修复任务的输入。
+- 审计报告必须完整列出未被 Skill/README 直接提到的内部/辅助脚本候选，不能只在 JSON inventory 中隐藏。
 
 ## 3. 风险等级
 
@@ -84,6 +85,9 @@ assert "skills/data-export/scripts/sql/common_sql_export.py" in code_files["pote
 metadata_files = payload["inventory"]["metadata_files"]
 assert metadata_files["counts"]["sync_reports"] >= 1
 assert metadata_files["counts"]["generated_index"] >= 1
+
+for script_path in code_files["potentially_internal_or_unreferenced_skill_scripts"]:
+    print(script_path)
 ```
 
 ## 7. 完整 Python 测试代码
@@ -160,7 +164,59 @@ def test_audit_inventory_covers_code_files_and_internal_script_candidates(self) 
     self.assertIn("skills/metadata/adapters/tableau/scripts/test_views.py", code_files["manual_smoke_scripts_outside_tests"])
     self.assertIn("skills/data-export/scripts/sql/common_sql_export.py", code_files["potentially_internal_or_unreferenced_skill_scripts"])
     self.assertIn("test.sh", code_files["shell_entrypoints"])
+
+def test_project_audit_report_lists_internal_script_candidates(self) -> None:
+    audit = _load_audit_module()
+    payload = audit.run_audit()
+    candidates = payload["inventory"]["code_files"]["potentially_internal_or_unreferenced_skill_scripts"]
+    report = (REPO / "tests" / "reports" / "2026-06-18-project-audit-gates.md").read_text(encoding="utf-8")
+
+    self.assertGreaterEqual(len(candidates), 20)
+    for script_path in candidates:
+        self.assertIn(script_path, report)
 ```
+
+## 7.1 内部/辅助脚本候选清单
+
+以下脚本当前未被对应 `SKILL.md` / `README.md` 直接提到，审计将其列为 `potentially_internal_or_unreferenced_skill_scripts`。这不是自动判定为错误；它们可能是内部 helper、兼容入口、旧 adapter、手动维护脚本或待收敛代码。后续调整时必须逐项判断：保留并补文档、迁入正式入口、标注内部用途，或删除。
+
+- `skills/analysis-run/scripts/cleanup_job_csvs.py`
+- `skills/analysis-run/scripts/cleanup_temp_csvs.py`
+- `skills/analysis-run/scripts/new_session_id.py`
+- `skills/analysis-run/scripts/validate_analysis.py`
+- `skills/data-export/scripts/sql/common_sql_export.py`
+- `skills/data-export/scripts/tableau/_bootstrap.py`
+- `skills/data-export/scripts/tableau/auth.py`
+- `skills/data-export/scripts/tableau/build_tableau_report_dashboard.py`
+- `skills/data-export/scripts/tableau/export.py`
+- `skills/data-export/scripts/tableau/list.py`
+- `skills/data-export/scripts/tableau/tableau_enrich_runtime_metadata.py`
+- `skills/metadata-refine/scripts/_common.py`
+- `skills/metadata-report/scripts/_bootstrap.py`
+- `skills/metadata-report/scripts/dataset_report.py`
+- `skills/metadata-report/scripts/duckdb_report.py`
+- `skills/metadata-report/scripts/report_context.py`
+- `skills/metadata-report/scripts/tableau_report.py`
+- `skills/metadata-search/scripts/_bootstrap.py`
+- `skills/metadata/scripts/_bootstrap.py`
+- `skills/metadata/scripts/build_catalog.py`
+- `skills/metadata/scripts/build_context.py`
+- `skills/metadata/scripts/build_index.py`
+- `skills/metadata/scripts/build_inventory.py`
+- `skills/metadata/scripts/enrich_definitions.py`
+- `skills/metadata/scripts/export_osi.py`
+- `skills/metadata/scripts/init_metadata.py`
+- `skills/metadata/scripts/metadata_audit.py`
+- `skills/metadata/scripts/profile_review.py`
+- `skills/metadata/scripts/read_metadata.py`
+- `skills/metadata/scripts/reconcile_metadata.py`
+- `skills/metadata/scripts/search_metadata.py`
+- `skills/metadata/scripts/status_registry.py`
+- `skills/metadata/scripts/sync_registry.py`
+- `skills/metadata/scripts/validate_metadata.py`
+- `skills/metadata/scripts/write_review_gap_report.py`
+
+当前判定：这些是“需继续收敛的候选清单”，不作为本轮阻塞项；但它们已经进入测试报告和审计测试，后续增删必须同步解释。
 
 ## 8. 复跑命令
 
