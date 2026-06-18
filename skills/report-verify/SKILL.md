@@ -36,7 +36,7 @@ python3 {baseDir}/skills/report-verify/scripts/build_delivery_manifest.py --sess
 | --- | --- |
 | `--session-id` | job id；也可通过环境变量 `SESSION_ID` 提供 |
 | `--platform` | 交付平台名称，例如 `slack` / `email` / `drive` |
-| `--upload-receipt-json` | 可选；外部上传器返回的 JSON receipt，含 `success=true` 或 `ok=true` 时状态为 delivered |
+| `--upload-receipt-json` | 可选；外部上传器返回的 JSON receipt，含 `success=true` 或 `ok=true` 时状态为 `upload_receipt_recorded` |
 
 ## 依赖
 
@@ -148,7 +148,9 @@ python3 {baseDir}/skills/report-verify/scripts/build_delivery_manifest.py --sess
 | --- | --- | --- |
 | `blocked` | 报告或必要附件缺失 | 回到对应 owner skill 修复，不回复“已完成” |
 | `ready_for_upload` | 文件齐全，但没有外部上传 receipt | 宿主 agent 必须上传报告和附件；不能只发摘要 |
-| `delivered` | 文件齐全且外部上传 receipt 成功 | 可以给用户最终简短回复 |
+| `upload_receipt_recorded` | 文件齐全且已记录外部上传 receipt | 可以给用户最终简短回复；真实上传动作仍由宿主 agent / Slack / email / Drive gateway 完成 |
+
+`delivery_manifest` 只证明“应交付文件齐全 / 已有上传 receipt”，不执行上传；真实交付仍依赖宿主 agent / Slack / email / Drive gateway 按 manifest 做动作。
 
 面向用户的最终回复只保留业务结论、文件名、口径边界和下一步建议。默认不要暴露 job 路径、registry、metadata feedback、脚本名或内部错误；除非用户正在排障并明确要求。
 
@@ -169,12 +171,12 @@ python3 {baseDir}/skills/report-verify/scripts/verify.py \
 ```text
 完成情况：
 - 已生成 `verification.json`。
-- 已生成 `delivery_manifest.json`，状态：<blocked / ready_for_upload / delivered>
+- 已生成 `delivery_manifest.json`，状态：<blocked / ready_for_upload / upload_receipt_recorded>
 - 检查结果：<总检查数 / 通过 / 失败 / 警告>
 - 失败项和警告项摘要：<按实际列出>
 
 下一步建议：
-- 最推荐下一步：按 delivery manifest 上传报告和用户态附件（ready_for_upload 时）/ 交付报告给用户（delivered 时）
+- 最推荐下一步：按 delivery manifest 上传报告和用户态附件（ready_for_upload 时）/ 确认上传 receipt 后给用户最终回复（upload_receipt_recorded 时）
 - 可选下一步：/skill RA:report ...（报告内容需修正时）
 - 可选下一步：/skill RA:metadata-refine ...（验证暴露口径缺口、review gap 或 metadata 问题时）
 

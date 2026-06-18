@@ -709,9 +709,43 @@ class MetadataProductFixTests(unittest.TestCase):
             payload = json.loads(proc.stdout)
             self.assertEqual(payload["status"], "ready_for_upload")
             manifest = json.loads((job / "delivery_manifest.json").read_text(encoding="utf-8"))
-            delivered_paths = {item["path"] for item in manifest["required_delivery_files"]}
-            self.assertIn("jobs/job-001/报告_测试_20260618.md", delivered_paths)
-            self.assertIn("jobs/job-001/汇总_测试.csv", delivered_paths)
+            self.assertEqual(manifest["delivery_execution"], "external_gateway")
+            delivery_paths = {item["path"] for item in manifest["required_delivery_files"]}
+            self.assertIn("jobs/job-001/报告_测试_20260618.md", delivery_paths)
+            self.assertIn("jobs/job-001/汇总_测试.csv", delivery_paths)
+
+    def test_delivery_manifest_records_upload_receipt_without_claiming_upload(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            job = workspace / "jobs" / "job-002"
+            (workspace / "runtime").mkdir()
+            job.mkdir(parents=True)
+            (job / "报告_测试_20260618.md").write_text("# 测试报告\n", encoding="utf-8")
+            receipt = job / "upload_receipt.json"
+            receipt.write_text(json.dumps({"success": True, "message_id": "abc123"}), encoding="utf-8")
+            env = {**os.environ, "ANALYST_WORKSPACE_DIR": str(workspace)}
+
+            proc = subprocess.run(
+                [
+                    sys.executable,
+                    str(DELIVERY_MANIFEST),
+                    "--session-id",
+                    "job-002",
+                    "--platform",
+                    "slack",
+                    "--upload-receipt-json",
+                    str(receipt),
+                ],
+                text=True,
+                capture_output=True,
+                env=env,
+            )
+
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            payload = json.loads(proc.stdout)
+            self.assertEqual(payload["status"], "upload_receipt_recorded")
+            manifest = json.loads((job / "delivery_manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["delivery_execution"], "external_gateway")
 
     def test_validate_warns_for_large_but_clean_dataset(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

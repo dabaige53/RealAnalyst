@@ -141,12 +141,12 @@ def build_manifest(session_id: str, *, platform: str, upload_receipt: str = "") 
     missing = [item["path"] for item in files if not item["exists"]]
     report_files = [item for item in files if item["kind"] == "report" and item["exists"]]
     receipt = _load_upload_receipt(upload_receipt)
-    uploaded = bool(receipt.get("success") or receipt.get("ok"))
+    receipt_recorded = bool(receipt.get("success") or receipt.get("ok"))
 
     if missing or not report_files:
         status = "blocked"
-    elif uploaded:
-        status = "delivered"
+    elif receipt_recorded:
+        status = "upload_receipt_recorded"
     else:
         status = "ready_for_upload"
 
@@ -158,6 +158,7 @@ def build_manifest(session_id: str, *, platform: str, upload_receipt: str = "") 
         "required_delivery_files": files,
         "missing_files": missing,
         "upload_receipt": receipt,
+        "delivery_execution": "external_gateway",
         "final_reply_contract": {
             "must_attach_report_file": True,
             "must_attach_user_csv_artifacts": True,
