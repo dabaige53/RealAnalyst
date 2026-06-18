@@ -16,11 +16,5 @@ jobs:
         run: |
           python -m pip install -U pip
           python -m pip install -r requirements.txt
-      - name: Validate plugin manifest
-        run: python -m json.tool .codex-plugin/plugin.json
-      - name: Validate demo metadata
-        run: python skills/metadata/scripts/metadata.py validate
-      - name: Run product fix tests
-        run: python -m unittest discover -s tests
-      - name: Run manifest workflow regression gates
-        run: python scripts/run_manifest_workflow_regression.py
+      - name: Run public test suite
+        run: bash test.sh

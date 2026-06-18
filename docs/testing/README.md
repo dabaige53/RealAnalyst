@@ -1,4 +1,4 @@
-# Test 文档规范
+# 测试文档规范
 
 本目录保存排查、调整和修复前后的复跑材料。凡是 bug 排查、流程调整、输出契约调整、CI/回归门禁调整，都应在最终修复前新增或更新一份测试文档。
 
@@ -7,13 +7,13 @@
 建议使用：
 
 ```text
-Test/YYYY-MM-DD-short-topic.md
+docs/testing/YYYY-MM-DD-short-topic.md
 ```
 
 例如：
 
 ```text
-Test/2026-06-18-manifest-fail-closed.md
+docs/testing/2026-06-18-manifest-fail-closed.md
 ```
 
 ## 必填内容

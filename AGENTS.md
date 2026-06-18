@@ -18,14 +18,17 @@
 - 报告和普通用户回复不得把内部术语当成解释正文。需要解释系统状态时，用业务化说法，例如“已完成数据画像”“报告已通过验证”，不要写“profile/manifest.json 已生成”“artifact_index 已更新”。
 - 技术详情需要保留在报告内时，必须放入显式技术详情段落并通过 report-verify 的技术详情豁免；未标记正文仍按普通用户报告检查。
 
-## Test 测试文档与复跑报告
+## 测试入口、测试文档与复跑报告
 
-- 所有 bug 排查、流程调整、输出契约调整、CI/回归门禁调整，在最终修复前必须先写或更新 `Test/` 下的测试文档；不能只在聊天里描述排查过程。
+- 自动化代码测试目录固定为 `tests/`；测试需求报告、排查记录和复跑材料固定为 `docs/testing/`；不要再创建 `Test/`、`test/` 或其它第二套测试文件夹。
+- 根目录 `test.sh` 是本地和 CI 的一键公开测试入口；修改 CI、回归脚本、测试集合或公开验证流程时，必须同步 `test.sh`、`.github/workflows/ci.yml`、`tests/test_ci_workflows.py` 和 `docs/testing/` 说明。
+- 所有 bug 排查、流程调整、输出契约调整、CI/回归门禁调整，在最终修复前必须先写或更新 `docs/testing/` 下的测试文档；不能只在聊天里描述排查过程。
 - 测试文档必须包含完整测试需求报告：问题背景、目标行为、风险等级、覆盖范围、数据/环境前提、验收标准、失败路径、复跑命令和实际结果。
+- 当前项目主体是 Python CLI、schema、metadata、runtime registry 和 Codex skill 工作流；默认优先使用 Python 测试（`unittest` / `pytest` / 脚本 smoke）。JavaScript 只在 Node、Playwright、Browser/Chrome 自动化、前端交互、网页渲染或 CI JS harness 是真实 source of truth 时使用。
 - 使用 JavaScript、Node、Playwright、Browser/Chrome 自动化、前端脚本或 CI JS harness 时，必须在测试文档中贴完整 JS 代码和完整 JS 测试代码，不得只写片段、伪代码或“见脚本路径”。
 - 如果本次排查没有使用 JS，也必须在测试文档中写明“本次未使用 JS”，说明原因，并列出实际使用的测试代码、命令和复跑方式；能用 JS 复现浏览器、报告渲染、用户态泄漏或 CI 行为时，优先补 JS 复跑脚本。
 - 测试文档要能让后续 agent 独立复跑：包含依赖安装、输入 fixture、执行命令、预期输出、失败时定位方式；涉及敏感数据时使用脱敏 fixture，不能写入 token、cookie、真实凭证或完整私有数据。
-- 完成修复后，最终回复和 commit summary 要引用对应 Test 文档，并说明哪些测试已经复跑、哪些没有复跑及原因。
+- 完成修复后，最终回复和 commit summary 要引用对应测试文档，并说明哪些测试已经复跑、哪些没有复跑及原因。
 
 ## 元数据分层核心准则
 

@@ -12,10 +12,11 @@ flowchart LR
     Push[push / pull_request] --> Checkout[checkout]
     Checkout --> Py[setup-python 3.11]
     Py --> Install[pip install -r requirements.txt]
-    Install --> Manifest[校验 plugin.json]
-    Manifest --> Metadata[校验 demo metadata]
-    Metadata --> UnitTests[运行公开单元测试]
-    UnitTests --> Regression[运行 manifest workflow regression gates]
+    Install --> TestSh[bash test.sh]
+    TestSh --> Manifest[校验 plugin.json]
+    TestSh --> Metadata[校验 demo metadata]
+    TestSh --> UnitTests[运行公开单元测试]
+    TestSh --> Regression[运行 manifest workflow regression gates]
 ```
 
 ---
@@ -24,7 +25,7 @@ flowchart LR
 
 | 文件 | 作用 |
 | --- | --- |
-| `ci.yml` | 运行轻量公开校验：安装依赖、校验插件声明、校验 demo metadata、公开单元测试和 manifest workflow regression gates |
+| `ci.yml` | 安装依赖后调用根目录 `test.sh`，统一运行公开测试入口 |
 | `issue-spam-moderation.yml` | 监听 issue / issue comment，命中 `Payment Address` 垃圾内容时自动处理；评论会删除，issue 正文会被清理并关闭 |
 
 ---
@@ -53,7 +54,7 @@ flowchart LR
 - 真实 metadata sync 快照
 - `jobs/` 运行产物
 
-因此 CI 只运行不依赖私有环境的检查，包括 `python -m unittest discover -s tests` 和 `python scripts/run_manifest_workflow_regression.py`。真实连接、取数、报告生成建议在本地或私有 CI 中验证。
+因此 CI 只运行不依赖私有环境的检查，并通过 `bash test.sh` 复用本地一键测试入口。真实连接、取数、报告生成建议在本地或私有 CI 中验证。
 
 ---
 
@@ -74,5 +75,6 @@ flowchart LR
 | 卡点 | 处理 |
 | --- | --- |
 | CI 在依赖安装失败 | 检查 `requirements.txt` 是否可在干净 Python 3.11 环境安装 |
+| CI 和本地测试不一致 | 先跑 `bash test.sh`，再检查 `.github/workflows/ci.yml` 是否仍调用同一入口 |
 | metadata validate 失败 | 先修 `metadata/datasets/demo.*.yaml` 或对应 schema |
 | plugin manifest 失败 | 运行 `python3 -m json.tool .codex-plugin/plugin.json` 定位 JSON 语法错误 |

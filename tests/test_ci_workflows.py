@@ -11,6 +11,7 @@ import yaml
 REPO = Path(__file__).resolve().parents[1]
 WORKFLOWS = REPO / ".github" / "workflows"
 REGRESSION_SCRIPT = REPO / "scripts" / "run_manifest_workflow_regression.py"
+TEST_SH = REPO / "test.sh"
 
 
 def _load_workflow(name: str) -> dict[str, Any]:
@@ -37,7 +38,7 @@ def _load_regression_module():
 
 
 class CIWorkflowTests(unittest.TestCase):
-    def test_ci_runs_public_unit_and_manifest_regression_gates(self) -> None:
+    def test_ci_uses_one_click_public_test_entrypoint(self) -> None:
         workflow = _load_workflow("ci.yml")
 
         self.assertIn("push", _workflow_on(workflow))
@@ -50,10 +51,16 @@ class CIWorkflowTests(unittest.TestCase):
 
         commands = "\n".join(_run_commands(workflow, "public-checks"))
         self.assertIn("python -m pip install -r requirements.txt", commands)
-        self.assertIn("python -m json.tool .codex-plugin/plugin.json", commands)
-        self.assertIn("python skills/metadata/scripts/metadata.py validate", commands)
-        self.assertIn("python -m unittest discover -s tests", commands)
-        self.assertIn("python scripts/run_manifest_workflow_regression.py", commands)
+        self.assertIn("bash test.sh", commands)
+        self.assertNotIn("python scripts/run_manifest_workflow_regression.py", commands)
+
+    def test_test_sh_runs_public_unit_and_manifest_regression_gates(self) -> None:
+        script = TEST_SH.read_text(encoding="utf-8")
+
+        self.assertIn("-m json.tool .codex-plugin/plugin.json", script)
+        self.assertIn("skills/metadata/scripts/metadata.py validate", script)
+        self.assertIn("-m unittest discover -s tests", script)
+        self.assertIn("scripts/run_manifest_workflow_regression.py", script)
 
     def test_issue_spam_workflow_has_minimal_permissions_and_tested_script(self) -> None:
         workflow = _load_workflow("issue-spam-moderation.yml")

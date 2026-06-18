@@ -52,10 +52,12 @@ git diff --check
 
 ## 9. 实际结果
 
-- 已通过：待修复完成后填写。
-- 未通过：待修复完成后填写。
-- 未运行：待修复完成后填写。
+- 已通过：`bash test.sh`，其中 `python3 -m unittest discover -s tests` 运行 82 个测试并通过，`python3 scripts/run_manifest_workflow_regression.py` 运行 28 个 focused tests + 9 个 subtests 并通过。
+- 已通过：`python3 -m json.tool .codex-plugin/plugin.json` 和 `python3 skills/metadata/scripts/metadata.py validate`。
+- 未通过：无。
+- 未运行：未运行 JS/Node/Playwright 测试；本次没有前端、浏览器或 Node 运行时变更。
+- 备注：`unittest discover` 输出了两个 sqlite connection 的 `ResourceWarning`，不影响本次测试入口验收，但后续可单独清理资源关闭问题。
 
 ## 10. 验收结论
 
-本次验收以 `bash test.sh` 成功、CI workflow 调用同一入口、仓库不存在顶层 `Test/` 目录为准。
+本次验收通过：`bash test.sh` 成功，CI workflow 调用同一入口，代码测试目录保留为 `tests/`，测试需求报告与复跑材料收口到 `docs/testing/`，仓库不再保留顶层 `Test/` 目录。
