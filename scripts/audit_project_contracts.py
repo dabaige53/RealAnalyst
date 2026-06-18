@@ -536,6 +536,108 @@ def build_handoff_matrix() -> list[dict[str, Any]]:
     return matrix
 
 
+def _is_ignored_path(path: Path) -> bool:
+    try:
+        relative = path.relative_to(REPO)
+    except ValueError:
+        return True
+    ignored_parts = {".git", ".venv", "venv", "node_modules", "__pycache__", ".pytest_cache"}
+    return any(part in ignored_parts for part in relative.parts)
+
+
+def build_code_inventory(skill_inventory: list[dict[str, Any]]) -> dict[str, Any]:
+    python_files = sorted(
+        rel(path)
+        for path in REPO.glob("**/*.py")
+        if path.is_file() and not _is_ignored_path(path)
+    )
+    shell_entrypoints = sorted(
+        rel(path)
+        for path in [REPO / "test.sh", REPO / "scripts" / "py"]
+        if path.exists()
+    )
+    skill_scripts = sorted(
+        script["path"]
+        for skill in skill_inventory
+        for script in skill.get("scripts", [])
+    )
+    mentioned_skill_scripts = sorted(
+        script["path"]
+        for skill in skill_inventory
+        for script in skill.get("scripts", [])
+        if script.get("mentioned_in_skill_or_readme") is True
+    )
+    unmentioned_skill_scripts = sorted(set(skill_scripts) - set(mentioned_skill_scripts))
+    test_files = sorted(path for path in python_files if path.startswith("tests/test_"))
+    runtime_files = sorted(path for path in python_files if path.startswith("runtime/"))
+    project_scripts = sorted(path for path in python_files if path.startswith("scripts/"))
+    skill_libs = sorted(path for path in python_files if "/lib/" in path or path.endswith("/_bootstrap.py"))
+    manual_smoke_scripts = sorted(
+        path
+        for path in python_files
+        if Path(path).name.startswith("test_") and not path.startswith("tests/")
+    )
+    return {
+        "python_file_count": len(python_files),
+        "test_file_count": len(test_files),
+        "skill_script_count": len(skill_scripts),
+        "runtime_file_count": len(runtime_files),
+        "project_script_count": len(project_scripts),
+        "python_files": python_files,
+        "test_files": test_files,
+        "runtime_files": runtime_files,
+        "project_scripts": project_scripts,
+        "skill_scripts": skill_scripts,
+        "mentioned_skill_scripts": mentioned_skill_scripts,
+        "potentially_internal_or_unreferenced_skill_scripts": unmentioned_skill_scripts,
+        "skill_libs_and_bootstraps": skill_libs,
+        "manual_smoke_scripts_outside_tests": manual_smoke_scripts,
+        "shell_entrypoints": shell_entrypoints,
+    }
+
+
+def build_metadata_inventory() -> dict[str, Any]:
+    metadata_root = REPO / "metadata"
+    sync_report_files = sorted(
+        rel(path)
+        for path in (metadata_root / "sync").glob("**/reports/*")
+        if path.is_file()
+    )
+    generated_index_files = sorted(
+        rel(path)
+        for path in (metadata_root / "index").glob("*")
+        if path.is_file()
+    )
+    source_files = sorted(
+        rel(path)
+        for path in (metadata_root / "sources").glob("*")
+        if path.is_file()
+    )
+    return {
+        "datasets": sorted(rel(path) for path in (metadata_root / "datasets").glob("*.yaml")),
+        "dictionaries": sorted(rel(path) for path in (metadata_root / "dictionaries").glob("*.yaml")),
+        "mappings": sorted(rel(path) for path in (metadata_root / "mappings").glob("*.yaml")),
+        "models": sorted(rel(path) for path in (metadata_root / "models").glob("*.yaml")),
+        "sources": source_files,
+        "sync_examples": sorted(
+            rel(path)
+            for path in (metadata_root / "sync").glob("**/*")
+            if path.is_file() and path.name != "README.md"
+        ),
+        "sync_reports": sync_report_files,
+        "generated_index": generated_index_files,
+        "counts": {
+            "datasets": len(list((metadata_root / "datasets").glob("*.yaml"))),
+            "dictionaries": len(list((metadata_root / "dictionaries").glob("*.yaml"))),
+            "mappings": len(list((metadata_root / "mappings").glob("*.yaml"))),
+            "models": len(list((metadata_root / "models").glob("*.yaml"))),
+            "sources": len(source_files),
+            "sync_reports": len(sync_report_files),
+            "generated_index": len(generated_index_files),
+        },
+    }
+
+
 def audit_handoff_contracts(findings: list[dict[str, Any]]) -> None:
     for edge in build_handoff_matrix():
         producer_dir = REPO / "skills" / edge["from"]
@@ -600,18 +702,10 @@ def build_inventory() -> dict[str, Any]:
             }
         )
 
-    metadata_files = {
-        "datasets": sorted(rel(path) for path in (REPO / "metadata" / "datasets").glob("*.yaml")),
-        "dictionaries": sorted(rel(path) for path in (REPO / "metadata" / "dictionaries").glob("*.yaml")),
-        "mappings": sorted(rel(path) for path in (REPO / "metadata" / "mappings").glob("*.yaml")),
-        "models": sorted(rel(path) for path in (REPO / "metadata" / "models").glob("*.yaml")),
-        "sources": sorted(rel(path) for path in (REPO / "metadata" / "sources").glob("*") if path.is_file()),
-        "sync_examples": sorted(rel(path) for path in (REPO / "metadata" / "sync").glob("**/*") if path.is_file() and path.name != "README.md"),
-        "generated_index": sorted(rel(path) for path in (REPO / "metadata" / "index").glob("*") if path.is_file()),
-    }
     return {
         "skills": skills,
-        "metadata_files": metadata_files,
+        "metadata_files": build_metadata_inventory(),
+        "code_files": build_code_inventory(skills),
         "delivery_chain": EXPECTED_PIPELINE_SKILLS,
         "handoff_matrix": build_handoff_matrix(),
     }

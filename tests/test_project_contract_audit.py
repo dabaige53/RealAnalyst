@@ -109,6 +109,22 @@ class ProjectContractAuditTests(unittest.TestCase):
         self.assertIn("metadata/dictionaries/demo.retail.dictionary.yaml", metadata_files["dictionaries"])
         self.assertIn("metadata/models/demo_retail.yaml", metadata_files["models"])
         self.assertIn("metadata/sources/demo.md", metadata_files["sources"])
+        self.assertGreaterEqual(metadata_files["counts"]["sync_reports"], 1)
+        self.assertGreaterEqual(metadata_files["counts"]["generated_index"], 1)
+
+    def test_audit_inventory_covers_code_files_and_internal_script_candidates(self) -> None:
+        audit = _load_audit_module()
+        payload = audit.run_audit()
+        code_files = payload["inventory"]["code_files"]
+
+        self.assertGreaterEqual(code_files["python_file_count"], 50)
+        self.assertGreaterEqual(code_files["test_file_count"], 10)
+        self.assertIn("runtime/job_manifest.py", code_files["runtime_files"])
+        self.assertIn("scripts/audit_project_contracts.py", code_files["project_scripts"])
+        self.assertIn("tests/test_project_contract_audit.py", code_files["test_files"])
+        self.assertIn("skills/metadata/adapters/tableau/scripts/test_views.py", code_files["manual_smoke_scripts_outside_tests"])
+        self.assertIn("skills/data-export/scripts/sql/common_sql_export.py", code_files["potentially_internal_or_unreferenced_skill_scripts"])
+        self.assertIn("test.sh", code_files["shell_entrypoints"])
 
     def test_metadata_reference_audit_has_no_missing_source_evidence(self) -> None:
         audit = _load_audit_module()

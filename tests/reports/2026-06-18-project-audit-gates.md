@@ -9,7 +9,9 @@
 - 每个 `skills/*/SKILL.md` 的介绍信息、README、脚本目录、references 目录之间有基础一致性检查。
 - 每个 Skill 声明的脚本、references、交付物契约能被脚本化审计到，不只靠人工记忆；审计 inventory 要列出每个 Skill 的脚本和 reference 文件。
 - 核心交付链 `getting-started -> metadata -> analysis-run -> analysis-plan -> data-export -> data-profile -> report -> report-verify` 的相邻 handoff 必须被脚本化审计；每条相邻链路都要验证 producer outputs、consumer inputs、trigger/next step 和 state update 能在对应 Skill 文档中找到。
-- 审计 JSON 必须输出 Skill inventory、metadata 文件清单和核心交付链顺序，方便后续排查 Skill 介绍、代码入口和交付物是否断档。
+- 审计 JSON 必须输出 Skill inventory、代码文件 inventory、metadata 文件清单和核心交付链顺序，方便后续排查 Skill 介绍、代码入口和交付物是否断档。
+- 代码文件 inventory 必须覆盖 Python 文件、自动测试、runtime 文件、project scripts、Skill scripts、未被 Skill/README 直接提到但可能属于内部 helper 的脚本、手动 smoke 脚本。
+- metadata inventory 必须输出 datasets、dictionaries、mappings、models、sources、sync reports、generated index 的数量，用于识别未使用文件、生成层内容和历史报告沉积。
 - metadata 目录中不应出现明显分层污染、生成层手工内容、断裂 source evidence、未被入口引用的脏文件或旧报告冒充真源。
 - 代码审计至少覆盖 Python 语法、测试收集、核心回归、schema JSON、CI workflow 与 `test.sh` 一致性。
 - 审计输出是结构化 JSON，并能作为后续修复任务的输入。
@@ -70,6 +72,18 @@ assert [(edge["from"], edge["to"]) for edge in handoff_matrix] == list(
     zip(expected_chain, expected_chain[1:])
 )
 assert all(edge["complete"] for edge in handoff_matrix)
+
+code_files = payload["inventory"]["code_files"]
+assert code_files["python_file_count"] >= 50
+assert "runtime/job_manifest.py" in code_files["runtime_files"]
+assert "scripts/audit_project_contracts.py" in code_files["project_scripts"]
+assert "tests/test_project_contract_audit.py" in code_files["test_files"]
+assert "skills/metadata/adapters/tableau/scripts/test_views.py" in code_files["manual_smoke_scripts_outside_tests"]
+assert "skills/data-export/scripts/sql/common_sql_export.py" in code_files["potentially_internal_or_unreferenced_skill_scripts"]
+
+metadata_files = payload["inventory"]["metadata_files"]
+assert metadata_files["counts"]["sync_reports"] >= 1
+assert metadata_files["counts"]["generated_index"] >= 1
 ```
 
 ## 7. 完整 Python 测试代码
@@ -132,6 +146,20 @@ def test_report_to_report_verify_handoff_has_required_contract_tokens(self) -> N
     self.assertIn(["report_md"], [item["tokens"] for item in checks["consumer_inputs"]["token_groups"]])
     self.assertIn(["RA:report-verify"], [item["tokens"] for item in checks["trigger_or_next_step"]["token_groups"]])
     self.assertIn(["verification.json"], [item["tokens"] for item in checks["state_update"]["token_groups"]])
+
+def test_audit_inventory_covers_code_files_and_internal_script_candidates(self) -> None:
+    audit = _load_audit_module()
+    payload = audit.run_audit()
+    code_files = payload["inventory"]["code_files"]
+
+    self.assertGreaterEqual(code_files["python_file_count"], 50)
+    self.assertGreaterEqual(code_files["test_file_count"], 10)
+    self.assertIn("runtime/job_manifest.py", code_files["runtime_files"])
+    self.assertIn("scripts/audit_project_contracts.py", code_files["project_scripts"])
+    self.assertIn("tests/test_project_contract_audit.py", code_files["test_files"])
+    self.assertIn("skills/metadata/adapters/tableau/scripts/test_views.py", code_files["manual_smoke_scripts_outside_tests"])
+    self.assertIn("skills/data-export/scripts/sql/common_sql_export.py", code_files["potentially_internal_or_unreferenced_skill_scripts"])
+    self.assertIn("test.sh", code_files["shell_entrypoints"])
 ```
 
 ## 8. 复跑命令
@@ -145,11 +173,11 @@ bash test.sh
 
 ## 9. 实际结果
 
-- 已通过：`python3 scripts/audit_project_contracts.py`，检查 15 个 Skill、9 个 schema、1 个 dataset 文件，error/warning 均为 0；输出包含 Skill inventory、每个 Skill 的脚本和 references、metadata 文件清单、source evidence 清单、核心交付链和 handoff matrix。
+- 已通过：`python3 scripts/audit_project_contracts.py`，检查 15 个 Skill、9 个 schema、1 个 dataset 文件，error/warning 均为 0；输出包含 Skill inventory、每个 Skill 的脚本和 references、代码文件 inventory、metadata 文件清单与 counts、source evidence 清单、核心交付链和 handoff matrix。
 - 已修复并验证：`metadata/dictionaries/demo.retail.dictionary.yaml` 原本引用 `metadata/sources/demo.md`，审计升级后发现该 evidence 文件缺失；已补 `metadata/sources/demo.md` 并通过 `metadata_source_evidence` 检查。
-- 已通过：`python3 -m unittest tests.test_project_contract_audit`，10 个测试覆盖 JSON 输出、0 warning、`test.sh` 接入、RA skill 前缀、pytest 收集边界、Skill 脚本 inventory、metadata model/mapping/dictionary/source 引用完整性、完整 handoff matrix，以及 `data-export -> data-profile`、`report -> report-verify` 两条关键链路的 outputs / inputs / next step / state tokens。
-- 已通过：`python3 scripts/run_manifest_workflow_regression.py`，`35 passed, 9 subtests passed`。
-- 已通过：`bash test.sh`，包含 plugin manifest JSON、metadata validate、项目契约审计、CI workflow unittest、全仓 unittest discover（93 个测试）、manifest workflow regression（35 个 focused tests + 9 个 subtests）和 `git diff --check`。
+- 已通过：`python3 -m unittest tests.test_project_contract_audit`，11 个测试覆盖 JSON 输出、0 warning、`test.sh` 接入、RA skill 前缀、pytest 收集边界、Skill 脚本 inventory、代码文件 inventory、metadata model/mapping/dictionary/source 引用完整性、metadata counts、完整 handoff matrix，以及 `data-export -> data-profile`、`report -> report-verify` 两条关键链路的 outputs / inputs / next step / state tokens。
+- 已通过：`python3 scripts/run_manifest_workflow_regression.py`，`39 passed, 9 subtests passed`。
+- 已通过：`bash test.sh`，包含 plugin manifest JSON、metadata validate、项目契约审计、CI workflow unittest、全仓 unittest discover（97 个测试）、manifest workflow regression（39 个 focused tests + 9 个 subtests）和 `git diff --check`。
 
 ## 10. 验收结论
 
