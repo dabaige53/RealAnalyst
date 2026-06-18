@@ -35,6 +35,15 @@
 | GitHub Actions / regression gate | `python3 -m unittest tests/test_ci_workflows.py`，再跑 `python3 scripts/run_manifest_workflow_regression.py` |
 
 用户态输出改动还应运行或补充相应 leak 检查，例如 `tests/test_analysis_run_manifest_integration.py`、`tests/test_report_manifest_deliverables.py`、`tests/test_report_verify_user_surface.py`。
+修改 job manifest、analysis-run state、report file list、report-verify、artifact registration、analysis-plan decision、legacy migration 或 archive finalization 时，必须补失败路径测试，而不是只测 happy path。最低覆盖：
+
+- manifest 存在但 JSON/schema/path 无效时不得 legacy fallback，不得扫描 `data/`、`profile/`、`.meta/`。
+- `jobs/_state/session_map.json` 损坏、state 中 `job_id` 非法或 path escape 时，init/resume 必须失败且不创建 job 外目录。
+- `user_deliverable` / `user_attachment` 缺业务化 `display_name` 时不得在普通回复里暴露相对路径。
+- `raw_input`、`derived_internal`、`audit_log` 等内部角色不得被 `user_visible=true` 覆盖；同 id artifact 从用户可见降级为内部时，`user_surface.deliverables` 和 `primary_deliverable_id` 必须同步清理。
+- report-verify 必须覆盖裸 source key、Linux/Windows 绝对路径、`source_context.json`、`metadata/index` 等内部路径，以及技术详情豁免的正反例。
+- analysis-plan validator 必须实际执行 `schemas/analysis_plan_decision.schema.json` enum/schema 校验；非法 framework/mode/delivery/template 不得写入 manifest。
+- legacy migration 必须覆盖 symlink/path escape、重复 artifact id、候选 manifest runtime 校验；finalize archive 必须覆盖源文件缺失和目标碰撞。
 
 CI 里已有 `.github/workflows/ci.yml` 运行 `python skills/metadata/scripts/metadata.py validate`。不要把本地未通过的 metadata validation 留给 CI。
 修改 `.github/workflows/*.yml` 或 `scripts/run_manifest_workflow_regression.py` 时，必须同步 `tests/test_ci_workflows.py` 和 `.github/workflows/README.md`，确保触发条件、权限、Python 版本和测试命令都有回归断言。
@@ -103,6 +112,9 @@ CI 里已有 `.github/workflows/ci.yml` 运行 `python skills/metadata/scripts/m
 - 用户入口：README、skills README、llm-next-steps、getting-started 是否一致表达 3 个主入口、3 个补充入口和流程内 skill 弱化。
 - Completion Summary：所有 `skills/*/SKILL.md` 是否都有统一结构，下一步建议是否按本次结果动态裁剪且不自动越权执行。
 - 用户态表达：普通分析回复是否只含业务摘要、可见交付物、验证状态、风险和下一步；是否避免内部路径、系统 JSON、脚本名和 source key。
+- Manifest fail-closed：存在但损坏的 manifest/state/index/summary 是否失败，而不是回退到目录扫描或默认空状态。
+- Schema/runtime 一致性：新增 schema required/enum 后，runtime validator 或 focused tests 是否同步覆盖真实 payload。
+- Canonical roles：调用方是否使用 `user_deliverable` / `user_attachment` / `raw_input` / `derived_internal` / `audit_log` 等标准角色，而不是只兼容 legacy `user/system/archive`。
 - 测试：是否有覆盖当前行为的 focused test 或 smoke command。
 
 ---

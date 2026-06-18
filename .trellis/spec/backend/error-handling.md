@@ -100,6 +100,8 @@ def _error(message: str, *, error_code: str, extra: dict[str, Any] | None = None
 - `EXPORT_SUMMARY_INVALID`
 - `DATA_CSV_NOT_FOUND`
 
+包装脚本调用另一个 JSON stdout 脚本时，最终 stdout 仍必须只有一个 JSON object。不得先透传内层 JSON，再打印外层 JSON；调用方必须能直接 `json.loads(stdout)`。
+
 ---
 
 ## 命令退出规则（CLI exit）
@@ -142,6 +144,14 @@ candidate.relative_to(_workspace_dir().resolve())
 
 新增读取 manifest path 的脚本时沿用这个模式。
 
+Job state 和 manifest 相关脚本必须 fail closed：
+
+- `jobs/_state/session_map.json` 已存在但 JSON 损坏、结构不合法或无法读取时，不得当作空 state 继续创建新 job；应返回稳定错误码，或显式备份损坏文件后要求 `--force-new`。
+- 从 state、manifest、artifact index、export summary 等 JSON 文件读取出的 `job_id`、artifact path、report path、archive path 必须重新做 token / `Path.resolve().relative_to()` 校验；不能因为它来自内部 JSON 就信任。
+- `job_manifest.json` 缺失可以触发 legacy fallback；但文件存在且 JSON/schema/path 校验失败时，不得 fallback 扫描目录、不得刷新用户态清单、不得继续输出确定交付状态。
+- `safe_to_archive` 文件在 apply 前必须校验源文件存在且目标 archive path 不碰撞；缺失或目标已存在时应失败或进入明确 skipped 状态，不得把 job 标记为 `archived`。
+- legacy migration 遇到 symlink、path escape、重复 artifact id 或候选 manifest 无效时，应输出结构化 failure/review warning；不得以 traceback 或无效候选 manifest 结束。
+
 ---
 
 ## 导出错误（export）
@@ -171,6 +181,12 @@ Metadata report generation 缺输入时不能编占位内容。
 - CLI mode 不完整时退出。
 
 Report scripts 对没有可验证来源的 section 应删除或省略，不要填泛化文本。
+
+作业报告清单是用户态输出，错误规则更严格：
+
+- manifest helper 不可用或 `job_manifest.json` 不存在时，可以进入明确标记的 legacy mode。
+- `job_manifest.json` 存在但损坏、schema 失败、artifact path 逃逸或用户态索引不一致时，必须停止刷新“输出文件清单”，不能扫描 `data/`、`profile/`、`.meta/` 补清单。
+- `--report-path` 指向 job 目录外时必须失败；不能只写 warning 后继续成功，因为这会让主报告未登记为 `user_deliverable`。
 
 ---
 

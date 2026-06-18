@@ -91,8 +91,17 @@
 - 用户机密文档，除非它们被有意归档为 `metadata/sources/` evidence。
 - 正常日志中的整行 CSV 数据。
 - 编造的占位行或泛化提醒。
+- 普通分析用户回复、报告正文、README“用户会得到什么”、Completion Summary 默认不要展示本地路径、内部目录、脚本名、系统 JSON 文件名、source key、dataset id、profile 文件或审计日志。
 
 Sample values 只可用于识别值域或格式，不是完整枚举，也不是业务定义。
+
+用户态输出分层：
+
+- 用户可见：业务摘要、可见交付物名称、验证状态、主要风险、下一步动作。
+- 内部审计：job manifest、artifact index、profile manifest、verification JSON、analysis journal、source context、metadata index、archive recovery index。
+- 技术详情：只有用户明确要求排障/开发/PR/测试，或报告使用受控技术详情标记时，才输出最小必要路径、脚本名和系统文件名。
+
+`skills/*/SKILL.md` 的 `## Completion Summary` 默认按用户可见层写。需要说明内部登记时，用“内部登记已完成”“验证状态已同步”这类业务可读表述；不要在普通总结里列 `job_manifest.json`、`verification.json`、`.meta/`、`profile/manifest.json` 等文件名。
 
 ---
 
@@ -119,6 +128,8 @@ Sample values 只可用于识别值域或格式，不是完整枚举，也不是
 不要把 JSON payload 和人类进度行混在同一个命令中，除非现有脚本已经是这种 contract 且没有调用方解析 stdout。
 
 当 wrapper 调用 noisy function 时，redirect 或 suppress 内部 stdout，再输出一个最终 JSON payload。这样比让调用方从混合输出中解析更稳。
+
+如果 wrapper 需要保留内层脚本结果，应解析内层 JSON 并合并到外层 JSON 字段中；不得把两个 JSON object 依次打印到 stdout。测试应至少做一次 `json.loads(stdout)`。
 
 ---
 
