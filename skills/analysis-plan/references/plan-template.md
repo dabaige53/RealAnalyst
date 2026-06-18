@@ -9,6 +9,8 @@
 - **业务目标**: {business_goal}
 - **阅读对象**: {audience}
 - **分析场景**: {识别的场景}
+- **selected_framework_id**: {mece_issue_tree / waterfall_attribution / gsm_metric_planning / funnel_conversion / cohort_retention / root_cause / benchmark_radar}
+- **framework_selection_reason**: {为什么这个框架最适合本次业务问题、目标读者和数据能力}
 - **置信度**: 高/中/低
 
 ## 2. 参数确认
@@ -84,9 +86,13 @@ data_source:
 **维度使用校验**：所有下钻维度必须存在于"可用筛选维度"中。
 
 ## 8. 分析框架
-- **选用框架**: {框架名称}
-- **选择理由**: {理由，必须关联假设}
-- **logic_path 来源**: analysis-plan skill guidance / metadata context / 用户确认
+- **selected_framework_id**: {框架 ID}
+- **框架名称**: {框架名称}
+- **framework_selection_reason**: {理由，必须关联业务问题、数据能力和假设验证}
+- **logic_path 来源**: analysis-frameworks.json / metadata context / 用户确认
+- **framework_logic_path**: {从 analysis-frameworks.json 读取的下钻路径}
+- **framework_evidence_requirements**: {该框架要求的关键证据}
+- **supporting_framework_ids**: {可选，辅助框架列表；无则写 []}
 
 ## 9. 分析目标
 
@@ -118,6 +124,8 @@ data_source:
 
 ## 10. 预期输出
 - **报告类型**: {模板名称}
+- **selected_framework_id**: {mece_issue_tree / waterfall_attribution / gsm_metric_planning / funnel_conversion / cohort_retention / root_cause / benchmark_radar}
+- **framework_selection_reason**: {为什么这次应该用这种问题拆解方式}
 - **selected_analysis_mode**: {overview / ranking / attribution / benchmark / exploration}
 - **analysis_mode_selection_reason**: {为什么这次应该用这种分析方式}
 - **selected_delivery_mode**: {executive_brief / structured_report / diagnosis_report / detailed_report}

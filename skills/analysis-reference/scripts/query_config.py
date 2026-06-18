@@ -51,6 +51,7 @@ def _resolve_skill_file(*parts: str) -> Path:
 
 
 REPORT_TEMPLATE_REFERENCE = _resolve_skill_file("report", "references", "template-system-v2.md")
+FRAMEWORK_REFERENCE = _resolve_skill_file("analysis-reference", "references", "analysis-frameworks.json")
 
 # Make venv site-packages discoverable when invoked via python3.
 lib_dir = WORKSPACE_ROOT / ".venv" / "lib"
@@ -76,6 +77,16 @@ def build_framework_miss(query: str, available_frameworks: list[dict[str, Any]])
     }
 
 
+def load_frameworks() -> list[dict[str, Any]]:
+    if not FRAMEWORK_REFERENCE.exists():
+        return []
+    payload = json.loads(FRAMEWORK_REFERENCE.read_text(encoding="utf-8"))
+    frameworks = payload.get("frameworks") if isinstance(payload, dict) else payload
+    if not isinstance(frameworks, list):
+        return []
+    return [framework for framework in frameworks if isinstance(framework, dict)]
+
+
 def search_template(keyword: str) -> dict[str, Any]:
     keyword_lower = keyword.lower()
     matches: list[dict[str, Any]] = []
@@ -90,14 +101,32 @@ def search_template(keyword: str) -> dict[str, Any]:
 
 
 def search_framework(name: str) -> dict[str, Any]:
-    return build_framework_miss(
-        name,
-        [
-            {"id": "monitoring", "name": "经营监控", "scenarios": ["trend", "alert", "routine report"]},
-            {"id": "diagnosis", "name": "问题诊断", "scenarios": ["root cause", "variance"]},
-            {"id": "benchmark", "name": "对标分析", "scenarios": ["ranking", "comparison"]},
-        ],
-    )
+    query = name.strip().lower()
+    frameworks = load_frameworks()
+    for framework in frameworks:
+        searchable = {
+            str(framework.get("id", "")).lower(),
+            str(framework.get("name", "")).lower(),
+            str(framework.get("name_en", "")).lower(),
+            str(framework.get("name_cn", "")).lower(),
+            *[str(alias).lower() for alias in framework.get("aliases", [])],
+            *[str(mode).lower() for mode in framework.get("analysis_modes", [])],
+            *[str(scenario).lower() for scenario in framework.get("applicable_scenarios", [])],
+            *[str(scenario).lower() for scenario in framework.get("best_for", [])],
+        }
+        if query in searchable:
+            return build_framework_hit(name, framework)
+
+    available = [
+        {
+            "id": framework["id"],
+            "name": framework["name"],
+            "aliases": framework.get("aliases", []),
+            "scenarios": framework.get("applicable_scenarios", []),
+        }
+        for framework in frameworks
+    ]
+    return build_framework_miss(name, available)
 
 
 def main() -> None:

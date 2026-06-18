@@ -41,6 +41,8 @@ REQUIRED_CHAPTERS = [
 ]
 
 REQUIRED_FIELDS = [
+    "selected_framework_id",
+    "framework_selection_reason",
     "selected_analysis_mode",
     "selected_delivery_mode",
     "selected_report_template",

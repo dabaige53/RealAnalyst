@@ -28,6 +28,8 @@
 ```bash
 python3 skills/analysis-reference/scripts/query_config.py --template 月报
 python3 skills/analysis-reference/scripts/query_config.py --framework mece
+python3 skills/analysis-reference/scripts/query_config.py --framework waterfall
+python3 skills/analysis-reference/scripts/query_config.py --framework funnel
 ```
 
 ---
@@ -45,5 +47,5 @@ python3 skills/analysis-reference/scripts/query_config.py --framework mece
 | 卡点 | 处理方式 |
 | --- | --- |
 | 要查指标/字段/术语 | 改用 `RA:metadata-search` |
-| framework 返回 found=false | 查看 available_frameworks 选择最近似的框架 |
+| framework 返回 found=false | 查看 available_frameworks；必要时读 `references/analysis-frameworks.md` |
 | 模板关键词匹配为空 | 换更宽泛的关键词，或直接读 `skills/report/references/template-system-v2.md` |

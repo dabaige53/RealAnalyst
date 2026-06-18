@@ -128,11 +128,13 @@ python3 {baseDir}/skills/metadata-search/scripts/search.py --type field --query 
 python3 {baseDir}/skills/metadata-search/scripts/search.py --type term --query <关键词>
 ```
 
-**示例：查询 MECE 框架**
+**示例：查询 MECE 问题树框架**
 ```bash
 python3 {baseDir}/skills/analysis-reference/scripts/query_config.py --framework mece
 # 返回完整配置，包括 logic_path、goal_template、dimension_type_hints
 ```
+
+框架真源见 `{baseDir}/skills/analysis-reference/references/analysis-frameworks.json`；说明文档见 `{baseDir}/skills/analysis-reference/references/analysis-frameworks.md`。`MECE`、`Waterfall`、`OSM`、`Radar` 都应能通过 `--framework` 命中正式框架配置。
 
 ### 0.3 构建可用维度/指标清单
 
@@ -189,20 +191,73 @@ python3 {baseDir}/skills/analysis-reference/scripts/query_config.py --framework 
 - `diagnosis_requirement`
 - 数据源本身支持的维度与指标
 
-### 场景与框架建议
+### 场景、分析模式与框架建议
 
-| 场景 | 典型用户意图 | 首选框架 |
+| 场景 | selected_analysis_mode | 典型用户意图 | 首选框架 |
 | --- | --- | --- |
-| overview | 要快速看清整体情况或阶段结果 | MECE |
-| attribution | 已知有变化，想知道为什么变化 | Waterfall |
-| exploration | 方向不够明确，先识别结构、分布、异常 | OSM |
-| benchmark | 要和竞品、目标、基准做差距分析 | Radar |
+| overview | overview | 要快速看清整体情况或阶段结果 | `mece_issue_tree` |
+| ranking | ranking | 要看 Top/Bottom、排序和头尾部差距 | `benchmark_radar` |
+| attribution | attribution | 已知有变化，想知道为什么变化 | `waterfall_attribution` |
+| metric_planning | overview / exploration | 要把业务目标转成指标体系或看板 | `gsm_metric_planning` |
+| funnel | attribution / exploration | 要定位流程或用户旅程转化瓶颈 | `funnel_conversion` |
+| cohort | exploration / benchmark | 要比较不同队列的留存、复购或持续贡献 | `cohort_retention` |
+| root_cause | attribution | 已知异常，想识别根因和预防动作 | `root_cause` |
+| benchmark | benchmark | 要和竞品、目标、基准做差距分析 | `benchmark_radar` |
 
 **识别规则**：
 1. 先看 `normalized_request.json` 中的结构化判断
 2. 再结合数据源能力判断该场景能否落地
 3. 若存在多个候选场景，选择最符合 `business_goal` 的那个
 4. 若用户问题天然包含“解释原因”或“判断差距来源”，优先 diagnosis / attribution / benchmark，而不是退回 overview
+
+---
+
+## Phase 1.5: 锁定分析框架、交付方式与报告模板（MUST）
+
+分析框架和 report template 都不是 `RA:report` 阶段才决定的内容，必须在 planning 阶段提前锁定；但**先锁定的应该是分析框架与分析模式，具体报告模板放在最后一步映射**。
+
+**先读取参考**：
+- `{baseDir}/skills/analysis-reference/references/analysis-frameworks.md`
+- `{baseDir}/skills/report/references/template-system-v2.md`
+- `{baseDir}/skills/report/references/template-matrix.md`
+
+**锁定顺序（必须）**：
+1. `selected_framework_id`：这次用什么框架拆问题（如 `mece_issue_tree` / `waterfall_attribution` / `gsm_metric_planning`）
+2. `selected_analysis_mode`：这次准备怎么分析（overview / ranking / attribution / benchmark / exploration）
+3. `selected_delivery_mode`：这次准备怎么呈现（executive_brief / structured_report / diagnosis_report / detailed_report）
+4. `selected_report_template`：最终落到哪一个**核心模板 ID**
+
+**alias 处理规则**：
+- 若用户明确提到分析框架名（如 `MECE`、`Waterfall`、`OSM`、`Radar`、`funnel`、`cohort`），先用 `RA:analysis-reference --framework` 解析到正式 `selected_framework_id`
+- 若用户明确提到旧报告模板名（如 `monthly_analysis`、`dashboard_summary`、`problem_oriented`），先去 `skills/report/references/template-system-v2.md` 的 alias 说明中解析
+- plan 中默认写入 `canonical_template` 对应的核心模板 ID，不继续锁旧模板 ID
+- 旧模板名只作为用户语言线索和迁移兼容信息保留
+
+**锁定原则**：
+- 分析框架必须结合业务问题、目标读者、数据能力和预期决策动作
+- 模板选择必须结合 `normalized_request.json`
+- 模板选择必须结合分析场景、阅读对象、展开深度、业务目标
+- 周期（日/周/月/季/年）默认视为时间范围或例行汇报约束，不应先于问题类型主导选型
+- 具体模板只负责呈现与证据编排，不替代分析思路与问题理解
+- 一旦写入 `selected_report_template`，后续不得在写报告阶段重新选择模板
+
+**为什么放在业务假设之前**：
+- 框架决定问题拆解工具：MECE 看结构，Waterfall 看变化贡献，GSM/OSM 看目标-信号-指标，Funnel 看步骤流失，Cohort 看长期表现，Root Cause 看根因，Benchmark/Radar 看横向差距。
+- 假设的深度和呈现方式会被 `selected_framework_id` 与 `selected_delivery_mode` 共同约束：高层一页纸只保留少量关键假设，诊断报告需要完整归因假设，详细报告可以保留更多验证路径。
+- 先锁定框架和模板能避免所有 plan 看起来都像同一套假设树。
+- 框架锁定不等于先下结论；假设仍必须在后续 Phase 2 中逐条验证。
+
+**必须写入 plan 的字段**：
+- `selected_framework_id`
+- `framework_selection_reason`
+- `selected_analysis_mode`
+- `analysis_mode_selection_reason`
+- `selected_delivery_mode`
+- `delivery_mode_selection_reason`
+- `selected_report_template`
+- `template_selection_reason`
+- `关键证据展示要求`
+- `结论级证据块设计`
 
 ---
 
@@ -296,21 +351,24 @@ python3 {baseDir}/skills/analysis-reference/scripts/query_config.py --framework 
 
 ## Phase 3: 框架选择
 
-根据识别的场景选择分析框架，然后使用 `RA:analysis-reference` 查询详细配置：
+根据识别的场景选择分析框架，然后使用 `RA:analysis-reference` 查询详细配置。正式框架 ID 必须能被 `query_config.py --framework` 命中：
 
 | 场景        | 首选框架  | 选择理由                     |
 | ----------- | --------- | ---------------------------- |
-| overview    | MECE      | 多维度拆分，确保分析不重不漏 |
-| attribution | Waterfall | 逐层归因，展示变化贡献度     |
-| exploration | OSM       | 目标-信号-指标，发现探索方向 |
-| benchmark   | Radar     | 多指标横向对比，识别差距     |
+| overview / structure | `mece_issue_tree` | 不重不漏拆解主问题、指标和维度 |
+| attribution / variance | `waterfall_attribution` | 逐层解释变化贡献度 |
+| metric planning / dashboard | `gsm_metric_planning` | 从目标到信号再到指标 |
+| funnel / conversion | `funnel_conversion` | 定位流程步骤和转化瓶颈 |
+| cohort / retention | `cohort_retention` | 比较不同队列的持续表现 |
+| root cause / anomaly | `root_cause` | 用证据验证根因假设 |
+| benchmark / ranking | `benchmark_radar` | 多指标横向对比，识别差距 |
 
 **确定框架后，查询详细配置**：
 ```bash
 python3 {baseDir}/skills/analysis-reference/scripts/query_config.py --framework <框架名>
 ```
 
-**⚠️ 框架选择必须结合 Phase 2 的假设**：选择最能验证假设的框架。
+**⚠️ 框架选择必须结合业务问题、目标读者、数据能力和初始假设方向**：选择最能组织后续假设验证的框架，而不是在报告阶段临时补框架。
 
 ---
 
@@ -350,40 +408,6 @@ python3 {baseDir}/skills/analysis-reference/scripts/query_config.py --framework 
 - 总结目标：`goal-summary`
 
 ---
-
-## Phase 4.4: 锁定交付方式与报告模板（MUST）
-
-report template 不是 `RA:report` 阶段才决定的内容，必须在 planning 阶段提前锁定；但**先锁定的应该是分析模式与交付方式，具体模板放在最后一步映射**。
-
-**先读取参考**：
-- `{baseDir}/skills/report/references/template-system-v2.md`
-
-**锁定顺序（必须）**：
-1. `selected_analysis_mode`：这次准备怎么分析（overview / ranking / attribution / benchmark / exploration）
-2. `selected_delivery_mode`：这次准备怎么呈现（executive_brief / structured_report / diagnosis_report / detailed_report）
-3. `selected_report_template`：最终落到哪一个**核心模板 ID**
-
-**alias 处理规则**：
-- 若用户明确提到旧模板名（如 `monthly_analysis`、`dashboard_summary`、`problem_oriented`），先去 `skills/report/references/template-system-v2.md` 的 alias 说明中解析
-- plan 中默认写入 `canonical_template` 对应的核心模板 ID，不继续锁旧模板 ID
-- 旧模板名只作为用户语言线索和迁移兼容信息保留
-
-**锁定原则**：
-- 模板选择必须结合 `normalized_request.json`
-- 模板选择必须结合分析场景、阅读对象、展开深度、业务目标
-- 周期（日/周/月/季/年）默认视为时间范围或例行汇报约束，不应先于问题类型主导选型
-- 具体模板只负责呈现与证据编排，不替代分析思路与问题理解
-- 一旦写入 `selected_report_template`，后续不得在写报告阶段重新选择模板
-
-**必须写入 plan 的字段**：
-- `selected_analysis_mode`
-- `analysis_mode_selection_reason`
-- `selected_delivery_mode`
-- `delivery_mode_selection_reason`
-- `selected_report_template`
-- `template_selection_reason`
-- `关键证据展示要求`
-- `结论级证据块设计`
 
 **关键证据展示要求**最少要回答：
 1. 正文必须展示哪些关键问题数据
@@ -440,6 +464,7 @@ goal 的 `artifact` / `filename` / `params` 使用规则见 `{baseDir}/skills/an
 | 下钻路径 | 有序，非平铺 |
 | 假设验证目标 | 每个假设对应一个 goal-hypo-N |
 | 交叉分析目标 | ≥ 2 个 |
+| 分析框架 | 已写入 `selected_framework_id` 和 `framework_selection_reason` |
 | 分析模式 | 已写入 `selected_analysis_mode` |
 | 交付方式 | 已写入 `selected_delivery_mode` |
 | 报告模板 | 已写入 `selected_report_template` |

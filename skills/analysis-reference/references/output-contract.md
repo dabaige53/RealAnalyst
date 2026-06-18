@@ -44,14 +44,27 @@
   "type": "framework",
   "found": true,
   "framework": {
-    "id": "mece",
-    "name": "MECE",
-    "name_en": "MECE",
-    "description": "Mutually exclusive, collectively exhaustive",
-    "applicable_scenarios": ["结构分析"],
-    "logic_path": ["总量", "结构", "归因"],
-    "goal_template": {},
-    "dimension_type_hints": {}
+    "id": "mece_issue_tree",
+    "name": "MECE 问题树",
+    "name_en": "MECE Issue Tree",
+    "aliases": ["mece", "issue_tree"],
+    "description": "把一个业务问题拆成互斥且穷尽的子问题。",
+    "best_for": ["整体情况不清楚"],
+    "not_suitable_for": ["已经明确只需要解释单个指标变化原因"],
+    "analysis_modes": ["overview", "exploration"],
+    "logic_path": ["定义主问题", "拆一级问题域", "校验互斥穷尽"],
+    "goal_template": {
+      "fixed": ["明确分析范围、数据口径和主问题"]
+    },
+    "dimension_type_hints": {
+      "category": "优先作为一级或二级问题分支"
+    },
+    "evidence_requirements": ["主问题对应的核心指标"],
+    "recommended_templates": [
+      {"template": "summary_structured", "when": "需要正式专题报告"}
+    ],
+    "failure_modes": ["分支互相重叠导致重复归因"],
+    "source_refs": ["issue_tree", "mece_principle"]
   }
 }
 ```
@@ -70,9 +83,10 @@
   "found": false,
   "available_frameworks": [
     {
-      "id": "monitoring",
-      "name": "经营监控",
-      "scenarios": ["trend", "alert", "routine report"]
+      "id": "mece_issue_tree",
+      "name": "MECE 问题树",
+      "aliases": ["mece", "issue_tree"],
+      "scenarios": []
     }
   ]
 }

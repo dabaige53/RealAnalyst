@@ -1,0 +1,263 @@
+{
+  "version": "1.0",
+  "description": "Analysis planning framework registry for RealAnalyst. Frameworks define how to decompose a business question; report templates define how to present the answer.",
+  "frameworks": [
+    {
+      "id": "mece_issue_tree",
+      "name": "MECE 问题树",
+      "name_en": "MECE Issue Tree",
+      "aliases": ["mece", "issue_tree", "logic_tree", "structure", "overview", "structural_breakdown"],
+      "description": "把一个宽泛业务问题拆成互斥且穷尽的子问题，用于建立总览、结构拆解和分析边界。",
+      "applicable_scenarios": ["overview", "structure analysis", "business review", "scope clarification"],
+      "not_suitable_for": ["已知异常的深度归因", "明确流程转化问题", "需要长期留存观察的问题"],
+      "analysis_modes": ["overview", "exploration"],
+      "delivery_modes": ["structured_report", "executive_brief", "detailed_report"],
+      "logic_path": ["定义主问题", "拆出一级业务维度", "检查互斥与穷尽", "选择最有解释力的维度", "下钻关键分支", "汇总结论与缺口"],
+      "goal_template": {
+        "fixed": ["明确分析范围、口径、时间和对象", "输出核心指标总览"],
+        "dimension_goal_pattern": "按{dimension}拆解总量、占比、Top/Bottom 和集中度",
+        "hypothesis_pattern": "验证{dimension}结构变化是否解释了核心指标表现",
+        "summary": "总结主要结构差异、关键对象和下一步优先下钻方向"
+      },
+      "dimension_type_hints": {
+        "time": "用于阶段表现、趋势和周期性对比",
+        "category": "用于结构占比、集中度和 Top/Bottom",
+        "entity": "用于定位具体业务对象、区域、客户、航线、产品或渠道",
+        "measure": "用于总量、均值、占比和贡献度"
+      },
+      "evidence_requirements": ["核心指标总览", "一级维度结构表", "Top/Bottom 对象表", "异常或缺口分支列表"],
+      "recommended_templates": [
+        {"template": "summary_structured", "when": "需要正式专题结构化汇报"},
+        {"template": "executive_onepage", "when": "只需要高层快速总览"},
+        {"template": "technical_detailed", "when": "字段、口径和附录说明较重"}
+      ],
+      "failure_modes": ["分支重叠导致重复解释", "为追求穷尽而平铺所有维度", "没有把关键分支收敛到行动对象"],
+      "source_refs": ["issue_tree", "mece_principle"]
+    },
+    {
+      "id": "waterfall_attribution",
+      "name": "Waterfall 变化归因",
+      "name_en": "Waterfall Attribution",
+      "aliases": ["waterfall", "bridge", "variance", "variance_bridge", "attribution", "driver_attribution"],
+      "description": "把整体变化拆成一组正负贡献项，解释收入、利润、订单、份额或预算差异来自哪些驱动因素。",
+      "applicable_scenarios": ["attribution", "variance analysis", "budget gap", "performance change", "root cause shortlist"],
+      "not_suitable_for": ["没有清晰基准的探索问题", "只有静态结构没有变化量的问题", "无法定义可加贡献项的问题"],
+      "analysis_modes": ["attribution"],
+      "delivery_modes": ["diagnosis_report", "executive_brief"],
+      "logic_path": ["锁定目标指标和变化方向", "选择对比基准", "拆出可加驱动项", "计算每项贡献", "验证主因和反例", "给出修复或放大动作"],
+      "goal_template": {
+        "fixed": ["确认变化幅度、方向、基准和口径", "输出驱动因素贡献排序"],
+        "dimension_goal_pattern": "按{dimension}计算变化贡献、贡献率和异常对象",
+        "hypothesis_pattern": "验证{driver}是否是目标指标变化的主要贡献项",
+        "summary": "总结 Top 驱动因素、次要反例和可执行动作"
+      },
+      "dimension_type_hints": {
+        "time": "用于确定变化窗口和基准窗口",
+        "entity": "用于定位贡献最大的对象",
+        "driver": "用于量、价、结构、转化率、客单价、频次等贡献项",
+        "baseline": "用于同比、环比、预算或目标对比"
+      },
+      "evidence_requirements": ["目标指标变化表", "贡献分解表", "Top 正负贡献对象", "基准口径说明", "反例验证"],
+      "recommended_templates": [
+        {"template": "attribution_report", "when": "需要完整诊断和原因解释"},
+        {"template": "executive_onepage", "when": "只需要异常快报或高层解释"}
+      ],
+      "failure_modes": ["贡献项不可加却强行瀑布", "基准选择不清导致归因失真", "只列贡献不验证业务机制"],
+      "source_refs": ["waterfall_chart"]
+    },
+    {
+      "id": "gsm_metric_planning",
+      "name": "GSM/OSM 指标规划",
+      "name_en": "Goals-Signals-Metrics Planning",
+      "aliases": ["gsm", "osm", "goals_signals_metrics", "objective_signal_metric", "heart", "metric_planning", "dashboard_planning"],
+      "description": "先明确业务目标，再识别可观察信号，最后落到可计算指标，适合把模糊问题转成可衡量的报告或看板计划。",
+      "applicable_scenarios": ["metric design", "dashboard planning", "product health", "business monitoring design"],
+      "not_suitable_for": ["已经有明确异常且只需要归因", "一次性明细核查", "没有目标读者或决策场景的问题"],
+      "analysis_modes": ["overview", "exploration"],
+      "delivery_modes": ["structured_report", "detailed_report"],
+      "logic_path": ["明确业务目标", "定义目标读者和决策动作", "识别可观察信号", "映射核心指标和护栏指标", "设计证据视图", "定义反馈和迭代机制"],
+      "goal_template": {
+        "fixed": ["明确目标、读者、决策场景和指标口径", "输出核心指标树和护栏指标"],
+        "dimension_goal_pattern": "按{dimension}验证信号是否能稳定解释目标变化",
+        "hypothesis_pattern": "验证{signal}是否能作为{goal}的可观测代理信号",
+        "summary": "总结指标体系、证据视图和后续迭代项"
+      },
+      "dimension_type_hints": {
+        "goal": "业务目标或用户目标",
+        "signal": "能被数据观察到的行为、状态或结果信号",
+        "metric": "可复跑计算的核心指标、诊断指标和护栏指标",
+        "segment": "用于发现不同人群、区域、渠道或业务单元的目标差异"
+      },
+      "evidence_requirements": ["目标-信号-指标映射表", "指标口径表", "读者和决策动作", "数据可用性缺口", "后续反馈指标"],
+      "recommended_templates": [
+        {"template": "summary_structured", "when": "需要输出正式指标规划或专题分析"},
+        {"template": "technical_detailed", "when": "需要大量口径、字段和计算说明"}
+      ],
+      "failure_modes": ["直接列指标但没有业务目标", "把不可观测愿望当作指标", "缺少护栏指标导致局部优化"],
+      "source_refs": ["google_heart"]
+    },
+    {
+      "id": "funnel_conversion",
+      "name": "漏斗转化分析",
+      "name_en": "Funnel Conversion Analysis",
+      "aliases": ["funnel", "conversion", "conversion_funnel", "journey", "process"],
+      "description": "把用户、订单或业务对象经过的一串步骤拆成转化率、流失率和瓶颈步骤。",
+      "applicable_scenarios": ["conversion", "process analysis", "customer journey", "sales funnel", "operational flow"],
+      "not_suitable_for": ["没有顺序步骤的数据", "对象无法跨步骤关联", "只有总量变化但没有过程字段"],
+      "analysis_modes": ["attribution", "exploration"],
+      "delivery_modes": ["diagnosis_report", "structured_report"],
+      "logic_path": ["定义漏斗目标", "锁定步骤顺序", "建立对象级去重口径", "计算步骤转化", "定位最大流失", "按分群验证瓶颈", "提出修复动作"],
+      "goal_template": {
+        "fixed": ["明确漏斗对象、步骤、时间窗和去重规则", "输出各步骤转化率和流失率"],
+        "dimension_goal_pattern": "按{dimension}比较各步骤转化差异和瓶颈位置",
+        "hypothesis_pattern": "验证{step}是否是转化损失的主要瓶颈",
+        "summary": "总结关键流失步骤、影响对象和优化动作"
+      },
+      "dimension_type_hints": {
+        "step": "漏斗步骤或流程节点",
+        "entity": "用户、客户、订单、航班、线索等可追踪对象",
+        "time": "用于定义归因窗口和转化周期",
+        "segment": "用于比较不同渠道、人群、产品或区域的转化差异"
+      },
+      "evidence_requirements": ["漏斗步骤定义", "步骤转化表", "分群转化对比", "最大流失步骤", "样本量和去重说明"],
+      "recommended_templates": [
+        {"template": "attribution_report", "when": "目标是解释转化损失原因"},
+        {"template": "summary_structured", "when": "目标是输出流程健康专题"}
+      ],
+      "failure_modes": ["步骤顺序不稳定", "跨步骤对象无法关联", "只看转化率不看样本量"],
+      "source_refs": ["funnel_analysis"]
+    },
+    {
+      "id": "cohort_retention",
+      "name": "队列留存分析",
+      "name_en": "Cohort Retention Analysis",
+      "aliases": ["cohort", "retention", "lifecycle", "repeat", "cohort_analysis"],
+      "description": "按进入时间、首购时间、首航时间或首次行为分组，观察不同队列在后续周期的留存、复购或持续表现。",
+      "applicable_scenarios": ["retention", "repeat behavior", "lifecycle", "longitudinal performance"],
+      "not_suitable_for": ["没有可定义起点事件", "没有对象级历史轨迹", "只需要一次性横截面对比"],
+      "analysis_modes": ["exploration", "benchmark"],
+      "delivery_modes": ["structured_report", "detailed_report"],
+      "logic_path": ["定义队列起点", "定义观察窗口", "计算周期表现", "比较队列差异", "识别衰减或改善模式", "定位高低留存分群"],
+      "goal_template": {
+        "fixed": ["明确队列定义、起点事件和观察窗口", "输出队列表现矩阵"],
+        "dimension_goal_pattern": "按{dimension}比较队列留存、复购或持续表现差异",
+        "hypothesis_pattern": "验证{cohort}是否存在显著衰减、改善或结构差异",
+        "summary": "总结关键队列模式、稳定性和后续经营动作"
+      },
+      "dimension_type_hints": {
+        "cohort_start": "首次行为、首购、注册、首航或进入日期",
+        "period": "第 N 天、周、月或业务周期",
+        "entity": "可被跨周期追踪的用户、客户、航线、产品或业务对象",
+        "segment": "用于解释不同队列差异"
+      },
+      "evidence_requirements": ["队列定义", "观察窗口", "队列矩阵", "样本量", "高低表现分群"],
+      "recommended_templates": [
+        {"template": "summary_structured", "when": "需要正式留存或生命周期报告"},
+        {"template": "technical_detailed", "when": "需要详细矩阵和口径附录"}
+      ],
+      "failure_modes": ["队列起点不一致", "观察窗口不完整", "忽略右删失和样本量差异"],
+      "source_refs": ["cohort_analysis"]
+    },
+    {
+      "id": "root_cause",
+      "name": "根因分析",
+      "name_en": "Root Cause Analysis",
+      "aliases": ["rca", "root_cause", "5whys", "five_whys", "ishikawa", "fishbone", "diagnosis"],
+      "description": "围绕已发生的问题构造因果假设，并用证据排除表层症状，定位可干预根因。",
+      "applicable_scenarios": ["incident", "anomaly", "quality issue", "recurring problem", "operational diagnosis"],
+      "not_suitable_for": ["没有明确问题陈述", "缺少时间、对象或过程证据", "只需要常规表现概览"],
+      "analysis_modes": ["attribution"],
+      "delivery_modes": ["diagnosis_report", "executive_brief"],
+      "logic_path": ["定义问题和影响", "列出候选原因", "构造因果链", "用数据验证或排除", "定位可干预根因", "制定预防和监控机制"],
+      "goal_template": {
+        "fixed": ["明确问题陈述、影响范围和异常时间窗", "输出候选原因清单"],
+        "dimension_goal_pattern": "按{dimension}验证候选原因是否集中出现",
+        "hypothesis_pattern": "验证{cause}是否能解释问题发生且有可观测证据",
+        "summary": "总结根因、证据强度、反例和预防动作"
+      },
+      "dimension_type_hints": {
+        "time": "用于定位异常开始、持续和恢复时间",
+        "process": "用于检查上下游流程或环节",
+        "entity": "用于定位受影响对象",
+        "cause": "候选原因分类，如人、流程、系统、外部环境、规则变化"
+      },
+      "evidence_requirements": ["问题陈述", "影响范围", "候选原因表", "验证/排除证据", "预防监控指标"],
+      "recommended_templates": [
+        {"template": "attribution_report", "when": "需要完整根因诊断"},
+        {"template": "executive_onepage", "when": "需要异常快报和处置摘要"}
+      ],
+      "failure_modes": ["把相关性当因果", "只做 5 Whys 不做数据验证", "停在表层症状没有可执行动作"],
+      "source_refs": ["root_cause_analysis", "five_whys"]
+    },
+    {
+      "id": "benchmark_radar",
+      "name": "对标雷达/差距分析",
+      "name_en": "Benchmark And Radar Analysis",
+      "aliases": ["benchmark", "radar", "comparison", "competitor_compare", "ranking", "gap_analysis"],
+      "description": "把对象放在统一指标体系下横向比较，识别领先项、落后项、短板和追赶优先级。",
+      "applicable_scenarios": ["benchmark", "competitor comparison", "ranking", "capability gap", "target comparison"],
+      "not_suitable_for": ["指标不可比", "样本尺度差异未标准化", "只需要解释单对象时间变化"],
+      "analysis_modes": ["benchmark", "ranking"],
+      "delivery_modes": ["structured_report", "diagnosis_report", "executive_brief"],
+      "logic_path": ["选择对标对象", "统一指标口径", "标准化量纲", "计算差距和排名", "识别短板组合", "输出追赶路径"],
+      "goal_template": {
+        "fixed": ["明确对标对象、指标集合和可比口径", "输出多指标差距总览"],
+        "dimension_goal_pattern": "按{dimension}比较排名、差距和短板组合",
+        "hypothesis_pattern": "验证{metric_group}是否构成主要竞争差距",
+        "summary": "总结领先/落后指标、差距来源和追赶优先级"
+      },
+      "dimension_type_hints": {
+        "benchmark_entity": "竞品、区域、渠道、航线、产品、部门或目标组",
+        "metric_group": "需要统一量纲或方向的指标集合",
+        "segment": "用于解释不同分层下的差距",
+        "target": "预算、目标、历史最好值或行业基准"
+      },
+      "evidence_requirements": ["对标对象清单", "指标口径表", "标准化规则", "排名/差距表", "短板组合表"],
+      "recommended_templates": [
+        {"template": "competitor_compare", "when": "需要正式对标或竞品差距报告"},
+        {"template": "ranking_report", "when": "核心是 Top/Bottom 和排序"},
+        {"template": "executive_onepage", "when": "只需要高层差距摘要"}
+      ],
+      "failure_modes": ["未统一量纲直接比较", "雷达图变量过多造成误读", "只看排名不看差距幅度和样本量"],
+      "source_refs": ["radar_chart"]
+    }
+  ],
+  "sources": {
+    "issue_tree": {
+      "title": "Issue tree",
+      "url": "https://en.wikipedia.org/wiki/Issue_tree"
+    },
+    "mece_principle": {
+      "title": "MECE principle",
+      "url": "https://en.wikipedia.org/wiki/MECE_principle"
+    },
+    "waterfall_chart": {
+      "title": "Waterfall chart",
+      "url": "https://en.wikipedia.org/wiki/Waterfall_chart"
+    },
+    "google_heart": {
+      "title": "Measuring the User Experience on a Large Scale: User-Centered Metrics for Web Applications",
+      "url": "https://research.google/pubs/measuring-the-user-experience-on-a-large-scale-user-centered-metrics-for-web-applications/"
+    },
+    "funnel_analysis": {
+      "title": "Funnel analysis",
+      "url": "https://en.wikipedia.org/wiki/Funnel_analysis"
+    },
+    "cohort_analysis": {
+      "title": "Cohort analysis",
+      "url": "https://en.wikipedia.org/wiki/Cohort_analysis"
+    },
+    "root_cause_analysis": {
+      "title": "Root cause analysis",
+      "url": "https://en.wikipedia.org/wiki/Root-cause_analysis"
+    },
+    "five_whys": {
+      "title": "Five whys",
+      "url": "https://en.wikipedia.org/wiki/Five_whys"
+    },
+    "radar_chart": {
+      "title": "Radar chart",
+      "url": "https://en.wikipedia.org/wiki/Radar_chart"
+    }
+  }
+}

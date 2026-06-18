@@ -245,13 +245,13 @@ doctor 输出固定 JSON 摘要：`python_command`、`skill_base_dir`、`registr
 **10 章输出规范**：
 
 1. 数据源概述
-2. 场景分类（monitoring / diagnosis / benchmark / ...）
+2. 场景分类与分析框架锁定（`selected_framework_id`）
 3. 业务假设清单
 4. 异常判定标准
 5. 下钻路径设计
-6. 框架选择（via analysis-reference）
+6. 框架配置引用（via analysis-reference）
 7. 目标拆解（goals + artifacts）
-8. 报告模板锁定（selected_report_template）
+8. 报告模板锁定（`selected_report_template`）
 9. 数据采集方案
 10. 质量检查点
 

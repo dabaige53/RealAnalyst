@@ -136,11 +136,12 @@ python3 {baseDir}/skills/metadata-refine/scripts/collect_feedback.py --session-i
 
 **planning 阶段必须完成三件事**：
 
-1. 锁定分析方式
-2. 锁定交付方式
-3. 锁定报告模板
+1. 锁定分析框架
+2. 锁定分析方式
+3. 锁定交付方式
+4. 锁定报告模板
 
-**推荐顺序**：先定 `selected_analysis_mode`，再定 `selected_delivery_mode`，最后落到 `selected_report_template`。
+**推荐顺序**：先定 `selected_framework_id`，再定 `selected_analysis_mode`，然后定 `selected_delivery_mode`，最后落到 `selected_report_template`。
 
 **模板压缩约束**：`selected_report_template` 默认应写核心模板 ID；若用户提到旧模板名（如月报/问题导向/仪表盘摘要），先解析为 alias 对应的核心模板后再写入 plan。
 

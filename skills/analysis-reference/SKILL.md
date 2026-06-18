@@ -32,11 +32,18 @@ python3 {baseDir}/skills/analysis-reference/scripts/query_config.py --template <
 python3 {baseDir}/skills/analysis-reference/scripts/query_config.py --framework <框架名>
 ```
 
+框架真源：
+
+- 结构化配置：`{baseDir}/skills/analysis-reference/references/analysis-frameworks.json`
+- 可读说明：`{baseDir}/skills/analysis-reference/references/analysis-frameworks.md`
+
 ## 输出契约
 
 - 模板查询：`query` / `type` / `matches` / `count`
 - 框架查询命中：`query` / `type` / `found=True` / `framework`
 - 框架查询未命中：`query` / `type` / `found=False` / `available_frameworks`
+
+framework 命中时至少包含：`id`、`name`、`aliases`、`description`、`logic_path`、`goal_template`、`dimension_type_hints`、`evidence_requirements`、`recommended_templates`。
 
 完整示例见 `{baseDir}/skills/analysis-reference/references/output-contract.md`。
 
