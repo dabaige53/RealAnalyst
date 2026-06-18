@@ -170,6 +170,7 @@ ls -1 jobs/{SESSION_ID}/*.csv jobs/{SESSION_ID}/*.md 2>/dev/null
 10. 在报告结尾追加 `## 一段话结论（便于后续看/转述）`，用 1 段话总结最关键结论与使用边界。
 11. 只要正文出现本次新增或临时口径，就按 `{baseDir}/skills/report/references/appendix-template.md` 补齐附录。
 12. 长内容继续通过文件交付给用户，聊天框只放摘要与下一步建议。
+13. 报告写完后不得把“已写入文件”当作完成；必须进入 `RA:report-verify`，生成 `verification.json` 和 `delivery_manifest.json`，再由宿主 agent 按清单上传报告与附件。
 
 ## 核心原则
 

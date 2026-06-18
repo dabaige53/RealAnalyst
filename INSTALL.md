@@ -62,6 +62,7 @@ curl -fsSL https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/scripts/
 - 写入当前项目的 `.agents/plugins/marketplace.json`
 - 安装项目内 skills 到 `.agents/skills/`
 - 安装或更新项目内 `runtime/` 执行支持文件（不复制 `registry.db`、缓存或本地生成数据）
+- 安装或更新项目内 `lib/` 共享运行支持文件（例如 profiling / verification 使用的轻量日志工具）
 - 初始化插件目录里的 `~/plugins/realanalyst/.env`，已有则保留
 - 校验 `.codex-plugin/plugin.json`
 - 校验插件仓库 demo metadata
@@ -241,6 +242,7 @@ TABLEAU_PAT_SECRET=
 | 不知道下一步 | 让 LLM 读取 `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/llm-next-steps.md` |
 | 没有 `metadata/` | 这是预期行为；确认要保存抽取结果或执行分析后再按需创建 |
 | 没有 `runtime/` | 重新运行安装器；如果使用了 `--skip-project-runtime`，则不会安装项目内 runtime support |
+| 没有 `lib/log_utils.py` | 重新运行安装器；如果使用了 `--skip-project-lib`，则不会安装项目内 shared lib support |
 | 依赖安装失败 | 进入 `~/plugins/realanalyst` 后重新运行 `python3 -m pip install -r requirements.txt` |
 | demo metadata 校验失败 | 运行 `python3 skills/metadata/scripts/metadata.py validate` 查看错误 |
 | 不确定从哪里开始 | 在 Codex 输入 `/skill RA:getting-started` |

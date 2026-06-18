@@ -39,7 +39,22 @@ WORKSPACE_ROOT = _find_workspace_root(Path(__file__).resolve())
 LIB_DIR = WORKSPACE_ROOT / "lib"
 if str(LIB_DIR) not in sys.path:
     sys.path.insert(0, str(LIB_DIR))
-from log_utils import log as base_log  # type: ignore
+try:
+    from log_utils import log as base_log  # type: ignore
+except Exception:  # pragma: no cover - only used in incomplete project-local installs
+    def base_log(output_dir: str | Path, stage: str, message: str) -> None:
+        from datetime import datetime, timezone
+
+        log_dir = Path(output_dir) / ".meta"
+        if not log_dir.exists():
+            log_dir = Path(output_dir) / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        line = f"[{datetime.now(timezone.utc).astimezone().isoformat()}] [{stage}] {message}"
+        try:
+            with (log_dir / "run.log").open("a", encoding="utf-8") as f:
+                f.write(line + "\n")
+        except OSError:
+            pass
 
 
 def log(output_dir: str, msg: str) -> None:

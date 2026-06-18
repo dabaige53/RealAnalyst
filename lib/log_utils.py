@@ -1,7 +1,7 @@
 """Lightweight logging helpers shared by RealAnalyst scripts.
 
-The scripts intentionally keep stdout machine-readable where possible. Callers that
-redirect stdout can persist the collected log lines through ``get_log_file``.
+Logs go to stderr and to the job log file so stdout can stay machine-readable for
+scripts that return JSON payloads.
 """
 
 from __future__ import annotations
@@ -9,6 +9,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+import sys
 from typing import Iterator
 
 
@@ -29,10 +30,10 @@ def reset_log(output_dir: str | Path) -> None:
 
 
 def log(output_dir: str | Path, stage: str, message: str) -> None:
-    """Emit a timestamped line to stdout and append it to the default log file."""
+    """Emit a timestamped line to stderr and append it to the default log file."""
     timestamp = datetime.now(timezone.utc).astimezone().isoformat()
     line = f"[{timestamp}] [{stage}] {message}"
-    print(line)
+    print(line, file=sys.stderr)
     try:
         with get_log_file(output_dir).open("a", encoding="utf-8") as f:
             f.write(line + "\n")

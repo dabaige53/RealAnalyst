@@ -133,6 +133,7 @@ TABLEAU_PAT_SECRET=your-personal-access-token-secret
 - 确认 `.agents/skills/getting-started/SKILL.md` 存在。
 - 确认 `.agents/skills/metadata/SKILL.md` 存在。
 - 确认 `runtime/paths.py` 和 `runtime/tableau/query_registry.py` 存在。
+- 确认 `lib/log_utils.py` 存在。
 - 确认安装没有创建 `metadata/`、`jobs/`、`logs/`、`runtime/registry.db` 或 demo 数据。
 
 ## 给用户的下一句

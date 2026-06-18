@@ -39,7 +39,29 @@ WORKSPACE_ROOT = _find_workspace_root(Path(__file__).resolve())
 for bootstrap_path in (WORKSPACE_ROOT / "lib", WORKSPACE_ROOT / "runtime"):
     if str(bootstrap_path) not in sys.path:
         sys.path.insert(0, str(bootstrap_path))
-from log_utils import get_log_file, log as base_log, reset_log  # type: ignore
+try:
+    from log_utils import get_log_file, log as base_log, reset_log  # type: ignore
+except Exception:  # pragma: no cover - only used in incomplete project-local installs
+    def get_log_file(output_dir: str | Path) -> Path:
+        base = Path(output_dir)
+        log_dir = base / ".meta"
+        if not log_dir.exists():
+            log_dir = base / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        return log_dir / "run.log"
+
+    def reset_log(output_dir: str | Path) -> None:
+        get_log_file(output_dir).write_text("", encoding="utf-8")
+
+    def base_log(output_dir: str | Path, stage: str, message: str) -> None:
+        from datetime import datetime, timezone
+
+        line = f"[{datetime.now(timezone.utc).astimezone().isoformat()}] [{stage}] {message}"
+        try:
+            with get_log_file(output_dir).open("a", encoding="utf-8") as f:
+                f.write(line + "\n")
+        except OSError:
+            pass
 from runtime_config_store import load_document  # type: ignore[import-not-found]
 
 

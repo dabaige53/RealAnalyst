@@ -156,6 +156,7 @@ python3 skills/metadata/scripts/metadata.py context --dataset-id demo.retail.ord
 | --- | --- | --- |
 | `.agents/` | 插件入口、project-local skills | 安装器自动写入 |
 | `runtime/` | 程序执行时需要的 source 支持文件和示例配置 | 安装器自动写入 |
+| `lib/` | project-local 共享运行支持，例如日志工具 | 安装器自动写入 |
 | `skills/` | 可调用的分析能力（源码仓视图） | 源码仓自带 |
 | `examples/` | 脱敏 demo 数据和本地跑通脚本 | 源码仓自带 |
 | `schemas/` | 结构化产物的 JSON Schema 契约 | 源码仓自带 |

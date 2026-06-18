@@ -50,7 +50,7 @@ python3 .agents/skills/metadata/scripts/metadata.py validate
 
 SKILL.md 用 `{baseDir}` 变量自动指向当前生效的 skill 根目录，agent 调用时不需要手写以上路径。
 
-`doctor.py` 只读输出项目环境摘要：Python 命令、skill base、registry path、DuckDB path、依赖状态和推荐下一 skill。它不创建目录、不取数、不写 metadata 或 registry。
+`doctor.py` 只读输出项目环境摘要：Python 命令、skill base、shared lib、registry path、DuckDB path、依赖状态和推荐下一 skill。它不创建目录、不取数、不写 metadata 或 registry。
 
 ---
 

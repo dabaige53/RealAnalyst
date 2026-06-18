@@ -80,6 +80,8 @@ def build_summary(workspace: Path, intent: str) -> dict[str, Any]:
     installed_skill_base = workspace / ".agents" / "skills"
     skill_base = source_skill_base if source_skill_base.is_dir() else installed_skill_base
     scripts_py = workspace / "scripts" / "py"
+    lib_dir = workspace / "lib"
+    log_utils = lib_dir / "log_utils.py"
     metadata_dir = workspace / "metadata"
     registry_path = workspace / "runtime" / "registry.db"
     metadata_py = skill_base / "metadata" / "scripts" / "metadata.py"
@@ -90,7 +92,10 @@ def build_summary(workspace: Path, intent: str) -> dict[str, Any]:
     recommended_skill = choose_recommended_skill(intent, has_metadata=has_metadata, has_registry=has_registry)
     python_command = "./scripts/py" if scripts_py.exists() and scripts_py.stat().st_mode & 0o111 else sys.executable
     python_probe = probe_project_python(workspace, python_command)
-    dependencies = python_probe["dependencies"]
+    dependencies = {
+        name: bool((python_probe.get("dependencies") or {}).get(name))
+        for name in ("yaml", "duckdb", "pandas", "pymysql", "clickhouse_connect")
+    }
 
     issues: list[str] = []
     remediation: list[dict[str, str]] = []
@@ -101,6 +106,24 @@ def build_summary(workspace: Path, intent: str) -> dict[str, Any]:
                 "code": "missing_scripts_py",
                 "command": "python3 scripts/install_codex_plugin.py --project <target-project>",
                 "note": "Refresh the project-local RealAnalyst runtime support before formal analysis.",
+            }
+        )
+    elif python_probe.get("probe_error"):
+        issues.append(f"scripts/py probe failed: {python_probe.get('probe_error')}")
+        remediation.append(
+            {
+                "code": "scripts_py_probe_failed",
+                "command": "./scripts/setup_venv.sh",
+                "note": "Repair the project Python environment before formal analysis; do not fall back to ad hoc Python discovery.",
+            }
+        )
+    if not log_utils.exists():
+        issues.append("lib/log_utils.py missing; project-local scripts can run with a degraded logger, but install support files before formal analysis.")
+        remediation.append(
+            {
+                "code": "missing_shared_lib",
+                "command": "python3 scripts/install_codex_plugin.py --project <target-project> --force",
+                "note": "Refresh project-local RealAnalyst support files, including shared lib helpers used by profiling and verification.",
             }
         )
     if not metadata_py.exists():
@@ -158,6 +181,10 @@ def build_summary(workspace: Path, intent: str) -> dict[str, Any]:
             "scripts_py_exists": scripts_py.exists(),
             "metadata_py": str(metadata_py),
             "metadata_py_exists": metadata_py.exists(),
+            "lib_dir": str(lib_dir),
+            "lib_dir_exists": lib_dir.is_dir(),
+            "log_utils_py": str(log_utils),
+            "log_utils_py_exists": log_utils.exists(),
             "registry_path": str(registry_path),
             "registry_exists": has_registry,
             "duckdb_path": str(workspace / "duckdb"),
