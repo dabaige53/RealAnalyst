@@ -13,6 +13,9 @@ workspace/
 # Ralph Loop state file
 .ralph-state.json
 
+# Local task lifecycle hook configuration
+hooks.local.json
+
 # Agent runtime files
 .agents/
 .agent-log
