@@ -185,6 +185,21 @@ def install_project_runtime(plugin_dir: Path, project_dir: Path, *, dry_run: boo
     )
 
 
+def install_project_lib(plugin_dir: Path, project_dir: Path, *, dry_run: bool) -> None:
+    lib_source = plugin_dir / "lib"
+    lib_target = project_dir / "lib"
+    print(f"$ install project-local shared lib into {lib_target}")
+    if dry_run:
+        print(f"$ copytree {lib_source} -> {lib_target} (ignore cache files)")
+        return
+    shutil.copytree(
+        lib_source,
+        lib_target,
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
+
+
 def load_marketplace(path: Path, *, name: str) -> dict:
     if not path.exists():
         return {"name": name, "interface": {"displayName": name}, "plugins": []}
@@ -250,6 +265,7 @@ def main() -> int:
         help="Only register the plugin, do not install project-local skills",
     )
     parser.add_argument("--skip-project-runtime", action="store_true", help="Do not install project-local runtime support files")
+    parser.add_argument("--skip-project-lib", action="store_true", help="Do not install project-local shared lib support files")
     parser.add_argument("--force", action="store_true", help="Overwrite existing RealAnalyst-installed project skills")
     parser.add_argument("--dry-run", action="store_true", help="Print actions without changing files")
     args = parser.parse_args()
@@ -279,6 +295,8 @@ def main() -> int:
         skill_results = install_project_skills(plugin_dir, project_dir, force=args.force, dry_run=args.dry_run)
     if not args.global_install and not args.skip_project_runtime:
         install_project_runtime(plugin_dir, project_dir, dry_run=args.dry_run)
+    if not args.global_install and not args.skip_project_lib:
+        install_project_lib(plugin_dir, project_dir, dry_run=args.dry_run)
     validate_install(plugin_dir, dry_run=args.dry_run)
 
     print("\nInstalled RealAnalyst for Codex.")
@@ -297,6 +315,9 @@ def main() -> int:
             print(f"  - {item['skill']}: {item['status']} ({item['reason']})")
     if not args.global_install and not args.skip_project_runtime:
         print(f"Installed runtime support: {project_dir / 'runtime'}")
+    if not args.global_install and not args.skip_project_lib:
+        print(f"Installed shared lib support: {project_dir / 'lib'}")
+    if not args.global_install and (not args.skip_project_runtime or not args.skip_project_lib):
         print("No jobs/logs/business workspace folders were created.")
     print("Restart Codex, then run:")
     print("/skill RA:getting-started")

@@ -15,7 +15,7 @@ RealAnalyst 从抽取和确认 metadata 开始，不从 SQL 或报告开始。
 python3 {baseDir}/skills/getting-started/scripts/doctor.py --intent start
 ```
 
-doctor 是只读检查，只输出 JSON：Python 命令、skill base、registry path、DuckDB path、依赖状态、metadata / registry / export readiness 和推荐下一 skill。它不创建目录、不安装依赖、不取数、不写 metadata、不写 `runtime/registry.db`。
+doctor 是只读检查，只输出 JSON：Python 命令、skill base、shared lib、registry path、DuckDB path、依赖状态、metadata / registry / export readiness 和推荐下一 skill。它不创建目录、不安装依赖、不取数、不写 metadata、不写 `runtime/registry.db`。
 
 禁止在本 skill 中：
 
@@ -45,7 +45,7 @@ doctor 是只读检查，只输出 JSON：Python 命令、skill base、registry 
 - 用户是否已经给出 dataset id、source id、Tableau workbook/view、DuckDB path/table、CSV/Excel path/sheet 或业务文档。
 - 是否已有本次分析需要的字段、指标和筛选条件。
 
-如果 doctor 报告 `scripts_py_exists=false`、关键依赖缺失或 registry path 不一致，先让用户按本项目初始化命令修环境；不要切到自由 `which/find/python3 -c/import duckdb` 探测，也不要用 DuckDB CLI 或 `sqlite3` 绕过受控入口。
+如果 doctor 报告 `scripts_py_exists=false`、`scripts_py_probe_failed`、`missing_shared_lib`、关键依赖缺失或 registry path 不一致，先让用户按本项目初始化命令修环境；不要切到自由 `which/find/python3 -c/import duckdb` 探测，也不要用 DuckDB CLI 或 `sqlite3` 绕过受控入口。
 
 然后告诉用户需要准备哪些信息：
 

@@ -11,11 +11,14 @@ description: |
 
 交付前质量门禁。验证报告中的声明、口径和必备章节是否与数据、分析结果和输出契约一致。
 
+验证通过不等于已经交付。报告进入 Slack、邮件或 Drive 前，必须再生成 `delivery_manifest.json`，并按清单上传 Markdown 报告和用户态 CSV 附件。外部上传动作由宿主 agent / gateway 执行；本 skill 只生成可检查清单和门禁状态。
+
 ## 用法
 
 ```bash
 python3 {baseDir}/skills/report-verify/scripts/verify.py --help
 python3 {baseDir}/skills/report-verify/scripts/verify.py <data_csv> <analysis_json> <report_md> <output_dir>
+python3 {baseDir}/skills/report-verify/scripts/build_delivery_manifest.py --session-id <SESSION_ID> --platform slack
 ```
 
 ## 参数
@@ -26,6 +29,14 @@ python3 {baseDir}/skills/report-verify/scripts/verify.py <data_csv> <analysis_js
 | `analysis_json` | 分析结果文件 |
 | `report_md` | 待验证的报告 |
 | `output_dir` | 输出目录，脚本会写入 `verification.json` |
+
+`build_delivery_manifest.py` 参数：
+
+| 参数 | 说明 |
+| --- | --- |
+| `--session-id` | job id；也可通过环境变量 `SESSION_ID` 提供 |
+| `--platform` | 交付平台名称，例如 `slack` / `email` / `drive` |
+| `--upload-receipt-json` | 可选；外部上传器返回的 JSON receipt，含 `success=true` 或 `ok=true` 时状态为 `upload_receipt_recorded` |
 
 ## 依赖
 
@@ -123,6 +134,26 @@ python3 {baseDir}/skills/report-verify/scripts/verify.py <data_csv> <analysis_js
 9. `data_source_display_name`：数据源展示是否保持中文业务名。
 10. `output_file_list_section`：是否包含 `## 输出文件清单`。
 
+## 最终交付门禁
+
+验证结束后必须执行：
+
+```bash
+python3 {baseDir}/skills/report-verify/scripts/build_delivery_manifest.py --session-id <SESSION_ID> --platform slack
+```
+
+`delivery_manifest.json` 的状态含义：
+
+| 状态 | 条件 | 处理 |
+| --- | --- | --- |
+| `blocked` | 报告或必要附件缺失 | 回到对应 owner skill 修复，不回复“已完成” |
+| `ready_for_upload` | 文件齐全，但没有外部上传 receipt | 宿主 agent 必须上传报告和附件；不能只发摘要 |
+| `upload_receipt_recorded` | 文件齐全且已记录外部上传 receipt | 可以给用户最终简短回复；真实上传动作仍由宿主 agent / Slack / email / Drive gateway 完成 |
+
+`delivery_manifest` 只证明“应交付文件齐全 / 已有上传 receipt”，不执行上传；真实交付仍依赖宿主 agent / Slack / email / Drive gateway 按 manifest 做动作。
+
+面向用户的最终回复只保留业务结论、文件名、口径边界和下一步建议。默认不要暴露 job 路径、registry、metadata feedback、脚本名或内部错误；除非用户正在排障并明确要求。
+
 ## 示例
 
 ```bash
@@ -140,11 +171,12 @@ python3 {baseDir}/skills/report-verify/scripts/verify.py \
 ```text
 完成情况：
 - 已生成 `verification.json`。
+- 已生成 `delivery_manifest.json`，状态：<blocked / ready_for_upload / upload_receipt_recorded>
 - 检查结果：<总检查数 / 通过 / 失败 / 警告>
 - 失败项和警告项摘要：<按实际列出>
 
 下一步建议：
-- 最推荐下一步：交付报告给用户（全部通过时）
+- 最推荐下一步：按 delivery manifest 上传报告和用户态附件（ready_for_upload 时）/ 确认上传 receipt 后给用户最终回复（upload_receipt_recorded 时）
 - 可选下一步：/skill RA:report ...（报告内容需修正时）
 - 可选下一步：/skill RA:metadata-refine ...（验证暴露口径缺口、review gap 或 metadata 问题时）
 

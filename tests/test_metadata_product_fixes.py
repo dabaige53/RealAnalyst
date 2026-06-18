@@ -43,6 +43,8 @@ TABLEAU_BOOTSTRAP = REPO / "skills" / "metadata" / "adapters" / "tableau" / "scr
 SYNC_REGISTRY = REPO / "skills" / "metadata" / "scripts" / "sync_registry.py"
 SQLITE_STORE = REPO / "runtime" / "tableau" / "sqlite_store.py"
 DATA_ANALYTICS_SEMANTIC_EXPORTER = REPO / "skills" / "data-analytics-semantic-export" / "scripts" / "export_semantic_layer.py"
+INSTALLER = REPO / "scripts" / "install_codex_plugin.py"
+DELIVERY_MANIFEST = REPO / "skills" / "report-verify" / "scripts" / "build_delivery_manifest.py"
 
 
 def load_script(path: Path, module_name: str):
@@ -638,6 +640,112 @@ class MetadataProductFixTests(unittest.TestCase):
                 expected_remediation,
                 payload["remediation"],
             )
+
+    def test_getting_started_doctor_reports_missing_shared_lib(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            (workspace / "runtime").mkdir()
+            (workspace / "metadata" / "datasets").mkdir(parents=True)
+            (workspace / ".agents" / "skills" / "metadata" / "scripts").mkdir(parents=True)
+            (workspace / ".agents" / "skills" / "metadata" / "scripts" / "metadata.py").write_text("", encoding="utf-8")
+            (workspace / "scripts").mkdir()
+            scripts_py = workspace / "scripts" / "py"
+            scripts_py.write_text(
+                "#!/usr/bin/env bash\n"
+                "printf '%s\\n' '{\"python_executable\":\"/tmp/fake-python\",\"dependencies\":{\"yaml\":true,\"duckdb\":true,\"pandas\":true,\"pymysql\":true,\"clickhouse_connect\":true}}'\n",
+                encoding="utf-8",
+            )
+            scripts_py.chmod(0o755)
+
+            proc = self.run_cmd([sys.executable, str(GETTING_STARTED_DOCTOR), "--workspace", str(workspace), "--intent", "start"])
+
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            payload = json.loads(proc.stdout)
+            self.assertFalse(payload["environment"]["log_utils_py_exists"])
+            self.assertIn("missing_shared_lib", {item["code"] for item in payload["remediation"]})
+
+    def test_installer_copies_project_shared_lib_support(self) -> None:
+        installer = load_script(INSTALLER, "realanalyst_installer_lib_test")
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp) / "project"
+            project.mkdir()
+
+            installer.install_project_lib(REPO, project, dry_run=False)
+
+            self.assertTrue((project / "lib" / "log_utils.py").exists())
+
+    def test_delivery_manifest_lists_report_and_user_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            job = workspace / "jobs" / "job-001"
+            (workspace / "runtime").mkdir()
+            (job / ".meta").mkdir(parents=True)
+            report = job / "报告_测试_20260618.md"
+            csv_file = job / "汇总_测试.csv"
+            report.write_text("# 测试报告\n", encoding="utf-8")
+            csv_file.write_text("维度,数值\nA,1\n", encoding="utf-8")
+            (job / ".meta" / "artifact_index.json").write_text(
+                json.dumps(
+                    {
+                        "items": [
+                            {"path": str(report.relative_to(workspace)), "kind": "report", "role": "user"},
+                            {"path": str(csv_file.relative_to(workspace)), "kind": "csv", "role": "user"},
+                        ]
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            env = {**os.environ, "ANALYST_WORKSPACE_DIR": str(workspace)}
+
+            proc = subprocess.run(
+                [sys.executable, str(DELIVERY_MANIFEST), "--session-id", "job-001", "--platform", "slack"],
+                text=True,
+                capture_output=True,
+                env=env,
+            )
+
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            payload = json.loads(proc.stdout)
+            self.assertEqual(payload["status"], "ready_for_upload")
+            manifest = json.loads((job / "delivery_manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["delivery_execution"], "external_gateway")
+            delivery_paths = {item["path"] for item in manifest["required_delivery_files"]}
+            self.assertIn("jobs/job-001/报告_测试_20260618.md", delivery_paths)
+            self.assertIn("jobs/job-001/汇总_测试.csv", delivery_paths)
+
+    def test_delivery_manifest_records_upload_receipt_without_claiming_upload(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            job = workspace / "jobs" / "job-002"
+            (workspace / "runtime").mkdir()
+            job.mkdir(parents=True)
+            (job / "报告_测试_20260618.md").write_text("# 测试报告\n", encoding="utf-8")
+            receipt = job / "upload_receipt.json"
+            receipt.write_text(json.dumps({"success": True, "message_id": "abc123"}), encoding="utf-8")
+            env = {**os.environ, "ANALYST_WORKSPACE_DIR": str(workspace)}
+
+            proc = subprocess.run(
+                [
+                    sys.executable,
+                    str(DELIVERY_MANIFEST),
+                    "--session-id",
+                    "job-002",
+                    "--platform",
+                    "slack",
+                    "--upload-receipt-json",
+                    str(receipt),
+                ],
+                text=True,
+                capture_output=True,
+                env=env,
+            )
+
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            payload = json.loads(proc.stdout)
+            self.assertEqual(payload["status"], "upload_receipt_recorded")
+            manifest = json.loads((job / "delivery_manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["delivery_execution"], "external_gateway")
 
     def test_validate_warns_for_large_but_clean_dataset(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
