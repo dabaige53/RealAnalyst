@@ -29,7 +29,7 @@
 - Python：默认 `python3`，可通过 `PYTHON=...` 覆盖。
 - 依赖：使用 `requirements.txt` 中的公开依赖。
 - 数据：只使用仓库内公开 demo metadata、schema、Skill 文档和临时 fixture。
-- 输出：审计脚本默认只读；如需要保存报告，应写到 `docs/testing/` 或明确的临时输出目录。
+- 输出：审计脚本默认只读；如需要保存报告，应写到 `tests/reports/` 或明确的临时输出目录。
 
 ## 6. 完整 JS 代码
 

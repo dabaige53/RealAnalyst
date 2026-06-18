@@ -7,13 +7,13 @@
 建议使用：
 
 ```text
-docs/testing/YYYY-MM-DD-short-topic.md
+tests/reports/YYYY-MM-DD-short-topic.md
 ```
 
 例如：
 
 ```text
-docs/testing/2026-06-18-manifest-fail-closed.md
+tests/reports/2026-06-18-manifest-fail-closed.md
 ```
 
 ## 必填内容

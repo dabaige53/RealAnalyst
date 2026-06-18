@@ -2,13 +2,13 @@
 
 ## 1. 背景
 
-项目当前已有 `tests/` 自动化测试目录，同时新增过 `Test/` 测试文档目录，容易形成两个 test 文件夹并混淆“代码测试”和“测试报告文档”。本次调整要新增根目录 `test.sh` 作为一键测试入口，并把测试文档统一放入 `docs/testing/`。
+项目当前已有 `tests/` 自动化测试目录，同时新增过 `Test/` 测试文档目录，容易形成两个 test 文件夹并混淆“代码测试”和“测试报告文档”。本次调整要新增根目录 `test.sh` 作为一键测试入口，并把测试文档统一放入 `tests/reports/`。
 
 ## 2. 目标行为
 
 - 根目录提供 `test.sh`，本地和 CI 可复用同一组公开测试命令。
 - 代码自动化测试只放在 `tests/`。
-- 测试需求报告、排查记录、复跑材料只放在 `docs/testing/`。
+- 测试需求报告、排查记录、复跑材料只放在 `tests/reports/`，测试文档规范写在 `tests/README.md`。
 - `AGENTS.md` 明确 Python/JS 测试边界，避免后续重复创建 `Test/`、`test/` 或其它测试文档目录。
 
 ## 3. 风险等级
@@ -18,7 +18,7 @@
 
 ## 4. 覆盖范围
 
-- 涉及文件：`test.sh`、`.github/workflows/ci.yml`、`tests/test_ci_workflows.py`、`AGENTS.md`、`docs/testing/README.md`。
+- 涉及文件：`test.sh`、`.github/workflows/ci.yml`、`tests/test_ci_workflows.py`、`AGENTS.md`、`tests/reports/README.md`。
 - 涉及入口：本地一键测试、GitHub Actions public checks、测试文档规范。
 - 不覆盖范围：不新增业务逻辑测试，不修复 manifest/report-verify 等已发现业务 bug。
 
@@ -60,4 +60,4 @@ git diff --check
 
 ## 10. 验收结论
 
-本次验收通过：`bash test.sh` 成功，CI workflow 调用同一入口，代码测试目录保留为 `tests/`，测试需求报告与复跑材料收口到 `docs/testing/`，仓库不再保留顶层 `Test/` 目录。
+本次验收通过：`bash test.sh` 成功，CI workflow 调用同一入口，代码测试目录保留为 `tests/`，测试需求报告与复跑材料收口到 `tests/reports/`，仓库不再保留顶层 `Test/` 目录。

@@ -90,15 +90,23 @@ def audit_test_layout(findings: list[dict[str, Any]]) -> None:
             findings,
             severity="error",
             check="test_layout",
-            message="不应存在第二套顶层 Test/test 目录；测试文档应放入 docs/testing/",
+            message="不应存在第二套顶层 Test/test 目录；测试文档应放入 tests/README.md 和 tests/reports/",
         )
-    if not (REPO / "docs" / "testing").is_dir():
+    if not (REPO / "tests" / "README.md").is_file():
         finding(
             findings,
             severity="error",
             check="test_layout",
-            path="docs/testing",
-            message="缺少测试需求报告目录 docs/testing/",
+            path="tests/README.md",
+            message="缺少测试文档规范 tests/README.md",
+        )
+    if not (REPO / "tests" / "reports").is_dir():
+        finding(
+            findings,
+            severity="error",
+            check="test_layout",
+            path="tests/reports",
+            message="缺少测试需求报告目录 tests/reports/",
         )
     test_sh = REPO / "test.sh"
     if not test_sh.exists():

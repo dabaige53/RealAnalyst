@@ -20,9 +20,9 @@
 
 ## 测试入口、测试文档与复跑报告
 
-- 自动化代码测试目录固定为 `tests/`；测试需求报告、排查记录和复跑材料固定为 `docs/testing/`；不要再创建 `Test/`、`test/` 或其它第二套测试文件夹。
-- 根目录 `test.sh` 是本地和 CI 的一键公开测试入口；修改 CI、回归脚本、测试集合或公开验证流程时，必须同步 `test.sh`、`.github/workflows/ci.yml`、`tests/test_ci_workflows.py` 和 `docs/testing/` 说明。
-- 所有 bug 排查、流程调整、输出契约调整、CI/回归门禁调整，在最终修复前必须先写或更新 `docs/testing/` 下的测试文档；不能只在聊天里描述排查过程。
+- 自动化代码测试、测试文档规范和复跑报告统一收口在 `tests/` 体系：自动测试代码放 `tests/test_*.py`，测试文档规范写在 `tests/README.md`，排查记录和复跑报告放 `tests/reports/*.md`；不要再创建 `Test/`、`test/`、`docs/testing/` 或其它第二套测试文件夹。
+- 根目录 `test.sh` 是本地和 CI 的一键公开测试入口；修改 CI、回归脚本、测试集合或公开验证流程时，必须同步 `test.sh`、`.github/workflows/ci.yml`、`tests/test_ci_workflows.py` 和 `tests/README.md`。
+- 所有 bug 排查、流程调整、输出契约调整、CI/回归门禁调整，在最终修复前必须先写或更新 `tests/reports/` 下的测试文档；不能只在聊天里描述排查过程。
 - 测试文档必须包含完整测试需求报告：问题背景、目标行为、风险等级、覆盖范围、数据/环境前提、验收标准、失败路径、复跑命令和实际结果。
 - 当前项目主体是 Python CLI、schema、metadata、runtime registry 和 Codex skill 工作流；默认优先使用 Python 测试（`unittest` / `pytest` / 脚本 smoke）。JavaScript 只在 Node、Playwright、Browser/Chrome 自动化、前端交互、网页渲染或 CI JS harness 是真实 source of truth 时使用。
 - 使用 JavaScript、Node、Playwright、Browser/Chrome 自动化、前端脚本或 CI JS harness 时，必须在测试文档中贴完整 JS 代码和完整 JS 测试代码，不得只写片段、伪代码或“见脚本路径”。
