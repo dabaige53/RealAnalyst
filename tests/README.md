@@ -2,6 +2,10 @@
 
 本目录保存排查、调整和修复前后的复跑材料。凡是 bug 排查、流程调整、输出契约调整、CI/回归门禁调整，都应在最终修复前新增或更新一份测试文档。
 
+自动化代码测试也统一放在本目录：Python 测试文件使用 `tests/test_*.py` 命名；排查、复跑和测试需求报告放在 `tests/reports/*.md`。不要再创建 `Test/`、`test/`、`docs/testing/` 或其它第二套测试目录。
+
+当前项目主体是 Python CLI、schema、metadata、runtime registry 和 Codex skill 工作流，推荐以 Python 测试为主，包括 `unittest`、`pytest` 和脚本 smoke。JavaScript 只用于浏览器、Playwright、Node、前端交互、网页渲染或 CI JS harness 是真实 source of truth 的场景。如果本次未使用 JS，测试报告必须写明原因，并列出实际替代测试命令。
+
 ## 命名
 
 建议使用：

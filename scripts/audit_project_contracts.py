@@ -116,13 +116,20 @@ def audit_test_layout(findings: list[dict[str, Any]]) -> None:
     required_tokens = [
         "-m json.tool .codex-plugin/plugin.json",
         "skills/metadata/scripts/metadata.py validate",
+        "scripts/audit_project_contracts.py",
+        "-m unittest tests.test_ci_workflows",
         "-m unittest discover -s tests",
         "scripts/run_manifest_workflow_regression.py",
-        "scripts/audit_project_contracts.py",
+        "git diff --check",
     ]
+    positions: list[int] = []
     for token in required_tokens:
         if token not in script:
             finding(findings, severity="error", check="test_sh", path=test_sh, message=f"test.sh 缺少测试命令: {token}")
+        else:
+            positions.append(script.index(token))
+    if len(positions) == len(required_tokens) and positions != sorted(positions):
+        finding(findings, severity="error", check="test_sh", path=test_sh, message="test.sh 测试命令顺序不符合公开测试入口约定")
     ci = REPO / ".github" / "workflows" / "ci.yml"
     if ci.exists() and "bash test.sh" not in read_text(ci):
         finding(findings, severity="error", check="ci_alignment", path=ci, message="CI 未调用 bash test.sh")

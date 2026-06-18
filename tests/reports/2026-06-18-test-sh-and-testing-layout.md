@@ -18,7 +18,7 @@
 
 ## 4. 覆盖范围
 
-- 涉及文件：`test.sh`、`.github/workflows/ci.yml`、`tests/test_ci_workflows.py`、`AGENTS.md`、`tests/reports/README.md`。
+- 涉及文件：`test.sh`、`.github/workflows/ci.yml`、`tests/test_ci_workflows.py`、`AGENTS.md`、`tests/README.md`。
 - 涉及入口：本地一键测试、GitHub Actions public checks、测试文档规范。
 - 不覆盖范围：不新增业务逻辑测试，不修复 manifest/report-verify 等已发现业务 bug。
 
@@ -52,8 +52,8 @@ git diff --check
 
 ## 9. 实际结果
 
-- 已通过：`bash test.sh`，其中 `python3 -m unittest discover -s tests` 运行 82 个测试并通过，`python3 scripts/run_manifest_workflow_regression.py` 运行 28 个 focused tests + 9 个 subtests 并通过。
-- 已通过：`python3 -m json.tool .codex-plugin/plugin.json` 和 `python3 skills/metadata/scripts/metadata.py validate`。
+- 历史验收曾通过：`bash test.sh`，当时入口包含全仓 unittest discover、plugin manifest JSON 校验、manifest workflow regression 和 metadata validate。
+- 本轮入口已调整为当前推荐命令：`python3 scripts/run_manifest_workflow_regression.py`、`python3 -m unittest tests.test_ci_workflows`、`python3 skills/metadata/scripts/metadata.py validate`、`git diff --check`。
 - 未通过：无。
 - 未运行：未运行 JS/Node/Playwright 测试；本次没有前端、浏览器或 Node 运行时变更。
 - 备注：`unittest discover` 输出了两个 sqlite connection 的 `ResourceWarning`，不影响本次测试入口验收，但后续可单独清理资源关闭问题。

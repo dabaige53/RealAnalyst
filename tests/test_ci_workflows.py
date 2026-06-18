@@ -57,10 +57,20 @@ class CIWorkflowTests(unittest.TestCase):
     def test_test_sh_runs_public_unit_and_manifest_regression_gates(self) -> None:
         script = TEST_SH.read_text(encoding="utf-8")
 
-        self.assertIn("-m json.tool .codex-plugin/plugin.json", script)
-        self.assertIn("skills/metadata/scripts/metadata.py validate", script)
-        self.assertIn("-m unittest discover -s tests", script)
-        self.assertIn("scripts/run_manifest_workflow_regression.py", script)
+        expected_order = [
+            "-m json.tool .codex-plugin/plugin.json",
+            "skills/metadata/scripts/metadata.py validate",
+            "scripts/audit_project_contracts.py",
+            "-m unittest tests.test_ci_workflows",
+            "-m unittest discover -s tests",
+            "scripts/run_manifest_workflow_regression.py",
+            "git diff --check",
+        ]
+        positions = []
+        for token in expected_order:
+            self.assertIn(token, script)
+            positions.append(script.index(token))
+        self.assertEqual(positions, sorted(positions))
 
     def test_issue_spam_workflow_has_minimal_permissions_and_tested_script(self) -> None:
         workflow = _load_workflow("issue-spam-moderation.yml")
