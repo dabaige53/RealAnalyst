@@ -1,0 +1,12 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "RealAnalyst backend/package guideline index for skill, metadata, runtime, job, and testing boundaries."}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Defines responsibilities of skills, metadata, runtime, jobs, scripts, and reports; needed to audit cross-layer pollution."}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Defines JSON stdout, human status, audit JSONL, Markdown report, and user-facing output contracts."}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Defines testing, validation, forbidden patterns, user-surface leakage, and review checklist."}
+{"file": "AGENTS.md", "reason": "Project-level agent instructions and user-surface boundaries that the audit must check skill/docs against."}
+{"file": "scripts/audit_project_contracts.py", "reason": "Automated contract audit baseline, including handoff contracts, delivery tokens, forbidden dataset keys, and coverage inventory."}
+{"file": "tests/reports/2026-06-18-code-surface-coverage.md", "reason": "Current code surface coverage contract and evidence for testing coverage audit dimension."}
+{"file": "tests/reports/2026-06-18-project-audit-gates.md", "reason": "Current project audit gate report and coverage strategy to distinguish automated coverage from manual findings."}
+{"file": "tests/reports/2026-06-18-metadata-index-pipeline.md", "reason": "Metadata index pipeline test report created after the task was planned; needed for current baseline."}
+{"file": ".trellis/tasks/06-19-skills-metadata-full-audit/prd.md", "reason": "Task requirements, scope, constraints, and acceptance criteria for the audit report."}
+{"file": ".trellis/tasks/06-19-skills-metadata-full-audit/design.md", "reason": "Audit method, cross-skill trace design, metadata audit design, report structure, and severity rubric."}
+{"file": ".trellis/tasks/06-19-skills-metadata-full-audit/implement.md", "reason": "Execution checklist and validation commands for the audit report."}

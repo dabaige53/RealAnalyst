@@ -22,7 +22,7 @@
 
 ## 4. 覆盖范围
 
-当前矩阵覆盖 10 个关键实现面：
+当前矩阵覆盖 11 个关键实现面：
 
 | Surface | 实现文件 | 测试文件 |
 | --- | --- | --- |
@@ -36,6 +36,7 @@
 | `report_verify_user_surface` | `skills/report-verify/scripts/verify.py`, `schemas/verification.schema.json` | `tests/test_report_verify_user_surface.py` |
 | `legacy_migration_archive` | `scripts/legacy_job_manifest_migration.py`, `scripts/finalize_job_archive.py` | `tests/test_legacy_job_manifest_migration.py`, `tests/test_finalize_job_archive.py` |
 | `metadata_layering_and_references` | `skills/metadata/scripts/validate_metadata.py`, demo metadata YAML | `tests/test_metadata_product_fixes.py`, `tests/test_project_contract_audit.py` |
+| `metadata_index_pipeline` | `skills/metadata/scripts/build_index.py`, `skills/metadata/lib/metadata_index.py` | `tests/test_metadata_index_pipeline.py` |
 
 全 Python 文件覆盖策略包含以下分类：
 
@@ -44,7 +45,7 @@
 | `code_surface` | 已进入关键实现面矩阵的核心代码 | 对应专项测试 + 本报告 |
 | `automated_test` | `tests/test_*.py` 自动测试文件 | 文件自身由 `unittest discover` 收集 |
 | `documented_skill_script` | 已被 Skill 文档或 README 直接提到的脚本 | 项目契约审计验证文档与脚本关系 |
-| `internal_or_unreferenced_skill_script` | 暂未被 Skill 文档直接提到的内部/辅助脚本候选 | 项目契约审计列清单，后续逐项收敛 |
+| `internal_or_unreferenced_skill_script` | 未被 Skill 文档/README 提到的脚本（应为空） | 已收敛为 0；`test_no_unaccounted_skill_scripts` 断言该清单恒为空 |
 | `metadata_adapter_script` | metadata adapter 下的 ClickHouse、DuckDB、MySQL、Tableau 等数据源脚本 | 项目契约审计 + metadata 产品修复测试覆盖分层边界 |
 | `platform_integration_support` | `.codex` / `.claude` 等平台集成脚本 | 项目契约审计保证归类和报告追踪 |
 | `trellis_runtime_support` | `.trellis` 运行时支撑脚本 | 项目契约审计保证归类和报告追踪 |
@@ -54,7 +55,7 @@
 | `manual_smoke_script` | `tests/` 外的手动 smoke 脚本 | 项目契约审计保证不会被 pytest 误收集 |
 | `shared_library_support` / `example_support` | 共享库或示例代码 | 项目契约审计保证归类和报告追踪 |
 
-不覆盖范围：本矩阵不声明每个内部 helper 都已有专项业务测试；未被文档直接提到的内部脚本仍在 `inventory.code_files.potentially_internal_or_unreferenced_skill_scripts` 中列出，用于后续逐步收敛。
+不覆盖范围：本矩阵不声明每个内部 helper 都已有专项业务测试；但每个 skill 脚本都必须在其 SKILL.md 或 README 问责（入口或声明为内部模块），`inventory.code_files.potentially_internal_or_unreferenced_skill_scripts` 现已收敛为 0，并由 `test_no_unaccounted_skill_scripts` 守护。
 
 ## 5. Fixture / 环境前提
 
@@ -127,6 +128,7 @@ def test_audit_inventory_covers_code_surface_test_document_matrix(self) -> None:
         "report_verify_user_surface",
         "legacy_migration_archive",
         "metadata_layering_and_references",
+        "metadata_index_pipeline",
     }
     self.assertEqual(set(surfaces), expected_surfaces)
     for surface in matrix:
@@ -157,7 +159,7 @@ def test_audit_inventory_classifies_every_python_file_with_test_strategy(self) -
     categories = {item["category"] for item in coverage}
     self.assertIn("code_surface", categories)
     self.assertIn("documented_skill_script", categories)
-    self.assertIn("internal_or_unreferenced_skill_script", categories)
+    self.assertNotIn("internal_or_unreferenced_skill_script", categories)
     self.assertIn("metadata_adapter_script", categories)
     self.assertIn("platform_integration_support", categories)
     self.assertIn("trellis_runtime_support", categories)

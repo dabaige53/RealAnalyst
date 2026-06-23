@@ -56,3 +56,11 @@ python3 skills/metadata-search/scripts/catalog.py --domain retail
 | 搜索结果为空 | 换更宽泛的关键词，或用 `--type all` |
 | 需要维护 YAML | 改用 `RA:metadata` |
 | 需要查报告模板/框架 | 改用 `RA:analysis-reference` |
+
+---
+
+## 内部脚本
+
+入口脚本是 `search.py`（搜索）与 `catalog.py`（数据集目录）。配套内部模块：
+
+- `scripts/_bootstrap.py`：定位 workspace 根目录的内部 helper（被 `search.py` / `catalog.py` import，不单独调用）。

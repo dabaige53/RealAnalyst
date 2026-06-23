@@ -68,3 +68,16 @@ python3 skills/analysis-run/scripts/render_user_reply.py --job-dir jobs/$SESSION
 ```
 
 只有在技术复核、排障或用户明确要求文件明细时，才加 `--technical` 输出内部相对路径。
+
+---
+
+## 内部脚本
+
+主流程入口是 `init_or_resume_job.py`（创建/恢复 job）与 `render_user_reply.py`（从 manifest 渲染用户回复）。下列是配套内部工具，一般不单独调用：
+
+| 脚本 | 角色 |
+| --- | --- |
+| `new_session_id.py` | 生成安全的 SESSION_ID / job id |
+| `validate_analysis.py` | 校验 analysis.json 是否符合 `schemas/analysis.schema.json` |
+| `cleanup_temp_csvs.py` | 清理 jobs/ 下临时 CSV（默认 dry-run，保留报告与计划） |
+| `cleanup_job_csvs.py` | 清理指定 job CSV 产物的维护工具 |

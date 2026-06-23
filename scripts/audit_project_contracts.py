@@ -181,6 +181,15 @@ CODE_SURFACE_CONTRACTS = [
         "test_paths": ["tests/test_metadata_product_fixes.py", "tests/test_project_contract_audit.py"],
         "report_paths": ["tests/reports/2026-06-18-code-surface-coverage.md"],
     },
+    {
+        "id": "metadata_index_pipeline",
+        "implementation_paths": [
+            "skills/metadata/scripts/build_index.py",
+            "skills/metadata/lib/metadata_index.py",
+        ],
+        "test_paths": ["tests/test_metadata_index_pipeline.py"],
+        "report_paths": ["tests/reports/2026-06-18-metadata-index-pipeline.md"],
+    },
 ]
 DEFAULT_COVERAGE_REPORTS = [
     "tests/reports/2026-06-18-code-surface-coverage.md",

@@ -88,3 +88,32 @@ python3 skills/metadata/scripts/metadata.py profile-review --dataset-id demo.ret
 | 原始材料只在 Downloads | 复制到 `metadata/sources/` 后再引用 |
 | 涉及 `needs_review` | 报告里必须标注为待确认或推断口径 |
 | 涉及新增数据源 | 先让用户确认，再执行 |
+
+---
+
+## 脚本清单
+
+`skills/metadata/scripts/metadata.py` 是统一入口；下列脚本是它各子命令背后的实现模块，一般不单独调用：
+
+| 脚本 | 由 `metadata.py` 子命令调用 |
+| --- | --- |
+| `init_metadata.py` | `init` |
+| `validate_metadata.py` | `validate` |
+| `build_index.py` | `index` |
+| `build_inventory.py` | `inventory` |
+| `metadata_audit.py` | `change-report` / `record-change` / `record-relation` |
+| `enrich_definitions.py` | `enrich-definitions` |
+| `sync_registry.py` | `sync-registry` |
+| `status_registry.py` | `status` |
+| `search_metadata.py` | `search` |
+| `read_metadata.py` | `read` |
+| `build_context.py` | `context` |
+| `build_catalog.py` | `catalog` |
+| `reconcile_metadata.py` | `reconcile` |
+| `profile_review.py` | `profile-review` |
+| `export_osi.py` | `export-osi` |
+
+其余内部脚本：
+
+- `_bootstrap.py`：定位 workspace 根目录的内部 helper（被各脚本 import，不单独调用）。
+- `write_review_gap_report.py`：为待确认 metadata 定义生成 Markdown review-gap 报告的独立维护工具。

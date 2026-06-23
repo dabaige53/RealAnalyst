@@ -1,0 +1,15 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend guideline index for RealAnalyst skill, metadata, runtime, job, and testing boundaries."}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Responsibility boundaries for skills, metadata sync reports, runtime, jobs, scripts, and report outputs."}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "JSON stdout, human status, Markdown report, and user-facing output contracts needed to validate findings."}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Review checklist for tests, contracts, user-surface leakage, and forbidden patterns."}
+{"file": "AGENTS.md", "reason": "Project-level metadata layering, testing, and user-surface boundaries that the audit report must respect."}
+{"file": "test.sh", "reason": "Public project validation entrypoint that must stay green before and after the audit report."}
+{"file": "tests/test_project_contract_audit.py", "reason": "Assertions for project contract audit inventory, handoff coverage, and code surface coverage."}
+{"file": "tests/test_ci_workflows.py", "reason": "One-click test/CI contract coverage, including metadata index generation order."}
+{"file": "scripts/audit_project_contracts.py", "reason": "Machine-readable baseline to verify audit distinctions and current success/finding counts."}
+{"file": "tests/reports/2026-06-18-code-surface-coverage.md", "reason": "Baseline code surface coverage contract used to distinguish coverage strategy from focused behavior tests."}
+{"file": "tests/reports/2026-06-18-project-audit-gates.md", "reason": "Baseline project audit gate report and full test.sh result referenced by the audit report."}
+{"file": "tests/reports/2026-06-18-metadata-index-pipeline.md", "reason": "Metadata index pipeline gate used by the audit report's generated-index baseline."}
+{"file": ".trellis/tasks/06-19-skills-metadata-full-audit/prd.md", "reason": "Acceptance criteria to check the final audit report against."}
+{"file": ".trellis/tasks/06-19-skills-metadata-full-audit/design.md", "reason": "Audit method, cross-skill trace design, metadata audit design, and severity rubric."}
+{"file": ".trellis/tasks/06-19-skills-metadata-full-audit/implement.md", "reason": "Execution checklist to verify completion of each audit phase."}

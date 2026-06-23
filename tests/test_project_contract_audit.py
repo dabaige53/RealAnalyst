@@ -123,16 +123,20 @@ class ProjectContractAuditTests(unittest.TestCase):
         self.assertIn("scripts/audit_project_contracts.py", code_files["project_scripts"])
         self.assertIn("tests/test_project_contract_audit.py", code_files["test_files"])
         self.assertIn("skills/metadata/adapters/tableau/scripts/test_views.py", code_files["manual_smoke_scripts_outside_tests"])
-        self.assertIn("skills/data-export/scripts/sql/common_sql_export.py", code_files["potentially_internal_or_unreferenced_skill_scripts"])
+        self.assertIn("skills/data-export/scripts/sql/common_sql_export.py", code_files["mentioned_skill_scripts"])
         self.assertIn("test.sh", code_files["shell_entrypoints"])
 
-    def test_project_audit_report_lists_internal_script_candidates(self) -> None:
+    def test_no_unaccounted_skill_scripts(self) -> None:
         audit = _load_audit_module()
         payload = audit.run_audit()
         candidates = payload["inventory"]["code_files"]["potentially_internal_or_unreferenced_skill_scripts"]
         report = (REPO / "tests" / "reports" / "2026-06-18-project-audit-gates.md").read_text(encoding="utf-8")
 
-        self.assertGreaterEqual(len(candidates), 20)
+        # Closed invariant: every skill script must be documented in its SKILL.md
+        # or README (as an entrypoint or a declared internal module). No script may
+        # sit unaccounted-for. New skill scripts must be documented or they fail here.
+        self.assertEqual(candidates, [], f"unaccounted skill scripts: {candidates}")
+        # Any future candidate that does reappear must still be listed in the gates report.
         for script_path in candidates:
             self.assertIn(script_path, report)
 
@@ -153,6 +157,7 @@ class ProjectContractAuditTests(unittest.TestCase):
             "report_verify_user_surface",
             "legacy_migration_archive",
             "metadata_layering_and_references",
+            "metadata_index_pipeline",
         }
         self.assertEqual(set(surfaces), expected_surfaces)
         for surface in matrix:
@@ -183,7 +188,9 @@ class ProjectContractAuditTests(unittest.TestCase):
         categories = {item["category"] for item in coverage}
         self.assertIn("code_surface", categories)
         self.assertIn("documented_skill_script", categories)
-        self.assertIn("internal_or_unreferenced_skill_script", categories)
+        # Closed invariant: no skill script is left unaccounted-for (all are either
+        # documented entrypoints or README-declared internal modules).
+        self.assertNotIn("internal_or_unreferenced_skill_script", categories)
         self.assertIn("metadata_adapter_script", categories)
         self.assertIn("platform_integration_support", categories)
         self.assertIn("trellis_runtime_support", categories)

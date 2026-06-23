@@ -52,3 +52,9 @@ metadata/sources/refine/{refine_id}/
 | `data_probe_summary.md` | 真实数据轻量探查摘要 |
 | `metadata_update_reference.md` | 给 `RA:metadata` 的修正参考 |
 | `evidence_manifest.json` | 来源、输入、归档位置和证据链 |
+
+## 内部脚本
+
+入口脚本（`collect_feedback.py`、`probe_data.py`、`build_reference_pack.py`、`archive_reference_pack.py`、`resolve_report_gaps.py`）见上文流程。配套内部模块：
+
+- `scripts/_common.py`：本 skill 各脚本共用的内部 helper 模块（不单独调用）。

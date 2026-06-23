@@ -81,7 +81,7 @@ assert "runtime/job_manifest.py" in code_files["runtime_files"]
 assert "scripts/audit_project_contracts.py" in code_files["project_scripts"]
 assert "tests/test_project_contract_audit.py" in code_files["test_files"]
 assert "skills/metadata/adapters/tableau/scripts/test_views.py" in code_files["manual_smoke_scripts_outside_tests"]
-assert "skills/data-export/scripts/sql/common_sql_export.py" in code_files["potentially_internal_or_unreferenced_skill_scripts"]
+assert "skills/data-export/scripts/sql/common_sql_export.py" in code_files["mentioned_skill_scripts"]
 
 coverage = code_files["code_file_coverage"]
 assert len(coverage) == code_files["python_file_count"]
@@ -101,8 +101,8 @@ metadata_files = payload["inventory"]["metadata_files"]
 assert metadata_files["counts"]["sync_reports"] >= 1
 assert metadata_files["counts"]["generated_index"] >= 1
 
-for script_path in code_files["potentially_internal_or_unreferenced_skill_scripts"]:
-    print(script_path)
+# 闭合不变量：每个 skill 脚本都已在其 SKILL.md / README 问责，无未问责脚本
+assert code_files["potentially_internal_or_unreferenced_skill_scripts"] == []
 ```
 
 ## 7. 完整 Python 测试代码
@@ -177,16 +177,16 @@ def test_audit_inventory_covers_code_files_and_internal_script_candidates(self) 
     self.assertIn("scripts/audit_project_contracts.py", code_files["project_scripts"])
     self.assertIn("tests/test_project_contract_audit.py", code_files["test_files"])
     self.assertIn("skills/metadata/adapters/tableau/scripts/test_views.py", code_files["manual_smoke_scripts_outside_tests"])
-    self.assertIn("skills/data-export/scripts/sql/common_sql_export.py", code_files["potentially_internal_or_unreferenced_skill_scripts"])
+    self.assertIn("skills/data-export/scripts/sql/common_sql_export.py", code_files["mentioned_skill_scripts"])
     self.assertIn("test.sh", code_files["shell_entrypoints"])
 
-def test_project_audit_report_lists_internal_script_candidates(self) -> None:
+def test_no_unaccounted_skill_scripts(self) -> None:
     audit = _load_audit_module()
     payload = audit.run_audit()
     candidates = payload["inventory"]["code_files"]["potentially_internal_or_unreferenced_skill_scripts"]
     report = (REPO / "tests" / "reports" / "2026-06-18-project-audit-gates.md").read_text(encoding="utf-8")
 
-    self.assertGreaterEqual(len(candidates), 20)
+    self.assertEqual(candidates, [], f"unaccounted skill scripts: {candidates}")
     for script_path in candidates:
         self.assertIn(script_path, report)
 
@@ -207,53 +207,30 @@ def test_audit_inventory_classifies_every_python_file_with_test_strategy(self) -
     categories = {item["category"] for item in coverage}
     self.assertIn("code_surface", categories)
     self.assertIn("documented_skill_script", categories)
-    self.assertIn("internal_or_unreferenced_skill_script", categories)
+    self.assertNotIn("internal_or_unreferenced_skill_script", categories)
     self.assertIn("metadata_adapter_script", categories)
     self.assertIn("platform_integration_support", categories)
     self.assertIn("trellis_runtime_support", categories)
 ```
 
-## 7.1 内部/辅助脚本候选清单
+## 7.1 内部/辅助脚本问责（已收敛为 0）
 
-以下脚本当前未被对应 `SKILL.md` / `README.md` 直接提到，审计将其列为 `potentially_internal_or_unreferenced_skill_scripts`。这不是自动判定为错误；它们可能是内部 helper、兼容入口、旧 adapter、手动维护脚本或待收敛代码。后续调整时必须逐项判断：保留并补文档、迁入正式入口、标注内部用途，或删除。
+审计字段 `potentially_internal_or_unreferenced_skill_scripts` 列出未被对应 `SKILL.md` / `README.md` 提到的 skill 脚本。早期该清单有 35 项（内部 helper、统一 CLI 背后的实现模块、兼容入口、维护工具等）。
 
-- `skills/analysis-run/scripts/cleanup_job_csvs.py`
-- `skills/analysis-run/scripts/cleanup_temp_csvs.py`
-- `skills/analysis-run/scripts/new_session_id.py`
-- `skills/analysis-run/scripts/validate_analysis.py`
-- `skills/data-export/scripts/sql/common_sql_export.py`
-- `skills/data-export/scripts/tableau/_bootstrap.py`
-- `skills/data-export/scripts/tableau/auth.py`
-- `skills/data-export/scripts/tableau/build_tableau_report_dashboard.py`
-- `skills/data-export/scripts/tableau/export.py`
-- `skills/data-export/scripts/tableau/list.py`
-- `skills/data-export/scripts/tableau/tableau_enrich_runtime_metadata.py`
-- `skills/metadata-refine/scripts/_common.py`
-- `skills/metadata-report/scripts/_bootstrap.py`
-- `skills/metadata-report/scripts/dataset_report.py`
-- `skills/metadata-report/scripts/duckdb_report.py`
-- `skills/metadata-report/scripts/report_context.py`
-- `skills/metadata-report/scripts/tableau_report.py`
-- `skills/metadata-search/scripts/_bootstrap.py`
-- `skills/metadata/scripts/_bootstrap.py`
-- `skills/metadata/scripts/build_catalog.py`
-- `skills/metadata/scripts/build_context.py`
-- `skills/metadata/scripts/build_index.py`
-- `skills/metadata/scripts/build_inventory.py`
-- `skills/metadata/scripts/enrich_definitions.py`
-- `skills/metadata/scripts/export_osi.py`
-- `skills/metadata/scripts/init_metadata.py`
-- `skills/metadata/scripts/metadata_audit.py`
-- `skills/metadata/scripts/profile_review.py`
-- `skills/metadata/scripts/read_metadata.py`
-- `skills/metadata/scripts/reconcile_metadata.py`
-- `skills/metadata/scripts/search_metadata.py`
-- `skills/metadata/scripts/status_registry.py`
-- `skills/metadata/scripts/sync_registry.py`
-- `skills/metadata/scripts/validate_metadata.py`
-- `skills/metadata/scripts/write_review_gap_report.py`
+本轮已把这 35 个脚本全部在各自 skill 的 `README.md` 增设的“脚本清单 / 内部脚本”小节中问责（标注其角色：入口 / 统一 CLI 子命令实现 / 内部模块），脚本被各自 README 提及后即脱离未问责清单。当前 `potentially_internal_or_unreferenced_skill_scripts` 长度为 **0**。
 
-当前判定：这些是“需继续收敛的候选清单”，不作为本轮阻塞项；但它们已经进入测试报告和审计测试，后续增删必须同步解释。
+问责落点：
+
+| Skill | README 小节 | 覆盖脚本 |
+| --- | --- | --- |
+| `metadata` | 脚本清单 | `metadata.py` 子命令实现（`build_index.py` / `validate_metadata.py` / `search_metadata.py` 等 15 个）+ `_bootstrap.py` + `write_review_gap_report.py` |
+| `data-export` | 内部脚本 | `sql/common_sql_export.py` + `tableau/` 下 `auth.py` / `export.py` / `list.py` / `_bootstrap.py` / `build_tableau_report_dashboard.py` / `tableau_enrich_runtime_metadata.py` |
+| `metadata-report` | 内部脚本 | `generate_report.py` 背后的 `report_context.py` / `dataset_report.py` / `duckdb_report.py` / `tableau_report.py` / `_bootstrap.py` |
+| `analysis-run` | 内部脚本 | `new_session_id.py` / `validate_analysis.py` / `cleanup_temp_csvs.py` / `cleanup_job_csvs.py` |
+| `metadata-refine` | 内部脚本 | `_common.py` |
+| `metadata-search` | 内部脚本 | `_bootstrap.py` |
+
+闭合不变量：`tests/test_project_contract_audit.py::test_no_unaccounted_skill_scripts` 断言该清单恒为 0——后续新增 skill 脚本若不在 SKILL.md/README 问责，审计与该测试会直接失败。
 
 ## 8. 复跑命令
 
@@ -269,8 +246,9 @@ bash test.sh
 - 已通过：`python3 scripts/audit_project_contracts.py`，检查 15 个 Skill、9 个 schema、1 个 dataset 文件，error/warning 均为 0；输出包含 Skill inventory、每个 Skill 的脚本和 references、代码文件 inventory、metadata 文件清单与 counts、source evidence 清单、核心交付链和 handoff matrix。
 - 已修复并验证：`metadata/dictionaries/demo.retail.dictionary.yaml` 原本引用 `metadata/sources/demo.md`，审计升级后发现该 evidence 文件缺失；已补 `metadata/sources/demo.md` 并通过 `metadata_source_evidence` 检查。
 - 已通过：`python3 -m unittest tests.test_project_contract_audit`，14 个测试覆盖 JSON 输出、0 warning、`test.sh` 接入、RA skill 前缀、pytest 收集边界、Skill 脚本 inventory、代码文件 inventory、每个 Python 文件的覆盖策略、metadata model/mapping/dictionary/source 引用完整性、metadata counts、完整 handoff matrix，以及 `data-export -> data-profile`、`report -> report-verify` 两条关键链路的 outputs / inputs / next step / state tokens。
-- 已通过：`python3 scripts/run_manifest_workflow_regression.py`，`42 passed, 9 subtests passed`。
-- 已通过：`bash test.sh`，包含 plugin manifest JSON、metadata validate、项目契约审计、CI workflow unittest、全仓 unittest discover（100 个测试）、manifest workflow regression（42 个 focused tests + 9 个 subtests）和 `git diff --check`。
+- 已收敛：35 个未问责 skill 脚本已在各自 README 问责，`potentially_internal_or_unreferenced_skill_scripts` 长度为 0；`test_no_unaccounted_skill_scripts` 把“0 未问责”固化为闭合不变量。
+- 已通过：`python3 scripts/run_manifest_workflow_regression.py`，`43 passed, 9 subtests passed`。
+- 已通过：`bash test.sh`，包含 plugin manifest JSON、metadata validate、metadata index、项目契约审计、CI workflow unittest、全仓 unittest discover（104 个测试）、manifest workflow regression（43 个 focused tests + 9 个 subtests）和 `git diff --check`。
 
 ## 10. 验收结论
 

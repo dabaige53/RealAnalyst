@@ -72,3 +72,17 @@ python3 skills/metadata-report/scripts/generate_report.py --dataset-id <dataset_
 - **RA:metadata** → 负责维护 YAML、注册数据集、生成索引和上下文。metadata-report 只负责把元数据写成报告。
 - **RA:report** → 负责写分析结论报告。metadata-report 不输出业务经营结论。
 - **RA:getting-started** → 初次使用时可能需要先跑 getting-started，再用 metadata-report 检视注册结果。
+
+---
+
+## 内部脚本
+
+`generate_report.py` 是统一入口；下列是它背后的内部模块，一般不单独调用：
+
+| 脚本 | 角色 |
+| --- | --- |
+| `_bootstrap.py` | 定位 workspace 根目录的内部 helper |
+| `report_context.py` | 构建报告上下文与 Markdown 渲染（被各 renderer 共用） |
+| `dataset_report.py` | dataset-first 元数据报告渲染 |
+| `duckdb_report.py` | DuckDB connector 同步报告渲染（兼容入口） |
+| `tableau_report.py` | Tableau 元数据报告渲染（兼容入口） |

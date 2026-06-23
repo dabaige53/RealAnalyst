@@ -60,6 +60,7 @@ class CIWorkflowTests(unittest.TestCase):
         expected_order = [
             "-m json.tool .codex-plugin/plugin.json",
             "skills/metadata/scripts/metadata.py validate",
+            "skills/metadata/scripts/metadata.py index",
             "scripts/audit_project_contracts.py",
             "-m unittest tests.test_ci_workflows",
             "-m unittest discover -s tests",
@@ -71,6 +72,18 @@ class CIWorkflowTests(unittest.TestCase):
             self.assertIn(token, script)
             positions.append(script.index(token))
         self.assertEqual(positions, sorted(positions))
+
+    def test_test_sh_builds_metadata_index_before_audit(self) -> None:
+        """metadata/index/ is gitignored; test.sh must regenerate it before the
+        audit so fresh-clone / CI runs do not fail the generated_index>=1 gate."""
+        script = TEST_SH.read_text(encoding="utf-8")
+
+        validate_pos = script.index("skills/metadata/scripts/metadata.py validate")
+        index_pos = script.index("skills/metadata/scripts/metadata.py index")
+        audit_pos = script.index("scripts/audit_project_contracts.py")
+
+        self.assertLess(validate_pos, index_pos, "index must run after validate")
+        self.assertLess(index_pos, audit_pos, "index must run before the project audit")
 
     def test_issue_spam_workflow_has_minimal_permissions_and_tested_script(self) -> None:
         workflow = _load_workflow("issue-spam-moderation.yml")

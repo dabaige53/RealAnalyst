@@ -72,3 +72,17 @@
 - Tableau 参考文档在 `references/tableau/`。
 - DuckDB 输出契约在 `references/duckdb/`；MySQL / ClickHouse 使用同一 SQL export summary 契约。
 - 用户只需要记住一个正式取数入口：`RA:data-export`。
+
+## 内部脚本
+
+后端入口（上表的 wrapper 与直接脚本）背后还有一组内部模块，一般不单独调用：
+
+| 脚本 | 角色 |
+| --- | --- |
+| `scripts/sql/common_sql_export.py` | DuckDB / MySQL / ClickHouse 共用的 SQL 导出基类 |
+| `scripts/tableau/_bootstrap.py` | 定位 workspace 根目录的内部 helper |
+| `scripts/tableau/auth.py` | Tableau 认证模块（被 `export_source.py` / `export.py` / `list.py` import） |
+| `scripts/tableau/export.py` | Tableau 视图导出与 long→wide 透视实现 |
+| `scripts/tableau/list.py` | 列出可用 Tableau 视图 |
+| `scripts/tableau/build_tableau_report_dashboard.py` | 生成 Tableau 报告 dashboard HTML 的工具 |
+| `scripts/tableau/tableau_enrich_runtime_metadata.py` | 补齐 Tableau runtime metadata 缺失字段的维护工具 |

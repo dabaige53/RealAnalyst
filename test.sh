@@ -13,6 +13,7 @@ run() {
 
 run "$PYTHON_BIN" -m json.tool .codex-plugin/plugin.json
 run "$PYTHON_BIN" skills/metadata/scripts/metadata.py validate
+run "$PYTHON_BIN" skills/metadata/scripts/metadata.py index
 run "$PYTHON_BIN" scripts/audit_project_contracts.py
 run "$PYTHON_BIN" -m unittest tests.test_ci_workflows
 run "$PYTHON_BIN" -m unittest discover -s tests
