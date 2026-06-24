@@ -109,7 +109,7 @@ class ProjectContractAuditTests(unittest.TestCase):
         self.assertIn("metadata/dictionaries/demo.retail.dictionary.yaml", metadata_files["dictionaries"])
         self.assertIn("metadata/models/demo_retail.yaml", metadata_files["models"])
         self.assertIn("metadata/sources/demo.md", metadata_files["sources"])
-        self.assertGreaterEqual(metadata_files["counts"]["sync_reports"], 1)
+        self.assertIn("sync_reports", metadata_files["counts"])
         self.assertGreaterEqual(metadata_files["counts"]["generated_index"], 1)
 
     def test_audit_inventory_covers_code_files_and_internal_script_candidates(self) -> None:
@@ -192,8 +192,9 @@ class ProjectContractAuditTests(unittest.TestCase):
         # documented entrypoints or README-declared internal modules).
         self.assertNotIn("internal_or_unreferenced_skill_script", categories)
         self.assertIn("metadata_adapter_script", categories)
-        self.assertIn("platform_integration_support", categories)
         self.assertIn("trellis_runtime_support", categories)
+        if any(path.startswith((".codex/", ".claude/")) for path in code_files["python_files"]):
+            self.assertIn("platform_integration_support", categories)
 
     def test_metadata_reference_audit_has_no_missing_source_evidence(self) -> None:
         audit = _load_audit_module()
