@@ -59,7 +59,9 @@ PLAN_TEXT = """# 分析计划
 
 class AnalysisPlanContractTests(unittest.TestCase):
     def test_validate_plan_extracts_decision_and_updates_manifest(self) -> None:
-        with tempfile.TemporaryDirectory(dir=REPO / "jobs") as tmp:
+        jobs_root = REPO / "jobs"
+        jobs_root.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=jobs_root) as tmp:
             job_dir = Path(tmp)
             meta = job_dir / ".meta"
             meta.mkdir()

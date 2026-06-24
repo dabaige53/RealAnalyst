@@ -6,8 +6,12 @@ It wraps:
 
 And then updates:
 - jobs/<SESSION_ID>/.meta/artifact_index.json (profile outputs + input csv binding)
+- jobs/<SESSION_ID>/job_manifest.json via scripts/update_artifact_index.py when available
 
-This helps keep profiling results traceable in a continuous-analysis job.
+Stdout contract:
+- Success prints exactly one JSON object from this wrapper.
+- The wrapped run.py stdout is parsed but not re-emitted on success.
+- Failure diagnostics are written to stderr so automation can parse stdout safely.
 """
 
 from __future__ import annotations
@@ -19,6 +23,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
 
 def _find_workspace_root(start: Path) -> Path:
     for candidate in (start, *start.parents):
@@ -97,17 +102,27 @@ def main() -> int:
         cmd += ["--data-csv", args.data_csv.strip()]
 
     proc = _run(cmd)
-    # run.py prints JSON; keep stdout for debugging even on failure
-    if proc.stdout:
-        sys.stdout.write(proc.stdout)
-        if not proc.stdout.endswith("\n"):
-            sys.stdout.write("\n")
-
     if proc.returncode != 0:
+        # Keep wrapped output available for debugging, but send it to stderr so stdout
+        # remains machine-readable for successful wrapper runs.
+        if proc.stdout:
+            sys.stderr.write(proc.stdout)
+            if not proc.stdout.endswith("\n"):
+                sys.stderr.write("\n")
         sys.stderr.write(proc.stderr)
         return proc.returncode
 
-    payload = json.loads(proc.stdout)
+    try:
+        payload = json.loads(proc.stdout)
+    except json.JSONDecodeError as exc:
+        if proc.stdout:
+            sys.stderr.write(proc.stdout)
+            if not proc.stdout.endswith("\n"):
+                sys.stderr.write("\n")
+        if proc.stderr:
+            sys.stderr.write(proc.stderr)
+        raise SystemExit("profiling output is not valid JSON") from exc
+
     if not isinstance(payload, dict):
         raise SystemExit("profiling output is not a json object")
 
