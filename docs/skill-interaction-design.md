@@ -1,20 +1,8 @@
 # RealAnalyst Skills 交互与产物详细设计
 
-本文档描述 RealAnalyst 中 14 个 skill 之间的调用关系、数据传递契约、产物规范和运行时序。用户第一层入口只有 `RA:getting-started`、`RA:metadata`、`RA:analysis-run`；其它 skill 是补充入口、流程内能力、高级工具或 legacy compatibility entrypoint。
+本文档描述 RealAnalyst 的当前目标交互模型：10 个 active skills 承担日常工作流，legacy compatibility skills 仅保留迁移和旧入口兼容。设计目标是减少用户需要记忆的入口，同时把 metadata、取数、画像、分析、报告和验证之间的数据契约讲清楚。
 
----
-
-## 目录
-
-- [设计原则](#设计原则)
-- [Skill 分类](#skill-分类)
-- [主链路时序](#主链路时序)
-- [每个 Skill 的详细接口](#每个-skill-的详细接口)
-- [Skill 间数据契约](#skill-间数据契约)
-- [连续分析（多轮）](#连续分析多轮)
-- [辅助 Skill 触发条件](#辅助-skill-触发条件)
-- [错误处理与降级](#错误处理与降级)
-- [产物生命周期](#产物生命周期)
+相关架构优化背景见 [skill-architecture-optimization-20260702.md](skill-architecture-optimization-20260702.md)。
 
 ---
 
@@ -22,603 +10,171 @@
 
 | 原则 | 说明 |
 | --- | --- |
-| **三核边界** | Metadata 管“含义”，Runtime Registry 管“能不能取”，Job 管“这次实际用了什么” |
-| **正式分析入口** | `RA:analysis-run` 是正式分析入口，按 Phase 0–5 调度流程内 skill，但不自动吞掉 metadata 注册流程 |
-| **单 Session 单 Job** | 同一会话内只允许一个 `jobs/{SESSION_ID}/` 目录 |
-| **Append-only** | 报告和 `analysis.json` 在连续分析中只追加不重写 |
-| **产物路径从索引读取** | 禁止猜测文件名，必须从 `export_summary` / `artifact_index` 获取实际路径 |
-| **用户确认先于执行** | Plan 确认、新增数据源确认、报告交付确认 — 至少保留一次停顿 |
-| **Schema 驱动** | 所有结构化产物有 JSON Schema，skill 间通过 schema 约定数据格式 |
-| **环境先固定** | 正式任务先由 `RA:getting-started` doctor 输出 Python、skill base、registry path 和 readiness；后续 skill 使用该摘要，不自由猜环境 |
-| **展示不改 identity** | CSV/header/display name 需求留在 export/report 层；`metadata/datasets/*.yaml` 的 `fields[].name` 只由 `RA:metadata` 在维护任务中修改 |
+| 三核边界 | Metadata 管业务含义，Runtime Registry 管能不能取，Job 管本次实际用了什么。 |
+| 主入口收敛 | 普通用户优先记住 `RA:getting-started`、`RA:metadata`、`RA:analysis-run`。 |
+| Metadata-first | 选择数据集、字段、指标、筛选器、SQL 口径和报告结论前，先查 metadata，再查 live 数据。 |
+| 共享能力复用 | `RA:data-export` 和 `RA:data-profile` 是项目共享能力，可被分析、dashboard、探索和 metadata refine 调用。 |
+| 计划先于正式取数 | 正式分析必须先展示计划、数据源、筛选口径和风险，确认后再导出。 |
+| 轻量探索不升级成正式 job | 只想看字段、样本和质量概况时走探索流程，不创建 `jobs/{SESSION_ID}/`。 |
+| 产物 owner 清晰 | 每个 artifact 能回到唯一 owner skill 或明确的共享能力调用方。 |
+| 兼容入口有迁移方向 | legacy skills 可以保留文件和提示，但新的编排默认不依赖它们。 |
 
 ---
 
 ## Skill 分类
 
-### 用户第一层入口
+### Active Skills
 
-| Skill | 定位 |
-| --- | --- |
-| `RA:getting-started` | 轻量向导 + skill router + minimal status check |
-| `RA:metadata` | 注册/维护数据源、字段、指标、口径；未注册但想分析时先走这里 |
-| `RA:analysis-run` | 数据已准备好后的正式完整分析入口 |
-
-### 常见补充入口
-
-| Skill | 定位 |
-| --- | --- |
-| `RA:metadata-report` | 查看数据集长期口径说明 |
-| `RA:metadata-refine` | 分析结束后归档口径问题和真实数据探查材料 |
-| `RA:report-verify` | 检查已有报告是否可交付 |
-
-### 流程内主链路（按执行顺序）
-
-```
-getting-started → metadata → analysis-run
-                                ├── analysis-plan   (Phase 0)
-                                ├── data-export     (Phase 1)
-                                ├── data-profile    (Phase 2)
-                                ├── [LLM 分析]      (Phase 3)
-                                ├── report          (Phase 4)
-                                └── report-verify   (Phase 5)
-```
-
-### 流程内 / 辅助 / 高级 / 兼容
-
-| Skill | 角色 | 触发时机 |
+| 层级 | Skill | 定位 |
 | --- | --- | --- |
-| `analysis-plan` | 流程内 | `RA:analysis-run` 规划阶段 |
-| `data-export` | 流程内 | `RA:analysis-run` 取数阶段 |
-| `data-profile` | 流程内 | `RA:analysis-run` 画像阶段 |
-| `report` | 流程内 | `RA:analysis-run` 报告阶段 |
-| `metadata-search` | 辅助 | 只想查字段/指标/术语/dataset 是否已维护 |
-| `artifact-fusion` | 高级 | source group 内多源合并，在 data-export 后、data-profile 前 |
-| `analysis-reference` | 高级/流程内 | analysis-plan 选框架/模板时 |
-| `reference-lookup` | 兼容 | legacy compatibility entrypoint |
+| 入口层 | `RA:getting-started` | 初次使用、状态检查、下一步 skill routing。 |
+| 共享层 | `RA:metadata` | 搜索、catalog、注册、维护、validate、index、context、registry sync 的统一入口。 |
+| 共享层 | `RA:data-export` | 受控取数能力，服务正式分析、dashboard、探索和 metadata refine。 |
+| 共享层 | `RA:data-profile` | 数据画像能力，服务正式分析、dashboard、探索和 metadata refine。 |
+| 分析层 | `RA:analysis-run` | 正式分析入口，内置 planning、取数、画像、分析、报告和验证编排。 |
+| 分析层 | `RA:report` | 基于 plan、profile、analysis 和证据生成 Markdown 报告。 |
+| 分析层 | `RA:report-verify` | 检查报告证据链、推断口径、数据来源和交付 readiness。 |
+| 分析层 | `RA:metadata-refine` | 把 job 反馈、profile 和真实数据探查整理成 metadata 修正参考材料。 |
+| 仪表盘层 | `dashboard-goal-decomposer` | 把 dashboard 目标拆成问题树、指标、维度、筛选器和 chart intent。 |
+| 仪表盘层 | `dashboard-prototype-planner` | 把 goal/chart/filter contract 转成 prototype、layout 和 Antigravity handoff。 |
+| 仪表盘层 | `dashboard-implementation-builder` | 基于真实数据、view model、binding audit 和 browser QA 构建 dashboard。 |
+
+> 仪表盘三段式是一个层级组合，因此 active skillset 的业务能力数按 10 个核心入口统计：共享层 3 个、分析层 4 个、仪表盘层 3 个。
+
+### Legacy Compatibility Skills
+
+| Legacy skill | 新路径 | 兼容策略 |
+| --- | --- | --- |
+| `RA:metadata-search` | `RA:metadata search/catalog/context` | 保留迁移提示；新流程直接调用 `RA:metadata`。 |
+| `RA:analysis-plan` | `RA:analysis-run` Phase 0.2 | Planning 作为正式分析内置阶段。 |
+| `RA:analysis-reference` | `skills/analysis-run/references/` | 不再作为独立 skill 调用，改为读取 references。 |
+| `RA:reference-lookup` | `RA:metadata` 或 `RA:analysis-run` references | 仅保留旧脚本和旧 prompt 兼容。 |
 
 ---
 
-## 主链路时序
+## 主链路
 
-### 完整流程（单轮）
+### 正式分析
 
 ```mermaid
 sequenceDiagram
     actor User
     participant AR as RA:analysis-run
-    participant AP as RA:analysis-plan
-    participant RL as RA:analysis-reference
-    participant MS as RA:metadata-search
+    participant M as RA:metadata
     participant EX as RA:data-export
     participant DP as RA:data-profile
     participant RPT as RA:report
     participant RV as RA:report-verify
+    participant REF as RA:metadata-refine
 
-    rect rgb(240, 248, 255)
-    Note over AR: Phase 0 — 需求理解与规划
-    User->>AR: 业务问题
-    AR->>AR: Step 0.1: 需求画像
-    Note right of AR: → normalized_request.json
-    AR->>AP: Step 0.2: /skill RA:analysis-plan
-    AP->>RL: 查框架/模板定义
-    RL-->>AP: JSON 配置结果
-    AP->>MS: 查指标/字段定义
-    MS-->>AP: JSON 检索结果
-    AP-->>AR: → analysis_plan.md (10 章)
-    AR-->>User: 展示计划，等待确认
-    User-->>AR: 确认 plan
-    end
-
-    rect rgb(255, 248, 240)
-    Note over AR: Phase 1 — 受控取数
-    AR->>EX: /skill RA:data-export
-    Note right of EX: 查 registry → 导出<br/>→ CSV + export_summary<br/>→ acquisition_log
-    EX-->>AR: CSV 就绪
-    end
-
-    rect rgb(240, 255, 240)
-    Note over AR: Phase 2 — 数据画像
-    AR->>DP: /skill RA:data-profile
-    Note right of DP: 读 export_summary 推导 CSV<br/>→ manifest.json<br/>→ profile.json
-    DP-->>AR: 画像完成
-    end
-
-    rect rgb(255, 255, 240)
-    Note over AR: Phase 3 — 分析（LLM）
-    AR->>AR: 读 profile + plan + CSV
-    AR->>AR: 执行分析逻辑
-    Note right of AR: → analysis.json<br/>→ 汇总_*.csv / 交叉_*.csv<br/>→ analysis_journal.md
-    end
-
-    rect rgb(248, 240, 255)
-    Note over AR: Phase 4 — 报告撰写
-    AR->>RPT: /skill RA:report
-    RPT->>RL: 查模板/术语
-    RL-->>RPT: 模板配置
-    Note right of RPT: 读 plan + profile + analysis<br/>→ 报告_{主题}_{时间}.md
-    RPT-->>AR: 报告完成
-    end
-
-    rect rgb(255, 240, 240)
-    Note over AR: Phase 5 — 交付门禁
-    AR->>RV: /skill RA:report-verify
-    Note right of RV: 读 CSV + analysis.json + 报告<br/>→ verification.json
-    RV-->>AR: 门禁结果
-    end
-
-    AR-->>User: 交付报告 + verification
+    User->>AR: 提出正式业务分析问题
+    AR->>M: search/catalog/context 定位数据源和口径
+    M-->>AR: metadata context pack
+    AR->>AR: Phase 0.2 生成 analysis_plan.md
+    AR-->>User: 展示计划、数据源、筛选条件和风险
+    User-->>AR: 确认执行
+    AR->>EX: 受控取数
+    EX-->>AR: CSV、export_summary、acquisition_log
+    AR->>DP: 数据画像
+    DP-->>AR: profile manifest、profile.json
+    AR->>AR: LLM 分析并写入 analysis.json
+    AR->>RPT: 生成报告
+    RPT-->>AR: report.md
+    AR->>RV: 交付验证
+    RV-->>AR: verification.json
+    AR-->>User: 报告、验证结果和待复核项
+    AR->>REF: 如有口径缺口，整理 refine reference pack
 ```
 
-### 连续分析（多轮追问）
+### 轻量数据探索
 
 ```mermaid
-sequenceDiagram
-    actor User
-    participant AR as RA:analysis-run
-
-    Note over AR: 第 1 轮完成
-
-    User->>AR: 追问（同一会话）
-    Note over AR: 复用同一 jobs/{SESSION_ID}/<br/>Phase 3: 读已有数据 + 补分析
-    Note right of AR: analysis.json: 追加 findings<br/>报告: 追加章节<br/>analysis_journal: 追加日志
-
-    alt 当前数据够用
-        AR->>AR: 直接分析 → 追加报告
-    else 需要补同源数据
-        AR->>AR: 记录原因 → 补导出 → 补画像 → 分析
-    else 需要新数据源
-        AR-->>User: 说明原因，等待确认
-        User-->>AR: 确认新增
-        AR->>AR: 导出 → 画像 → 分析
-    end
-
-    AR-->>User: 追加后的报告
+flowchart LR
+    U[用户想先看看数据] --> M[RA:metadata search/catalog]
+    M --> EX[RA:data-export limit 1000]
+    EX --> DP[RA:data-profile quick profile]
+    DP --> S[探索摘要]
+    S --> A{下一步}
+    A -->|深入分析| AR[RA:analysis-run]
+    A -->|可视化展示| DB[Dashboard Loop]
+    A -->|维护口径| REF[RA:metadata-refine]
 ```
 
----
+探索产物默认放在 `/tmp/exploration_*`，只输出字段列表、样本、分布概览、质量信号和候选问题。它不创建 job、不写正式报告、不沉淀长期 metadata。
 
-## 每个 Skill 的详细接口
+### Dashboard Loop
 
-### RA:getting-started
-
-| 项目 | 说明 |
-| --- | --- |
-| **触发条件** | 首次使用、不知道准备什么、想确认数据源类型 |
-| **输入** | 用户目标、当前项目 metadata / registry / dataset 状态、数据源描述 |
-| **输出** | 最小状态检查结果、一条可复制的下一步 `/skill` 指令 |
-| **下游** | `RA:metadata`、`RA:analysis-run`、`RA:metadata-report`、`RA:metadata-refine`、`RA:report-verify` |
-| **脚本** | 无（纯对话引导） |
-
-边界：不创建正式 analysis job，不取数，不生成业务报告，不自动注册正式 metadata。用户想分析但数据未注册时，推荐先走 `RA:metadata` 做最小可分析注册。
-
-只读环境检查：
-
-```bash
-python3 skills/getting-started/scripts/doctor.py --intent start
+```mermaid
+flowchart LR
+    G[dashboard-goal-decomposer] --> P[dashboard-prototype-planner]
+    P --> B[dashboard-implementation-builder]
+    M[RA:metadata context --dashboard-oriented] --> G
+    EX[RA:data-export] --> B
+    DP[RA:data-profile] --> B
+    B --> QA[binding audit + browser QA + review gates]
 ```
 
-doctor 输出固定 JSON 摘要：`python_command`、`skill_base_dir`、`registry_path`、`duckdb_path`、依赖状态、metadata / registry / export readiness 和 `recommended_next_skill`。它不写任何项目文件。
-
-### RA:metadata
-
-| 项目 | 说明 |
-| --- | --- |
-| **触发条件** | 注册数据集、维护字段/指标/术语、生成 context、Tableau/DuckDB onboarding |
-| **输入** | dataset YAML、source evidence、关键词、`metadata/sources/refine/{refine_id}/` 参考材料 |
-| **输出** | validate 结果、index JSONL、search 结果、context pack |
-| **下游** | `RA:analysis-plan`（via context pack）、`RA:data-export`（via registry） |
-| **核心脚本** | `skills/metadata/scripts/metadata.py {validate,index,search,context}` |
-| **分层** | sources → dictionaries → mappings → datasets → index/context → registry |
-
-**关键产物**：
-
-| 产物 | 路径 | 用途 |
-| --- | --- | --- |
-| validate 结果 | stdout JSON | 检查 YAML 是否满足字段、指标、证据、review 契约 |
-| index | `metadata/index/*.jsonl` | 低 token 检索（analysis-plan 用） |
-| context pack | `metadata/osi/<dataset_id>/context.md` | 给 analysis-plan 的最小上下文 |
-| registry sync | `runtime/registry.db` | data-export 的数据源注册表与运行时 lookup tables |
-
-### RA:metadata-refine
-
-| 项目 | 说明 |
-| --- | --- |
-| **触发条件** | 分析 job 或用户反馈暴露字段定义、指标口径、证据不足、真实数据与 YAML 不一致 |
-| **输入** | `metadata_feedback.jsonl`、profile、正式 CSV、用户反馈 |
-| **输出** | `metadata/sources/refine/{refine_id}/` 参考材料，包含 `refine_followup.md` |
-| **下游** | `RA:metadata` 基于参考材料修正式 YAML |
-| **核心脚本** | `skills/metadata-refine/scripts/{collect_feedback,probe_data,build_reference_pack,archive_reference_pack}.py` |
-
-`RA:metadata-refine` 不直接改 YAML，不同步 registry；分析流程只把问题记录到 job，再由 refine 生成参考材料。
-
-### RA:analysis-plan
-
-| 项目 | 说明 |
-| --- | --- |
-| **触发条件** | 取数前需要正式计划；analysis-run Step 0.2 自动调用 |
-| **输入** | `normalized_request.json` + metadata context pack |
-| **输出** | `.meta/analysis_plan.md`（10 章） |
-| **下游** | analysis-run（Phase 1+）、report |
-| **依赖** | `RA:analysis-reference`（查框架、模板）、`RA:metadata-search`（查指标、字段） |
-
-**10 章输出规范**：
-
-1. 数据源概述
-2. 场景分类与分析框架锁定（`selected_framework_id`）
-3. 业务假设清单
-4. 异常判定标准
-5. 下钻路径设计
-6. 框架配置引用（via analysis-reference）
-7. 目标拆解（goals + artifacts）
-8. 报告模板锁定（`selected_report_template`）
-9. 数据采集方案
-10. 质量检查点
-
-**降级处理**：
-
-- 在 `RA:analysis-run` 编排下：`normalized_request.json` 不存在时报错终止
-- 独立调用时：向用户追问 5 项必填信息 → 自行生成最小版 `normalized_request.json`
-
-### RA:analysis-run
-
-| 项目 | 说明 |
-| --- | --- |
-| **触发条件** | 数据已准备好的完整分析任务 |
-| **输入** | 用户问题 + 已注册 metadata / registry |
-| **输出** | 完整 job 目录 |
-| **角色** | **正式分析入口** — 自身不做取数/画像/报告，而是调度流程内 skill |
-
-边界：如果缺少最小可分析 metadata 或 runtime registry readiness，先交给 `RA:metadata`；分析中发现口径问题只记录 job feedback，不直接改正式 YAML。
-
-分析入口不得把字段展示问题升级成 metadata 维护：CSV 表头中文化、报告显示名调整、导出列名翻译交给 `RA:data-export` / `RA:report`，不改 dataset `fields[].name`。
-
-**Phase 分解**：
-
-| Phase | 动作 | 调用 Skill | 产出 |
-| --- | --- | --- | --- |
-| 0.1 | 需求画像 | （自身） | `normalized_request.json` |
-| 0.2 | 分析规划 | `RA:analysis-plan` | `analysis_plan.md` |
-| 1 | 受控取数 | `RA:data-export` | CSV + export_summary + acquisition_log |
-| 2 | 数据画像 | `RA:data-profile` | manifest.json + profile.json |
-| 3 | LLM 分析 | （自身） | `analysis.json` + 汇总/交叉 CSV + journal |
-| 4 | 报告撰写 | `RA:report` | `报告_{主题}_{时间}.md` |
-| 5 | 交付门禁 | `RA:report-verify` | `verification.json` |
-
-**硬约束**：
-- 一会话一 job
-- 报告只追加不重写
-- 至少一次用户确认停顿
-- 禁止默认任何行业/公司/主体
-
-### RA:data-export
-
-| 项目 | 说明 |
-| --- | --- |
-| **触发条件** | 已锁定 source，需要正式导出 |
-| **输入** | registry source id + filters/fields + SESSION_ID |
-| **输出** | 见下表 |
-| **上游** | analysis-run Phase 1、metadata（registry） |
-| **下游** | data-profile（via export_summary → CSV 路径） |
-
-边界：本 skill 解决 CSV/header/display name 输出问题，但不修改 `metadata/datasets/*.yaml`。如果发现 metadata 定义确实缺失，只写 job/refine feedback 或提示用户进入 `RA:metadata-refine` / `RA:metadata`。
-
-**Tableau vs DuckDB 产物对比**：
-
-| 产物 | Tableau | DuckDB |
-| --- | --- | --- |
-| 正式 CSV | `data/交叉_<source>.csv` | `data/<output-name>.csv` |
-| 导出摘要 | `export_summary.json` | `duckdb_export_summary.json` |
-| 语义上下文 | `source_context.json` ✅ | ❌ 不生成（用 metadata context pack 替代） |
-| 上下文注入 | `context_injection.md` ✅ | ❌ 不生成 |
-| 审计日志 | `acquisition_log.jsonl` | `acquisition_log.jsonl` |
-| 产物索引 | `artifact_index.json` | `artifact_index.json` |
-
-### RA:data-profile
-
-| 项目 | 说明 |
-| --- | --- |
-| **触发条件** | 导出数据后，分析前做画像 |
-| **输入** | 正式 CSV（从 export_summary 自动推导） |
-| **输出** | `profile/manifest.json` + `profile/profile.json` |
-| **上游** | data-export |
-| **下游** | analysis-run Phase 3、report |
-
-**manifest.json 内容**：schema、列名映射、lineage、profile_summary
-
-**profile.json 内容**：字段语义角色（metric/dimension）、基数、缺失率、分布信号、质量评分
-
-### RA:report
-
-| 项目 | 说明 |
-| --- | --- |
-| **触发条件** | 分析完成后写报告 |
-| **输入** | analysis_plan.md + profile + analysis + artifact_index + 各种 summary |
-| **输出** | `报告_{主题}_{时间}.md` |
-| **上游** | analysis-run Phase 4 |
-| **下游** | report-verify |
-| **依赖** | `RA:analysis-reference`（查模板）、`RA:metadata-search`（查术语） |
-
-**报告必备章节**：
-- 任务背景
-- 需求时间线
-- 报告更新时间线
-- 数据来源（位于报告上方）
-- 阶段性结论
-- 输出文件清单
-- 口径说明（本次新增/临时）附录
-- 阅读提示 / 注意事项
-- 一段话结论
-- 假设验证章节
-
-**硬约束**：追加写作（不重写）、模板以 plan 锁定结果为准、禁止报告阶段重新选模板。
-
-### RA:report-verify
-
-| 项目 | 说明 |
-| --- | --- |
-| **触发条件** | 报告交付前做质量门禁 |
-| **输入** | `data.csv` + `analysis.json` + `report.md` |
-| **输出** | `verification.json` |
-| **上游** | report + analysis-run Phase 3 + data-export |
-
-**10 项检查**：
-
-| 检查 | 说明 |
-| --- | --- |
-| evidence_completeness | 每个 finding 必须有 evidence |
-| ranking_consistency | Top/Bottom 声明与 statistics 对齐 |
-| trend_consistency | 增长/下降与 trend_label 对齐 |
-| numeric_traceability | 报告中大数字可追溯到 analysis.json 或 CSV |
-| confidence_threshold | 低置信度 finding 标记为 warning |
-| metric_definition_appendix | 报告包含口径说明附录 |
-| metric_term_consistency | 指标命名与数据字段一致 |
-| data_source_section_position | "数据来源"章节位于报告上方 |
-| data_source_display_name | 数据源展示用中文名 |
-| output_file_list_section | 报告包含输出文件清单 |
-
-**verification.json 结构** (遵循 `schemas/verification.schema.json`)：
-
-```json
-{
-  "job_id": "...",
-  "verified_at": "ISO 8601",
-  "status": "passed | failed | warning",
-  "checks": [...],
-  "summary": {
-    "total_checks": 15,
-    "passed": 12,
-    "failed": 2,
-    "warnings": 1
-  }
-}
-```
-
-### RA:artifact-fusion
-
-| 项目 | 说明 |
-| --- | --- |
-| **触发条件** | source group 内多次 export 完成后，需要合并数据集 |
-| **输入** | 多个输入目录（含 CSV + manifest） |
-| **输出** | 合并 CSV + lineage manifest |
-| **上游** | data-export（多次导出后） |
-| **下游** | data-profile → 继续分析 |
-
-**三种策略**：
-
-| 策略 | 说明 | 注意事项 |
-| --- | --- | --- |
-| `union` | 纵向拼接（schema 相同） | 自动对齐列名 |
-| `join` | 横向拼列 | ⚠️ 按索引拼列，非键 join |
-| `passthrough` | 单 source 透传 | 只更新 manifest |
-
-### RA:analysis-reference
-
-| 项目 | 说明 |
-| --- | --- |
-| **触发条件** | 需要查询报告模板或分析框架 |
-| **输入** | 关键词 + 查询类型（template / framework） |
-| **输出** | JSON 查询结果 |
-| **消费者** | analysis-plan（框架）、report（模板） |
-
-**两种查询类型**：`--template`、`--framework`
-
-**数据源**：
-- template → `skills/report/references/template-system-v2.md`
-- framework → 内置框架定义
-
-### RA:metadata-search
-
-| 项目 | 说明 |
-| --- | --- |
-| **触发条件** | 需要搜索指标、字段、术语、dataset 或 mapping 定义；或浏览数据集目录 |
-| **输入** | 关键词 + 类型（metric / field / term / dataset / mapping / all） |
-| **输出** | JSON 检索结果 + catalog 摘要 |
-| **消费者** | analysis-plan（指标/字段）、report（术语） |
-
-**六种查询类型**：`metric`、`field`、`term`、`dataset`、`mapping`、`all`
-
-**数据源**：
-- 全部类型 → `metadata/index/search.db`（FTS5）或 `metadata/index/*.jsonl`（fallback）
-
-### RA:metadata-report
-
-| 项目 | 说明 |
-| --- | --- |
-| **触发条件** | 需要生成元数据审阅报告 |
-| **输入** | dataset YAML、connector sync 产物 |
-| **输出** | Markdown 元数据报告 |
-| **独立于主链路** | 不被 analysis-run 自动调用 |
+Dashboard-oriented context 需要提供 `chart_intent`、`filter_role`、`aggregation_safety` 和 `view_model_readiness`，让 dashboard 设计从语义开始，而不是从页面组件开始。
 
 ---
 
 ## Skill 间数据契约
 
-### analysis.json（核心枢纽）
-
-`analysis.json` 是连接"分析阶段"和"验证阶段"的核心产物：
-
-```
-analysis-run Phase 3   ──→   analysis.json   ──→   report-verify
-                                    │
-                                    └──→   report（引用分析结论）
-```
-
-**Schema**: `schemas/analysis.schema.json`
-
-**必填字段**：
-- `job_id`: SESSION_ID
-- `dataset_id`: metadata dataset id
-- `created_at`: ISO 8601
-- `findings[]`: 每条分析结论
-  - `id`: `f_001` 格式递增
-  - `type`: ranking / trend / comparison / anomaly / correlation / summary
-  - `claim`: 自然语言结论
-  - `evidence`: source_file + calculation + row_indices
-  - `confidence`: 0-1
-- `statistics{}`: 聚合统计结果（verify 用于排名/趋势校验）
-
-### normalized_request.json
-
-```
-analysis-run Phase 0.1   ──→   normalized_request.json   ──→   analysis-plan
-```
-
-**必填字段**：request_type、business_goal、audience、expected_detail_level、output_preference、time_scope、confidence
-
-### export_summary.json / duckdb_export_summary.json
-
-```
-data-export   ──→   export_summary   ──→   data-profile（推导 CSV 路径）
-                                     ──→   analysis-run（确认可用数据）
-```
-
-### profile.json + manifest.json
-
-```
-data-profile   ──→   profile.json      ──→   analysis-run Phase 3（字段语义）
-                ──→   manifest.json     ──→   report（schema + lineage）
-```
+| 上游 | 下游 | 传递内容 | 契约重点 |
+| --- | --- | --- | --- |
+| `RA:metadata` | `RA:analysis-run` | context pack、dataset id、field/metric/term 语义、review 标记 | context pack 是最小上下文，不替代 YAML 真源。 |
+| `RA:analysis-run` | `RA:data-export` | 已确认 plan、dataset id、字段白名单、筛选条件、输出目录 | 正式取数必须来自确认后的计划。 |
+| `RA:data-export` | `RA:data-profile` | CSV 路径、export_summary、source lineage | 下游从 summary 或 artifact index 读实际路径。 |
+| `RA:data-profile` | `RA:analysis-run` | profile manifest、profile.json、字段质量信号 | profile 是分析证据，不写回 dataset YAML。 |
+| `RA:analysis-run` | `RA:report` | plan、profile、analysis.json、analysis_journal | 报告只使用已记录证据和明确假设。 |
+| `RA:report` | `RA:report-verify` | report.md、artifact index、analysis evidence | 验证检查结论是否可追溯。 |
+| `RA:analysis-run` | `RA:metadata-refine` | metadata feedback、profile、样本探查线索 | refine 只生成参考材料，不直接改 YAML。 |
+| `dashboard-goal-decomposer` | `dashboard-prototype-planner` | goal/chart/filter contract、open questions | 先锁分析结构，再做布局。 |
+| `dashboard-prototype-planner` | `dashboard-implementation-builder` | layout spec、view-model contract、Antigravity prompt contract | 允许 prototype 使用 mock，但实现必须替换为真实数据。 |
+| `RA:data-export` / `RA:data-profile` | `dashboard-implementation-builder` | DWD/DWS/ADS 数据、profile、quality report | dashboard readiness 需要真实数据链路和 binding audit。 |
 
 ---
 
-## 连续分析（多轮）
+## 产物归属
 
-### Job 内产物演变
-
-| 产物 | 首轮 | 后续轮次 |
-| --- | --- | --- |
-| `normalized_request.json` | 创建 | 不变 |
-| `analysis_plan.md` | 创建 | 不变（除非用户明确要求修改 plan） |
-| `data/*.csv` | 首次导出 | 可补导出（同源可直接执行，新源需确认） |
-| `analysis.json` | 创建 | 追加新 findings，id 递增 |
-| `报告_*.md` | 创建 | 追加新章节（不重写旧内容） |
-| `analysis_journal.md` | 创建 | 追加本轮日志 |
-| `user_request_timeline.md` | 创建 | 追加本轮需求 |
-| `artifact_index.json` | 创建 | 追加新产物条目 |
-| `acquisition_log.jsonl` | 创建 | 追加新导出记录 |
-
-### 数据源扩展规则
-
-| 场景 | 处理 |
+| 产物 | Owner |
 | --- | --- |
-| 补同源数据 | 直接执行，记录原因和筛选条件 |
-| source group 内新增 | plan 确认时一并通过，不需逐个确认 |
-| group 外新增数据源 | 必须先获用户确认，标记 `--is-new-source --confirmed` |
-| 合并多源 | source group 内多次 export 后调用 `RA:artifact-fusion`，再送 `RA:data-profile` |
+| dataset/dictionary/mapping YAML | `RA:metadata` |
+| metadata index、catalog、context pack | `RA:metadata` |
+| runtime registry sync | `RA:metadata` |
+| CSV、export_summary、acquisition_log | `RA:data-export` |
+| profile manifest、profile.json、quality summary | `RA:data-profile` |
+| `normalized_request.json`、`analysis_plan.md`、`analysis.json`、`analysis_journal.md` | `RA:analysis-run` |
+| Markdown report | `RA:report` |
+| `verification.json`、delivery manifest | `RA:report-verify` |
+| refine reference pack | `RA:metadata-refine` |
+| dashboard goal/chart/filter contracts | `dashboard-goal-decomposer` |
+| prototype/layout/view-model contracts | `dashboard-prototype-planner` |
+| dashboard HTML/data assets/binding audit/browser QA evidence | `dashboard-implementation-builder` |
 
 ---
 
-## 辅助 Skill 触发条件
+## 错误处理与回退
 
-### analysis-reference
-
-```
-触发点: analysis-plan Phase 3-4
-  ├── 查框架定义 → --framework <name>
-  └── 查模板配置 → --template <keyword>
-
-触发点: report Phase 4
-  └── 查模板配置 → --template <keyword>
-```
-
-### metadata-search
-
-```
-触发点: analysis-plan Phase 0.2
-  ├── 搜指标 → --type metric --query <keyword>
-  ├── 搜字段 → --type field --query <keyword>
-  └── 搜术语 → --type term --query <keyword>
-
-触发点: report Phase 4
-  └── 搜业务术语 → --type term --query <keyword>
-
-触发点: 需求理解阶段
-  └── 浏览数据集目录 → catalog [--domain <d>]
-```
-
-### artifact-fusion
-
-```
-触发条件:
-  1. analysis-plan 确定 source group（1 primary + 至多 2 supplementary）
-  2. 用户在 plan 确认时一并通过 source group
-  3. data-export 分别完成 group 内各 source 的导出
-  4. → artifact-fusion 合并 group 内数据集
-  5. → data-profile 画像合并后数据
-  6. → 继续分析
-
-  source group 持久化到 registry.db，下次相同 primary source 自动推荐已有 group。
-  查询已有 group: query_registry.py --groups [source_id]
-```
-
-### metadata-report
-
-```
-触发条件:
-  - 用户需要审阅元数据注册状态
-  - Connector sync 后需要查看同步结果
-  - 需要 review gap 报告
-
-  不在 analysis-run 主链路中, 独立调用
-```
-
----
-
-## 错误处理与降级
-
-| 错误场景 | Skill | 处理 |
+| 失败点 | 回退 owner | 处理方式 |
 | --- | --- | --- |
-| `normalized_request.json` 缺失 | analysis-plan | 编排下报错；独立调用时追问后自行生成 |
-| registry 无匹配 source | data-export | 回退到 metadata，检查注册状态 |
-| 导出 CSV 为空 | data-export | 标记数据限制，不继续分析 |
-| profile 失败 | data-profile | 分析原因 → 切换方法（采样/拆分） |
-| analysis.json 缺失 | report-verify | verify 无法运行，需先确认 Phase 3 产出 |
-| verify 失败 | report-verify | 输出失败项 → 回到 report 修正 |
-| 脚本执行失败 | 通用 | 1 次重试 → 2 次切换方法 → 标记数据限制 |
+| 找不到合适数据集或字段 | `RA:metadata` | search/catalog/context 后说明缺口；必要时做最小可分析注册。 |
+| metadata 与 runtime registry 不一致 | `RA:metadata` | 运行 validate、index、sync-registry 或 reconcile。 |
+| 取数失败 | `RA:data-export` | 检查 source id、字段白名单、filter/parameter、registry readiness。 |
+| profile 暴露质量问题 | `RA:data-profile` + `RA:analysis-run` | 在分析计划或报告中标记质量限制，必要时补导出。 |
+| 结论无法追溯 | `RA:report-verify` | 回到 analysis artifacts 补证据或降级结论强度。 |
+| 字段或指标口径待修 | `RA:metadata-refine` | 生成 refine pack，再由 `RA:metadata` 正式维护 YAML。 |
+| dashboard 模块只有视觉无绑定 | `dashboard-implementation-builder` | 回到 view model、data-slot、binding audit 和真实数据链路检查。 |
 
 ---
 
-## 产物生命周期
+## 发布前检查
 
-```mermaid
-stateDiagram-v2
-    [*] --> Created: Skill 首次创建
-    Created --> Active: 被下游 skill 消费
-    Active --> Appended: 连续分析追加内容
-    Appended --> Active: 下一轮继续消费
-    Active --> Verified: report-verify 校验通过
-    Verified --> Delivered: 交付给用户
-    Delivered --> [*]
-
-    Active --> DataLimited: 数据不足，标记限制
-    DataLimited --> Active: 补数后恢复
-```
-
-| 状态 | 适用产物 | 说明 |
-| --- | --- | --- |
-| Created | 所有产物 | 首次生成 |
-| Active | CSV、profile、analysis.json | 被下游 skill 读取 |
-| Appended | 报告、analysis.json、journal | 连续分析中追加 |
-| Verified | 报告 + verification.json | 门禁通过 |
-| Delivered | 报告 | 发送给用户 |
+| 检查项 | 通过标准 |
+| --- | --- |
+| active skillset | 文档、README、skill frontmatter 对 active/legacy 的说法一致。 |
+| legacy 迁移 | `metadata-search`、`analysis-plan`、`analysis-reference` 都有清楚迁移路径。 |
+| 共享能力 | `data-export` 和 `data-profile` 不再只描述为 analysis-run 内部阶段。 |
+| 探索边界 | 快速探索与正式分析的目录、产物、验证要求有明确区别。 |
+| dashboard 链路 | dashboard 文档体现 metadata context、共享取数、画像、binding audit 和 browser QA。 |
+| 验证证据 | 文档说明使用的验证点、通过结果和仍需源代码同步的边界。 |

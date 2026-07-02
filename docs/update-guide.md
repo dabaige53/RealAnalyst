@@ -51,14 +51,14 @@ python3 scripts/check_release_alignment.py
 | 文档 | 了解什么 |
 | --- | --- |
 | `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/architecture.md` | 三核架构（Metadata / Runtime Registry / Job）、文件职责 |
-| `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/skill-interaction-design.md` | 14 个 skill 的调用关系、数据契约、运行时序 |
+| `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/skill-interaction-design.md` | active skills、legacy 兼容入口、数据契约、运行时序 |
 | `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/skills/README.md` | 完整 skill 清单、后端脚本速查、目录结构 |
 | `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/repository-layout.md` | 目录边界和 Git 策略 |
 | `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/skills/metadata/SKILL.md` | metadata skill 的分层模型、Core Workflow 和 Decision Rules |
 
 读完后向用户确认：「已更新插件本体并读取架构基线，准备开始逐层检查。」
 
-同时确认普通用户入口已经收口为 3 个核心入口和 3 个常见补充入口：`RA:getting-started`、`RA:metadata`、`RA:analysis-run`，以及 `RA:metadata-report`、`RA:metadata-refine`、`RA:report-verify`。`RA:analysis-plan`、`RA:data-export`、`RA:data-profile`、`RA:report` 只作为流程内能力出现；`RA:metadata-search`、`RA:artifact-fusion`、`RA:analysis-reference`、`RA:reference-lookup` 只作为辅助、高级或兼容入口出现。
+同时确认普通用户入口已经收口为 3 个核心入口和常见补充入口：`RA:getting-started`、`RA:metadata`、`RA:analysis-run`，以及 `RA:metadata-report`、`RA:metadata-refine`、`RA:report-verify`。Planning 已进入 `RA:analysis-run` Phase 0.2；`RA:data-export` 和 `RA:data-profile` 是共享能力，可由正式分析、dashboard、探索和 refine 带着明确输出路径调用。`RA:metadata-search`、`RA:analysis-plan`、`RA:analysis-reference`、`RA:reference-lookup` 只作为 legacy compatibility entrypoint 出现。
 
 ---
 
@@ -274,7 +274,7 @@ TABLEAU_PAT_SECRET=
 | `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/metadata-lookup-workflow.md` | FTS5、catalog、reconcile、multi-dataset |
 | `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/metadata-conversion-flow.md` | search.db、catalog、reconcile |
 | `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/docs/semantic-analysis-run.md` | 先 metadata 注册再正式分析、feedback/refine/writeback 边界 |
-| `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/skills/README.md` | 14 个 skill、入口层级、流程内 / 辅助 / 高级 / 兼容分层 |
+| `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/skills/README.md` | active skills、共享能力、legacy 兼容入口和目录分层 |
 | `https://raw.githubusercontent.com/dabaige53/RealAnalyst/main/skills/metadata/README.md` | FTS5、catalog、reconcile、multi-dataset |
 | `runtime/README.md`（目标项目） | source_groups、--groups |
 | `runtime/tableau/README.md`（目标项目） | source_groups、--groups |

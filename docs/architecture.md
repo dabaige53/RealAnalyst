@@ -6,7 +6,7 @@ RealAnalyst 是平台无关的 metadata-first 分析执行系统。Codex skills 
 
 | Core | 管什么 | 主要路径 |
 | --- | --- | --- |
-| Metadata Core | 业务含义、definition state、evidence relation、index/context builder | `metadata/`、`skills/metadata/`、`skills/metadata-search/` |
+| Metadata Core | 业务含义、definition state、evidence relation、index/context builder | `metadata/`、`skills/metadata/` |
 | Runtime Registry Core | source registry、connector metadata、filter / parameter / source group | `runtime/registry.db`、`runtime/`、`skills/data-export/` |
 | Job Core | 单次分析状态、artifact index、feedback、verification artifacts | `jobs/{SESSION_ID}/`、`skills/analysis-run/`、`skills/report-verify/` |
 
@@ -41,7 +41,7 @@ flowchart LR
         Router -->|unregistered| MetadataEntry["RA:metadata<br/>minimum registration"]
         Router -->|ready| Run["RA:analysis-run<br/>formal analysis"]
         MetadataEntry --> Run
-        Run --> Plan["analysis-plan"]
+        Run --> Plan["Phase 0.2 planning<br/>inside analysis-run"]
         Run --> Export
         Export --> Fusion["artifact-fusion<br/>source group merge"]
         Fusion --> Profile["data-profile"]

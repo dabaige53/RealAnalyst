@@ -2,6 +2,8 @@
 
 本报告记录对 RealAnalyst 项目内 skillset、脚本、模板、交付物链路和调用策略的审查结论。审查目标不是重写所有 skill，而是确认当前 skillset 是否能够稳定支撑 metadata-first 的数据分析流程，并补齐会影响 Agent 高效调用的规则。
 
+> 维护说明：本文件保留为历史审查记录。2026-07-02 后的 active skillset、legacy 迁移和共享能力口径，以 [skill-architecture-optimization-20260702.md](skill-architecture-optimization-20260702.md)、[skill-interaction-design.md](skill-interaction-design.md) 和 [skill-invocation-policy.md](skill-invocation-policy.md) 为准。
+
 ---
 
 ## 1. 总体结论
