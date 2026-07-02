@@ -26,7 +26,7 @@ LLM 不是真实事实源。LLM 可以起草定义、组织证据、生成计划
 6. `metadata status --dataset-id ...` 确认 metadata_yaml、metadata_index、runtime_registry 和 export_ready。
 7. 需要长期口径说明时，用户主动调用 `RA:metadata-report`；最小注册完成后只提示，不自动生成。
 8. 数据已准备好后，进入 `RA:analysis-run` 做正式完整分析。它不吞掉 metadata 注册流程。
-9. `RA:analysis-run` 内部编排 `RA:analysis-plan`、`RA:data-export`、`RA:data-profile`、LLM 分析、`RA:report`、`RA:report-verify`。
+9. `RA:analysis-run` 内部编排 Phase 0.2 planning、`RA:data-export`、`RA:data-profile`、LLM 分析、`RA:report`、`RA:report-verify`；legacy `RA:analysis-plan` 不再作为日常 active 入口。
 10. 报告生成后进入 `RA:report-verify`，重点检查推断口径、review 标记和结果可复核性。
 11. 分析中如发现字段定义不清、指标口径待修或证据不足，只记录到 job feedback，不修改正式 YAML。
 12. 用户主动调用 `RA:metadata-refine`，把 job feedback、profile、CSV 探查和用户反馈整理为 `metadata/sources/refine/` 参考材料。

@@ -14,7 +14,8 @@ flowchart TD
     Arch --> Lookup[metadata-lookup-workflow.md]
     Lookup --> Conversion[metadata-conversion-flow.md]
     Conversion --> Semantic[semantic-analysis-run.md]
-    Semantic --> Interaction[skill-interaction-design.md]
+    Semantic --> Optimization[skill-architecture-optimization-20260702.md]
+    Optimization --> Interaction[skill-interaction-design.md]
     Interaction --> Invocation[skill-invocation-policy.md]
     Invocation --> Privacy[PRIVACY.md / TERMS.md]
 ```
@@ -29,10 +30,11 @@ flowchart TD
 | `metadata-lookup-workflow.md` | 分析师 / Agent builder | 解释为什么需求理解阶段先 search/context，而不是扫完整 YAML |
 | `metadata-conversion-flow.md` | 贡献者 / 架构维护者 | 解释 YAML、index、context、registry、OSI 的转换关系 |
 | `metadata-skill-consolidation.md` | 维护者 | 解释 metadata skill 为什么是统一入口 |
+| `skill-architecture-optimization-20260702.md` | 维护者 / Agent builder | 解释 skills 从分散入口收敛到 active skillset、共享能力、探索流程和统一路由的优化方案 |
 | `update-guide.md` | 用户 / LLM / Codex | 先更新插件本体，再按最新架构逐层检查和更新项目内容物 |
 | `architecture.md` | 所有用户 / 贡献者 | 三核架构、文件职责、公开仓库边界 |
-| `skill-interaction-design.md` | 维护者 / Agent builder | RealAnalyst skill 的调用关系、数据契约和运行时序 |
-| `skill-invocation-policy.md` | Agent builder / skill 维护者 | 规定什么时候自动调用、什么时候只提示、什么时候不调用，避免用户每次手动点名 skill |
+| `skill-interaction-design.md` | 维护者 / Agent builder | RealAnalyst active skills、legacy 兼容入口、数据契约和运行时序 |
+| `skill-invocation-policy.md` | Agent builder / skill 维护者 | 规定什么时候自动调用、什么时候确认、什么时候只回答，避免误升级成正式分析或取数 |
 | `skillset-audit-report.md` | 维护者 / 发布前检查者 | 记录本轮 skillset 填写、脚本、模板、交付物和流程完整性审查结论 |
 | `semantic-analysis-run.md` | 分析师 / 产品经理 | 解释从 metadata 到报告验证的端到端链路 |
 | `validation-report.md` | 维护者 / 发布前检查者 | 记录发布前验证结果、已知限制和复查建议 |

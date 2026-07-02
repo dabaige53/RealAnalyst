@@ -125,7 +125,7 @@ TABLEAU_PAT_SECRET=your-personal-access-token-secret
 帮我验证这份报告是否可交付，重点检查数据来源、口径状态、结论证据和待复核项。
 ```
 
-流程内 skill 不作为普通用户第一层入口：`RA:analysis-plan`、`RA:data-export`、`RA:data-profile`、`RA:report` 通常由 `RA:analysis-run` 编排。`RA:metadata-search` 只在用户明确想查字段/指标/术语/dataset 是否已维护时使用；`RA:artifact-fusion`、`RA:analysis-reference` 是高级/流程内工具；`RA:reference-lookup` 仅作 legacy compatibility entrypoint。
+流程内和共享 skill 不作为普通用户第一层入口：planning 已并入 `RA:analysis-run` Phase 0.2；`RA:data-export`、`RA:data-profile`、`RA:report` 通常由 `RA:analysis-run` 编排，或由 dashboard、探索、refine 流程带着明确输出路径调用。字段、指标、术语和 dataset 检索统一进入 `RA:metadata search/catalog/context`；`RA:metadata-search`、`RA:analysis-plan`、`RA:analysis-reference`、`RA:reference-lookup` 仅作 legacy compatibility entrypoint。
 
 ## 安装检查
 
